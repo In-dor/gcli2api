@@ -214,13 +214,20 @@ def get_available_models(router_type="openai"):
         List of model names with feature prefixes
     """
     models = []
+    enable_extra_models_env = os.getenv("ENABLE_EXTRA_MODELS", "true").lower()
+    enable_extra_models = enable_extra_models_env in ("true", "1", "yes", "on")
 
     for base_model in BASE_MODELS:
         # 基础模型
         models.append(base_model)
 
+        # 如果禁用了额外模型，则不添加任何变体
+        if not enable_extra_models:
+            continue
+
+        # PUBLIC_API_MODELS 不支持任何变体
         if base_model in PUBLIC_API_MODELS:
-            return models
+            continue
 
         # 假流式模型 (前缀格式)
         models.append(f"假流式/{base_model}")
