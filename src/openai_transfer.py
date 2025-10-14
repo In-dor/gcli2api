@@ -3,10 +3,11 @@ OpenAI Transfer Module - Handles conversion between OpenAI and Gemini API format
 被openai-router调用，负责OpenAI格式与Gemini格式的双向转换
 """
 
+import json
 from logging import INFO, info
 import time
 import uuid
-from typing import Dict, Any
+from typing import Dict, Any, Union, List, Optional
 
 from config import (
     DEFAULT_SAFETY_SETTINGS,
@@ -17,7 +18,7 @@ from config import (
     get_compatibility_mode_enabled,
 )
 from log import log
-from .models import ChatCompletionRequest
+from .models import ChatCompletionRequest, OpenAIChatMessage, OpenAIDelta
 
 
 async def openai_request_to_gemini_payload(
@@ -96,11 +97,9 @@ async def openai_request_to_gemini_payload(
                         except ValueError:
                             continue
             contents.append({"role": role, "parts": parts})
-            # log.debug(f"Added message to contents: role={role}, parts={parts}")
         elif message.content:
             # 简单文本内容
             contents.append({"role": role, "parts": [{"text": message.content}]})
-            # log.debug(f"Added message to contents: role={role}, content={message.content}")
 
     # 将OpenAI生成参数映射到Gemini格式
     generation_config = {}
@@ -111,7 +110,6 @@ async def openai_request_to_gemini_payload(
     if openai_request.max_tokens is not None:
         generation_config["maxOutputTokens"] = openai_request.max_tokens
     if openai_request.stop is not None:
-        # Gemini支持停止序列
         if isinstance(openai_request.stop, str):
             generation_config["stopSequences"] = [openai_request.stop]
         elif isinstance(openai_request.stop, list):
@@ -125,22 +123,38 @@ async def openai_request_to_gemini_payload(
     if openai_request.seed is not None:
         generation_config["seed"] = openai_request.seed
     if openai_request.response_format is not None:
-        # 处理JSON模式
         if openai_request.response_format.get("type") == "json_object":
             generation_config["responseMimeType"] = "application/json"
 
-    # 如果contents为空（只有系统消息的情况），添加一个默认的用户消息以满足Gemini API要求
     if not contents:
         contents.append({"role": "user", "parts": [{"text": "请根据系统指令回答。"}]})
 
-    # 构建请求数据
     request_data = {
         "contents": contents,
         "generationConfig": generation_config,
         "safetySettings": DEFAULT_SAFETY_SETTINGS,
     }
 
-    # 如果有系统消息且未启用兼容性模式，添加systemInstruction
+    if openai_request.tools:
+        request_data["tools"] = openai_request.tools
+
+    if openai_request.tool_choice:
+        tool_choice = openai_request.tool_choice
+        if isinstance(tool_choice, str):
+            if tool_choice == "none":
+                request_data["toolConfig"] = {"functionCallingConfig": {"mode": "NONE"}}
+            elif tool_choice == "auto":
+                request_data["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
+        elif isinstance(tool_choice, dict) and "function" in tool_choice:
+            function_name = tool_choice["function"].get("name")
+            if function_name:
+                request_data["toolConfig"] = {
+                    "functionCallingConfig": {
+                        "mode": "ANY",
+                        "allowedFunctionNames": [function_name],
+                    }
+                }
+
     if system_instructions and not compatibility_mode:
         combined_system_instruction = "\n\n".join(system_instructions)
         request_data["systemInstruction"] = {
@@ -151,30 +165,55 @@ async def openai_request_to_gemini_payload(
         f"Request prepared: {len(contents)} messages, compatibility_mode: {compatibility_mode}"
     )
 
-    # 为thinking模型添加thinking配置
-    thinking_budget = get_thinking_budget(openai_request.model)
-    if thinking_budget is not None:
-        request_data["generationConfig"]["thinkingConfig"] = {
-            "thinkingBudget": thinking_budget,
-            "includeThoughts": should_include_thoughts(openai_request.model),
-        }
+    # 决定是否包含思维链以及其预算
+    custom_thinking_setting = getattr(openai_request, "thinking_budget", None)
 
-    # 为搜索模型添加Google Search工具
+    include_thoughts_flag = False
+    final_thinking_budget = None
+
+    if custom_thinking_setting is not None:
+        if isinstance(custom_thinking_setting, bool):
+            if custom_thinking_setting is True:
+                # 用户传入 "thinking_budget": true
+                include_thoughts_flag = True
+                # 使用模型名称定义的默认预算
+                final_thinking_budget = get_thinking_budget(openai_request.model)
+            # 如果是 false，则 include_thoughts_flag 保持 False，禁用思维链
+        elif isinstance(custom_thinking_setting, int):
+            if custom_thinking_setting > 0:
+                # 用户传入了具体的预算值
+                include_thoughts_flag = True
+                final_thinking_budget = custom_thinking_setting
+            # 如果是 <= 0 的整数，则禁用思维链
+    else:
+        # 用户未指定 thinking_budget，回退到基于模型名称的逻辑
+        include_thoughts_flag = should_include_thoughts(openai_request.model)
+        if include_thoughts_flag:
+            final_thinking_budget = get_thinking_budget(openai_request.model)
+
+    # 为thinking模型添加thinking配置
+    if include_thoughts_flag:
+        if "generationConfig" not in request_data:
+            request_data["generationConfig"] = {}
+
+        thinking_config: Dict[str, Union[bool, int]] = {"includeThoughts": True}
+
+        if final_thinking_budget is not None:
+            thinking_config["thinkingBudget"] = final_thinking_budget
+
+        request_data["generationConfig"]["thinkingConfig"] = thinking_config
+
     if is_search_model(openai_request.model):
         request_data["tools"] = [{"googleSearch": {}}]
 
-    # 移除None值
     request_data = {k: v for k, v in request_data.items() if v is not None}
 
-    # 返回完整的Gemini API payload格式
     return {"model": get_base_model_name(openai_request.model), "request": request_data}
 
 
 def _extract_content_and_reasoning(parts: list) -> tuple[list, str]:
-    """从Gemini响应部件中提取内容和推理内容，并转换为OpenAI格式的parts"""
     openai_parts = []
     reasoning_content = ""
-
     for part in parts:
         if "text" in part:
             if part.get("thought", False):
@@ -189,30 +228,12 @@ def _extract_content_and_reasoning(parts: list) -> tuple[list, str]:
                 openai_parts.append(
                     {"type": "image_url", "image_url": {"url": image_url}}
                 )
-
-    # 如果有推理内容，将其作为单独的文本部分添加（或根据需要处理）
-    # 当前，我们将其附加到文本内容中或作为单独的元数据
-    # 为了简化，我们暂时不直接将其插入parts，而是在上层函数处理
-    # 但如果需要，可以这样添加:
-    # if reasoning_content:
-    #     openai_parts.append({"type": "text", "text": f"\n[Reasoning]: {reasoning_content}"})
-
     return openai_parts, reasoning_content
 
 
-def _convert_usage_metadata(usage_metadata: Dict[str, Any]) -> Dict[str, int]:
-    """
-    将Gemini的usageMetadata转换为OpenAI格式的usage字段
-
-    Args:
-        usage_metadata: Gemini API的usageMetadata字段
-
-    Returns:
-        OpenAI格式的usage字典，如果没有usage数据则返回None
-    """
+def _convert_usage_metadata(usage_metadata: Optional[Dict[str, Any]]) -> Dict[str, int]:
     if not usage_metadata:
-        return None
-
+        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
     return {
         "prompt_tokens": usage_metadata.get("promptTokenCount", 0),
         "completion_tokens": usage_metadata.get("candidatesTokenCount", 0),
@@ -220,212 +241,187 @@ def _convert_usage_metadata(usage_metadata: Dict[str, Any]) -> Dict[str, int]:
     }
 
 
-from typing import Union
-
-
 def _build_message_with_reasoning(
-    role: str, content: Union[str, list], reasoning_content: str
-) -> dict:
-    """构建包含可选推理内容的消息对象"""
-    message = {"role": role, "content": content}
-
-    # 如果有thinking tokens，添加reasoning_content
+    role: str, content: Union[str, list, None], reasoning_content: Optional[str]
+) -> OpenAIChatMessage:
+    message_data: Dict[str, Any] = {"role": role, "content": content}
     if reasoning_content:
-        message["reasoning_content"] = reasoning_content
-
-    return message
+        message_data["reasoning_content"] = reasoning_content
+    return OpenAIChatMessage(**message_data)
 
 
 def gemini_response_to_openai(
     gemini_response: Dict[str, Any], model: str
 ) -> Dict[str, Any]:
-    """
-    将Gemini API响应转换为OpenAI聊天完成格式
-
-    Args:
-        gemini_response: 来自Gemini API的响应
-        model: 要在响应中包含的模型名称
-
-    Returns:
-        OpenAI聊天完成格式的字典
-    """
-
-    all_openai_parts = []
+    choices = []
     all_reasoning_content = ""
-    finish_reason = None
-    role = "assistant"
 
-    # 遍历所有 candidate，将它们的 parts 合并
-    for candidate in gemini_response.get("candidates", []):
-        # 提取内容
+    for index, candidate in enumerate(gemini_response.get("candidates", [])):
         gemini_parts = candidate.get("content", {}).get("parts", [])
-        openai_parts, reasoning_content = _extract_content_and_reasoning(gemini_parts)
+        finish_reason = _map_finish_reason(candidate.get("finishReason"))
 
-        all_openai_parts.extend(openai_parts)
+        openai_parts, reasoning_content = _extract_content_and_reasoning(gemini_parts)
         if reasoning_content:
             all_reasoning_content += reasoning_content
 
-        # 获取 role 和 finish_reason（通常最后一个 candidate 的有效）
-        if candidate.get("content", {}).get("role") == "model":
-            role = "assistant"
-        if candidate.get("finishReason"):
-            finish_reason = _map_finish_reason(candidate.get("finishReason"))
+        function_calls = [part for part in gemini_parts if "functionCall" in part]
 
-    # 为了兼容不支持 content 数组的客户端，将所有 parts 强制合并为单个字符串
-    final_text_parts = []
-    for part in all_openai_parts:
-        if part["type"] == "text":
-            final_text_parts.append(part["text"])
-        elif part["type"] == "image_url":
-            # 将 image_url 转换为 Markdown 格式的字符串
-            url = part["image_url"]["url"]
-            final_text_parts.append(f"![image]({url})")
+        message_data: Dict[str, Any] = {"role": "assistant", "content": None}
 
-    final_content = "\n\n".join(final_text_parts)
+        if function_calls:
+            tool_calls = []
+            for fc in function_calls:
+                function_call_data = fc["functionCall"]
+                tool_calls.append(
+                    {
+                        "id": f"call_{uuid.uuid4()}",
+                        "type": "function",
+                        "function": {
+                            "name": function_call_data.get("name"),
+                            "arguments": json.dumps(function_call_data.get("args", {})),
+                        },
+                    }
+                )
+            message_data["tool_calls"] = tool_calls
+            finish_reason = "tool_calls"
+        else:
+            final_text_parts = []
+            for part in openai_parts:
+                if part["type"] == "text":
+                    final_text_parts.append(part["text"])
+                elif part["type"] == "image_url":
+                    url = part["image_url"]["url"]
+                    final_text_parts.append(f"![image]({url})")
+            final_content = "\n\n".join(final_text_parts)
+            message_data["content"] = final_content
 
-    # 构建单一的 message 和 choice
-    message = _build_message_with_reasoning(role, final_content, all_reasoning_content)
+        choices.append(
+            {
+                "index": index,
+                "message": OpenAIChatMessage(**message_data),
+                "finish_reason": finish_reason,
+            }
+        )
 
-    choices = [
-        {
-            "index": 0,
-            "message": message,
-            "finish_reason": finish_reason,
-        }
-    ]
+    if choices and all_reasoning_content:
+        # Attach the aggregated reasoning content to the first choice's message
+        first_message_dict = choices[0]["message"].dict()
+        first_message_dict["reasoning_content"] = all_reasoning_content
+        choices[0]["message"] = OpenAIChatMessage(**first_message_dict)
 
-    # 转换usageMetadata为OpenAI格式
     usage = _convert_usage_metadata(gemini_response.get("usageMetadata"))
-
     response_data = {
         "id": str(uuid.uuid4()),
         "object": "chat.completion",
         "created": int(time.time()),
         "model": model,
-        "choices": choices,
+        "choices": [
+            {
+                "index": c["index"],
+                "message": c["message"].dict(exclude_none=True),
+                "finish_reason": c["finish_reason"],
+            }
+            for c in choices
+        ],
     }
-
-    # 只有在有usage数据时才添加usage字段
-    if usage:
+    if usage and usage.get("total_tokens", 0) > 0:
         response_data["usage"] = usage
-
     return response_data
 
 
 def gemini_stream_chunk_to_openai(
     gemini_chunk: Dict[str, Any], model: str, response_id: str
 ) -> Dict[str, Any]:
-    """
-    将Gemini流式响应块转换为OpenAI流式格式
-
-    Args:
-        gemini_chunk: 来自Gemini流式响应的单个块
-        model: 要在响应中包含的模型名称
-        response_id: 此流式响应的一致ID
-
-    Returns:
-        OpenAI流式格式的字典
-    """
     choices = []
-
     for candidate in gemini_chunk.get("candidates", []):
-        import json
-
         log.debug(
             f"---------- Gemini Stream Candidate Received ----------\n{json.dumps(candidate, indent=2, ensure_ascii=False)}"
         )
-        role = candidate.get("content", {}).get("role", "assistant")
 
-        # 将Gemini角色映射回OpenAI角色
-        if role == "model":
-            role = "assistant"
-
-        # 提取并分离thinking tokens和常规内容
         gemini_parts = candidate.get("content", {}).get("parts", [])
+        finish_reason = _map_finish_reason(candidate.get("finishReason"))
+        delta_data: Dict[str, Any] = {}
+
         openai_parts, reasoning_content = _extract_content_and_reasoning(gemini_parts)
+        function_calls = [part for part in gemini_parts if "functionCall" in part]
 
-        # 构建delta对象
-        delta = {}
-        # 为了兼容性，将所有 part 转换为字符串
-        stream_content_parts = []
-        for part in openai_parts:
-            if part.get("type") == "text":
-                stream_content_parts.append(part.get("text", ""))
-            elif part.get("type") == "image_url":
-                url = part["image_url"]["url"]
-                stream_content_parts.append(f"![image]({url})")
-
-        if stream_content_parts:
-            delta["content"] = "".join(stream_content_parts)
+        if function_calls:
+            tool_calls = []
+            for fc in function_calls:
+                function_call_data = fc["functionCall"]
+                tool_calls.append(
+                    {
+                        "index": 0,
+                        "id": f"call_{uuid.uuid4()}",
+                        "type": "function",
+                        "function": {
+                            "name": function_call_data.get("name"),
+                            "arguments": json.dumps(function_call_data.get("args", {})),
+                        },
+                    }
+                )
+            delta_data["tool_calls"] = tool_calls
+            finish_reason = "tool_calls"
+        else:
+            stream_content_parts = []
+            for part in openai_parts:
+                if part.get("type") == "text":
+                    stream_content_parts.append(part.get("text", ""))
+                elif part.get("type") == "image_url":
+                    url = part["image_url"]["url"]
+                    stream_content_parts.append(f"![image]({url})")
+            if stream_content_parts:
+                delta_data["content"] = "".join(stream_content_parts)
 
         if reasoning_content:
-            delta["reasoning_content"] = reasoning_content
+            delta_data["reasoning_content"] = reasoning_content
 
-        finish_reason = _map_finish_reason(candidate.get("finishReason"))
+        if delta_data or finish_reason:
+            choices.append(
+                {
+                    "index": candidate.get("index", 0),
+                    "delta": OpenAIDelta(**delta_data),
+                    "finish_reason": finish_reason,
+                }
+            )
 
-        choices.append(
-            {
-                "index": candidate.get("index", 0),
-                "delta": delta,
-                "finish_reason": finish_reason,
-            }
-        )
-
-    # 转换usageMetadata为OpenAI格式（只在流结束时存在）
     usage = _convert_usage_metadata(gemini_chunk.get("usageMetadata"))
-
-    # 构建基础响应数据（确保所有必需字段都存在）
     response_data = {
         "id": response_id,
         "object": "chat.completion.chunk",
         "created": int(time.time()),
         "model": model,
-        "choices": choices,
+        "choices": [
+            {
+                "index": c["index"],
+                "delta": c["delta"].dict(exclude_none=True),
+                "finish_reason": c["finish_reason"],
+            }
+            for c in choices
+        ],
     }
-
-    # 只有在有usage数据且这是最后一个chunk时才添加usage字段
-    # 这确保了codex-server能正确识别和记录用量
-    if usage:
+    if usage and usage.get("total_tokens", 0) > 0:
         has_finish_reason = any(choice.get("finish_reason") for choice in choices)
         if has_finish_reason:
             response_data["usage"] = usage
-
     return response_data
 
 
-def _map_finish_reason(gemini_reason: str) -> str:
-    """
-    将Gemini结束原因映射到OpenAI结束原因
-
-    Args:
-        gemini_reason: 来自Gemini API的结束原因
-
-    Returns:
-        OpenAI兼容的结束原因
-    """
+def _map_finish_reason(gemini_reason: Optional[str]) -> Optional[str]:
+    if not gemini_reason:
+        return None
     if gemini_reason == "STOP":
         return "stop"
     elif gemini_reason == "MAX_TOKENS":
         return "length"
     elif gemini_reason in ["SAFETY", "RECITATION"]:
         return "content_filter"
-    else:
-        return None
+    elif gemini_reason == "OTHER":
+        return "stop"
+    return None
 
 
 def validate_openai_request(request_data: Dict[str, Any]) -> ChatCompletionRequest:
-    """
-    验证并标准化OpenAI请求数据
-
-    Args:
-        request_data: 原始请求数据字典
-
-    Returns:
-        验证后的ChatCompletionRequest对象
-
-    Raises:
-        ValueError: 当请求数据无效时
-    """
     try:
         return ChatCompletionRequest(**request_data)
     except Exception as e:
@@ -435,26 +431,9 @@ def validate_openai_request(request_data: Dict[str, Any]) -> ChatCompletionReque
 def normalize_openai_request(
     request_data: ChatCompletionRequest,
 ) -> ChatCompletionRequest:
-    """
-    标准化OpenAI请求数据，应用默认值和限制
-
-    Args:
-        request_data: 原始请求对象
-
-    Returns:
-        标准化后的请求对象
-    """
-    # 限制max_tokens
-    if (
-        getattr(request_data, "max_tokens", None) is not None
-        and request_data.max_tokens > 65535
-    ):
+    if request_data.max_tokens is not None and request_data.max_tokens > 65535:
         request_data.max_tokens = 65535
-
-    # 覆写 top_k 为 64
     setattr(request_data, "top_k", 64)
-
-    # 过滤空消息
     filtered_messages = []
     for m in request_data.messages:
         content = getattr(m, "content", None)
@@ -475,22 +454,11 @@ def normalize_openai_request(
                             break
                 if has_valid_content:
                     filtered_messages.append(m)
-
     request_data.messages = filtered_messages
-
     return request_data
 
 
 def is_health_check_request(request_data: ChatCompletionRequest) -> bool:
-    """
-    检查是否为健康检查请求
-
-    Args:
-        request_data: 请求对象
-
-    Returns:
-        是否为健康检查请求
-    """
     return (
         len(request_data.messages) == 1
         and getattr(request_data.messages[0], "role", None) == "user"
@@ -499,27 +467,12 @@ def is_health_check_request(request_data: ChatCompletionRequest) -> bool:
 
 
 def create_health_check_response() -> Dict[str, Any]:
-    """
-    创建健康检查响应
-
-    Returns:
-        健康检查响应字典
-    """
     return {
         "choices": [{"message": {"role": "assistant", "content": "gcli2api正常工作中"}}]
     }
 
 
 def extract_model_settings(model: str) -> Dict[str, Any]:
-    """
-    从模型名称中提取设置信息
-
-    Args:
-        model: 模型名称
-
-    Returns:
-        包含模型设置的字典
-    """
     return {
         "base_model": get_base_model_name(model),
         "use_fake_streaming": model.endswith("-假流式"),
