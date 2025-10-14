@@ -30,7 +30,7 @@ from src.web_routes import router as web_router
 from src.credential_manager import CredentialManager
 from src.task_manager import shutdown_all_tasks
 from config import get_server_host, get_server_port
-from log import log
+from log import log, start_log_cleanup_task
 
 # 全局凭证管理器
 global_credential_manager = None
@@ -42,6 +42,9 @@ async def lifespan(app: FastAPI):
     global global_credential_manager
 
     log.info("启动 GCLI2API 主服务")
+
+    # 启动日志清理任务
+    start_log_cleanup_task()
 
     # 初始化全局凭证管理器
     try:

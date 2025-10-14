@@ -582,3 +582,35 @@ async def get_gemini_retry_if_no_image_max_attempts() -> int:
             pass
 
     return int(await get_config_value("gemini_retry_if_no_image_max_attempts", 5))
+
+
+async def get_log_cleanup_enabled() -> bool:
+    """Get log cleanup enabled setting."""
+    env_value = os.getenv("LOG_CLEANUP_ENABLED")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+    return bool(await get_config_value("log_cleanup_enabled", True))
+
+
+async def get_log_cleanup_interval() -> int:
+    """Get log cleanup interval in hours."""
+    env_value = os.getenv("LOG_CLEANUP_INTERVAL")
+    if env_value:
+        try:
+            return int(env_value)
+        except ValueError:
+            pass
+    return int(
+        await get_config_value("log_cleanup_interval", 24)
+    )  # Default to 24 hours
+
+
+async def get_log_max_size_mb() -> int:
+    """Get max log file size in MB."""
+    env_value = os.getenv("LOG_MAX_SIZE_MB")
+    if env_value:
+        try:
+            return int(env_value)
+        except ValueError:
+            pass
+    return int(await get_config_value("log_max_size_mb", 100))  # Default to 100MB

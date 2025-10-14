@@ -7,6 +7,7 @@ import sys
 import threading
 import logging
 from datetime import datetime
+import asyncio
 
 try:
     import colorlog
@@ -211,8 +212,69 @@ class Logger:
 log = Logger()
 
 # 导出的公共接口
-__all__ = ["log", "set_log_level", "setup_logging", "LOG_LEVELS"]
+__all__ = [
+    "log",
+    "set_log_level",
+    "setup_logging",
+    "LOG_LEVELS",
+    "start_log_cleanup_task",
+]
 
 # 使用说明:
 # 1. 设置日志级别: export LOG_LEVEL=debug (或在.env文件中设置)
 # 2. 设置日志文件: export LOG_FILE=log.txt (或在.env文件中设置)
+
+
+# --- 日志清理 ---
+async def _cleanup_log_file():
+    """清理日志文件，如果它超过了最大大小"""
+    from config import get_log_max_size_mb
+
+    log_file = _get_log_file_path()
+    max_size_mb = await get_log_max_size_mb()
+    max_size_bytes = max_size_mb * 1024 * 1024
+
+    if not os.path.exists(log_file):
+        return
+
+    try:
+        file_size = os.path.getsize(log_file)
+        if file_size > max_size_bytes:
+            with _file_lock:
+                with open(log_file, "w", encoding="utf-8") as f:
+                    f.write(
+                        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Log file truncated because it exceeded {max_size_mb} MB.\n"
+                    )
+            _logger.info(
+                f"Log file '{log_file}' was truncated because it exceeded {max_size_mb} MB."
+            )
+    except FileNotFoundError:
+        pass  # 文件在检查后被删除，忽略
+    except Exception as e:
+        _logger.warning(f"Error during log file cleanup: {e}")
+
+
+async def _periodic_log_cleanup_task():
+    """定期运行日志清理的后台任务"""
+    from config import get_log_cleanup_enabled, get_log_cleanup_interval
+
+    while True:
+        try:
+            if await get_log_cleanup_enabled():
+                await _cleanup_log_file()
+
+            interval_hours = await get_log_cleanup_interval()
+            await asyncio.sleep(interval_hours * 3600)  # Convert hours to seconds
+        except asyncio.CancelledError:
+            _logger.info("Log cleanup task cancelled.")
+            break
+        except Exception as e:
+            _logger.error(f"Error in periodic log cleanup task: {e}")
+            # 出现错误时等待一段时间再重试，避免快速失败循环
+            await asyncio.sleep(600)
+
+
+def start_log_cleanup_task():
+    """启动日志清理后台任务"""
+    _logger.info("Starting periodic log cleanup task...")
+    asyncio.create_task(_periodic_log_cleanup_task())
