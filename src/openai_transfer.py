@@ -126,6 +126,27 @@ async def openai_request_to_gemini_payload(
         if openai_request.response_format.get("type") == "json_object":
             generation_config["responseMimeType"] = "application/json"
 
+    if openai_request.size:
+        try:
+            width_str, height_str = openai_request.size.lower().split("x")
+            width = int(width_str)
+            height = int(height_str)
+
+            aspect_ratio_value = ""
+            if width == height:
+                aspect_ratio_value = "SQUARE"
+            elif width < height:
+                aspect_ratio_value = "PORTRAIT"
+            else:  # width > height
+                aspect_ratio_value = "LANDSCAPE"
+
+            if aspect_ratio_value:
+                generation_config["imageConfig"] = {"aspectRatio": aspect_ratio_value}
+        except (ValueError, AttributeError) as e:
+            log.warning(
+                f"Invalid 'size' format: '{openai_request.size}'. Expected 'widthxheight'. Error: {e}"
+            )
+
     if not contents:
         contents.append({"role": "user", "parts": [{"text": "请根据系统指令回答。"}]})
 

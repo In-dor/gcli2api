@@ -43,6 +43,7 @@ class OpenAIChatCompletionRequest(BaseModel):
     top_k: Optional[int] = Field(None, ge=1)
     enable_anti_truncation: Optional[bool] = False
     thinking_budget: Optional[Union[int, bool]] = None
+    size: Optional[str] = None
 
     class Config:
         extra = "allow"  # Allow additional fields not explicitly defined
