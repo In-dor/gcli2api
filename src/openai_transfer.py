@@ -216,10 +216,25 @@ def _extract_content_and_reasoning(parts: list) -> tuple[list, str]:
     reasoning_content = ""
     for part in parts:
         if "text" in part:
+            text_content = part["text"]
+
+            # Handle malformed part where text value is a list like [{"type": "text", "text": "..."}]
+            if (
+                isinstance(text_content, list)
+                and len(text_content) > 0
+                and isinstance(text_content[0], dict)
+                and "text" in text_content[0]
+            ):
+                text_content = text_content[0].get("text", "")
+
+            # Ensure text_content is a string before further processing
+            if not isinstance(text_content, str):
+                text_content = str(text_content)
+
             if part.get("thought", False):
-                reasoning_content += part["text"]
+                reasoning_content += text_content
             else:
-                openai_parts.append({"type": "text", "text": part["text"]})
+                openai_parts.append({"type": "text", "text": text_content})
         elif "inlineData" in part:
             mime_type = part["inlineData"].get("mimeType")
             data = part["inlineData"].get("data")

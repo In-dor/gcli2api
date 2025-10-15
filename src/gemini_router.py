@@ -649,7 +649,24 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
 
                         if content:
                             # 构建包含分离内容的响应
-                            parts_response: list = [{"text": content}]
+                            # content is a list of openai_parts, e.g., [{'type': 'text', 'text': '...'}].
+                            # We need to extract the text and form a valid Gemini part.
+                            final_text = ""
+                            # 如果 content 是字符串（占位符），直接使用
+                            if isinstance(content, str):
+                                final_text = content
+                            # 否则，假定 content 是一个 parts 列表并处理
+                            elif isinstance(content, list):
+                                final_text = "".join(
+                                    [
+                                        p.get("text", "")
+                                        for p in content
+                                        if isinstance(p, dict)
+                                        and p.get("type") == "text"
+                                    ]
+                                )
+
+                            parts_response: list = [{"text": final_text}]
                             if reasoning_content:
                                 parts_response.append(
                                     {"text": reasoning_content, "thought": True}

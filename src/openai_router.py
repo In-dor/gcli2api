@@ -410,7 +410,17 @@ async def fake_stream_response(
 
                 if content:
                     # 构建响应块，包括思维内容（如果有）
-                    delta = {"role": "assistant", "content": content}
+                    final_text = ""
+                    if isinstance(content, str):
+                        final_text = content
+                    elif isinstance(content, list):
+                        final_text = "".join(
+                            p.get("text", "")
+                            for p in content
+                            if isinstance(p, dict) and p.get("type") == "text"
+                        )
+
+                    delta = {"role": "assistant", "content": final_text}
                     if reasoning_content:
                         delta["reasoning_content"] = reasoning_content
 
