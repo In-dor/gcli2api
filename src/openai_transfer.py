@@ -359,6 +359,7 @@ def gemini_response_to_openai(
             }
             for c in choices
         ],
+        "system_fingerprint": "gcli2api",
     }
     if usage and usage.get("total_tokens", 0) > 0:
         response_data["usage"] = usage
@@ -435,6 +436,7 @@ def gemini_stream_chunk_to_openai(
             }
             for c in choices
         ],
+        "system_fingerprint": "gcli2api",
     }
     if usage and usage.get("total_tokens", 0) > 0:
         has_finish_reason = any(choice.get("finish_reason") for choice in choices)

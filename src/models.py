@@ -67,7 +67,7 @@ class OpenAIChatCompletionResponse(BaseModel):
     model: str
     choices: List[OpenAIChatCompletionChoice]
     usage: Optional[Dict[str, int]] = None
-    system_fingerprint: Optional[str] = None
+    system_fingerprint: str = "gcli2api"
 
 
 class OpenAIDelta(BaseModel):
@@ -90,7 +90,7 @@ class OpenAIChatCompletionStreamResponse(BaseModel):
     created: int
     model: str
     choices: List[OpenAIChatCompletionStreamChoice]
-    system_fingerprint: Optional[str] = None
+    system_fingerprint: str = "gcli2api"
 
 
 # Gemini Models

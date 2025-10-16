@@ -442,6 +442,8 @@ async def fake_stream_response(
                     if usage:
                         content_chunk["usage"] = usage
 
+                    content_chunk["system_fingerprint"] = "gcli2api-fake-stream"
+
                     yield f"data: {json.dumps(content_chunk)}\n\n".encode()
                 else:
                     log.warning(f"No content found in response: {response_data}")
@@ -461,6 +463,7 @@ async def fake_stream_response(
                                 "finish_reason": "stop",
                             }
                         ],
+                        "system_fingerprint": "gcli2api-fake-stream",
                     }
                     yield f"data: {json.dumps(error_chunk)}\n\n".encode()
             except json.JSONDecodeError:
@@ -476,6 +479,7 @@ async def fake_stream_response(
                             "finish_reason": "stop",
                         }
                     ],
+                    "system_fingerprint": "gcli2api-fake-stream",
                 }
                 yield f"data: {json.dumps(error_chunk)}\n\n".encode()
 
@@ -495,6 +499,7 @@ async def fake_stream_response(
                         "finish_reason": "stop",
                     }
                 ],
+                "system_fingerprint": "gcli2api-fake-stream",
             }
             yield f"data: {json.dumps(error_chunk)}\n\n".encode()
             yield "data: [DONE]\n\n".encode()
