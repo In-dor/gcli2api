@@ -1338,9 +1338,6 @@ async def get_config(token: str = Depends(verify_token)):
         )
 
         # 兼容性配置
-        current_config["compatibility_mode_enabled"] = (
-            await config.get_compatibility_mode_enabled()
-        )
 
         # 服务器配置
         current_config["host"] = await config.get_server_host()

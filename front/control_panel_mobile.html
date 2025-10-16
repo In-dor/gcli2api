@@ -1119,25 +1119,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         </div>
 
 
-                        <div class="card">
-                            <h4 style="margin-top: 0; margin-bottom: 15px;">兼容性配置</h4>
-
-                            <div class="form-group">
-                                <label style="display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" id="compatibilityModeEnabled"
-                                        style="width: auto; margin: 0;" />
-                                    启用兼容性模式
-                                </label>
-                                <small
-                                    style="display: block; color: #666; font-size: 12px; margin-top: 5px;">启用后所有system消息全部转换成user，停用system_instructions
-                                    <span style="color: #28a745;">✓ 支持热更新</span></small>
-                                <div
-                                    style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin-top: 8px; font-size: 13px; color: #856404;">
-                                    <strong>⚠️ 注意：</strong>该选项可能会降低模型理解能力，但是能避免流式空回的情况。
-                                    <br><strong>适用场景：</strong>当遇到流式传输时模型不返回内容或返回空响应时启用此选项。
-                                </div>
-                            </div>
-                        </div>
 
                         <div class="card">
                             <h4 style="margin-top: 0; margin-bottom: 15px;">抗截断配置</h4>
@@ -3064,8 +3045,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             setFieldValue('retry429Interval', config.retry_429_interval);
 
 
-            // 兼容性配置
-            setCheckboxValue('compatibilityModeEnabled', config.compatibility_mode_enabled);
 
             // 抗截断配置
             setFieldValue('antiTruncationMaxAttempts', config.anti_truncation_max_attempts);
@@ -3150,7 +3129,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 retry_429_interval: parseFloat(document.getElementById('retry429Interval').value) || null,
 
 
-                compatibility_mode_enabled: document.getElementById('compatibilityModeEnabled').checked,
                 anti_truncation_max_attempts: parseInt(document.getElementById('antiTruncationMaxAttempts').value) || null
             };
 

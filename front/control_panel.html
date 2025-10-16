@@ -1485,23 +1485,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         </div>
 
 
-                        <div class="config-group">
-                            <h4>兼容性配置</h4>
-
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" id="compatibilityModeEnabled" class="config-checkbox" />
-                                    启用兼容性模式
-                                </label>
-                                <small class="config-note">启用后所有system消息全部转换成user，停用system_instructions <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
-                                <div class="config-info"
-                                    style="background-color: #fff3cd; border: 1px solid #ffc107; color: #856404;">
-                                    <strong>⚠️ 注意：</strong>该选项可能会降低模型理解能力，但是能避免流式空回的情况。
-                                    <br><strong>适用场景：</strong>当遇到流式传输时模型不返回内容或返回空响应时启用此选项。
-                                </div>
-                            </div>
-                        </div>
 
                         <div class="config-group">
                             <h4>抗截断配置</h4>
@@ -2911,8 +2894,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             setConfigField('retry429MaxRetries', currentConfig.retry_429_max_retries || 20);
             setConfigField('retry429Interval', currentConfig.retry_429_interval || 0.1);
 
-            // 兼容性配置
-            document.getElementById('compatibilityModeEnabled').checked = Boolean(currentConfig.compatibility_mode_enabled);
 
             // 抗截断配置
             setConfigField('antiTruncationMaxAttempts', currentConfig.anti_truncation_max_attempts || 3);
@@ -2965,8 +2946,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     retry_429_enabled: document.getElementById('retry429Enabled').checked,
                     retry_429_max_retries: parseInt(document.getElementById('retry429MaxRetries').value) || 20,
                     retry_429_interval: parseFloat(document.getElementById('retry429Interval').value) || 0.1,
-                    // 兼容性配置
-                    compatibility_mode_enabled: document.getElementById('compatibilityModeEnabled').checked,
                     // 抗截断配置
                     anti_truncation_max_attempts: parseInt(document.getElementById('antiTruncationMaxAttempts').value) || 3
                 };

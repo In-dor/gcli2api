@@ -15,7 +15,6 @@ from config import (
     get_thinking_budget,
     is_search_model,
     should_include_thoughts,
-    get_compatibility_mode_enabled,
 )
 from log import log
 from .models import ChatCompletionRequest, OpenAIChatMessage, OpenAIDelta
@@ -25,7 +24,8 @@ async def openai_request_to_gemini_payload(
     openai_request: ChatCompletionRequest,
 ) -> Dict[str, Any]:
     """
-    将OpenAI聊天完成请求直接转换为完整的Gemini API payload格式
+    将OpenAI聊天完成请求转换为完整的Gemini API payload格式。
+    此函数经过重构，以正确处理系统消息、工具调用和多模态内容。
 
     Args:
         openai_request: OpenAI格式请求对象
@@ -33,60 +33,103 @@ async def openai_request_to_gemini_payload(
     Returns:
         完整的Gemini API payload，包含model和request字段
     """
-    contents = []
-    system_instructions = []
-
-    # 检查是否启用兼容性模式
-    compatibility_mode = await get_compatibility_mode_enabled()
-
-    # 处理对话中的每条消息
-    # 第一阶段：收集连续的system消息到system_instruction中（除非在兼容性模式下）
-    collecting_system = True if not compatibility_mode else False
-
-    for message in openai_request.messages:
-        role = message.role
-
-        # 处理系统消息
-        if role == "system":
-            if compatibility_mode:
-                # 兼容性模式：所有system消息转换为user消息
-                role = "user"
-            elif collecting_system:
-                # 正常模式：仍在收集连续的system消息
-                if isinstance(message.content, str):
-                    system_instructions.append(message.content)
-                elif isinstance(message.content, list):
-                    # 处理列表格式的系统消息
-                    for part in message.content:
-                        if part.get("type") == "text" and part.get("text"):
-                            system_instructions.append(part["text"])
-                continue
-            else:
-                # 正常模式：后续的system消息转换为user消息
-                role = "user"
+    # 1. 分离系统消息和用户/助手消息
+    system_instructions_parts = []
+    non_system_messages = []
+    for msg in openai_request.messages:
+        if msg.role == "system":
+            content = msg.content
+            if isinstance(content, str):
+                system_instructions_parts.append(content)
+            elif isinstance(content, list):
+                for part in content:
+                    if part.get("type") == "text":
+                        system_instructions_parts.append(part.get("text", ""))
         else:
-            # 遇到非system消息，停止收集system消息
-            collecting_system = False
+            non_system_messages.append(msg)
 
-        # 将OpenAI角色映射到Gemini角色
-        if role == "assistant":
-            role = "model"
+    # 2. 预处理：构建 tool_call_id 到函数名的映射
+    tool_call_map = {}
+    for message in non_system_messages:
+        if message.role == "assistant" and message.tool_calls:
+            for tc in message.tool_calls:
+                if tc.get("id") and tc.get("function", {}).get("name"):
+                    tool_call_map[tc["id"]] = tc["function"]["name"]
 
-        # 处理普通内容
-        if isinstance(message.content, list):
+    # 3. 转换消息内容
+    contents = []
+    for message in non_system_messages:
+        role = "model" if message.role == "assistant" else message.role
+
+        # a. 处理工具响应 (tool role)
+        if message.role == "tool":
+            func_name = tool_call_map.get(message.tool_call_id)
+            if not func_name:
+                log.warning(
+                    f"找不到 tool_call_id '{message.tool_call_id}' 对应的函数名，已跳过此工具响应。"
+                )
+                continue
+
+            try:
+                response_content = json.loads(message.content)
+            except (json.JSONDecodeError, TypeError):
+                response_content = {"content": str(message.content)}
+
+            contents.append(
+                {
+                    "role": "function",
+                    "parts": [
+                        {
+                            "functionResponse": {
+                                "name": func_name,
+                                "response": response_content,
+                            }
+                        }
+                    ],
+                }
+            )
+            continue
+
+        # b. 处理助手发起的工具调用 (assistant role with tool_calls)
+        if message.role == "assistant" and message.tool_calls:
             parts = []
-            for part in message.content:
-                if part.get("type") == "text":
-                    parts.append({"text": part.get("text", "")})
+            for tc in message.tool_calls:
+                function_details = tc.get("function", {})
+                try:
+                    args = json.loads(function_details.get("arguments", "{}"))
+                except json.JSONDecodeError:
+                    args = {}
+                parts.append(
+                    {
+                        "functionCall": {
+                            "name": function_details.get("name"),
+                            "args": args,
+                        }
+                    }
+                )
+            if parts:
+                contents.append({"role": "model", "parts": parts})
+            # 如果助手消息只有工具调用，没有文本内容，则处理完后继续下一个消息
+            if not message.content:
+                continue
+
+        # c. 处理常规文本和图片内容
+        gemini_parts = []
+        msg_content = message.content
+        if isinstance(msg_content, str):
+            if msg_content:
+                gemini_parts.append({"text": msg_content})
+        elif isinstance(msg_content, list):
+            for part in msg_content:
+                if part.get("type") == "text" and part.get("text"):
+                    gemini_parts.append({"text": part.get("text")})
                 elif part.get("type") == "image_url":
                     image_url = part.get("image_url", {}).get("url")
-                    if image_url:
-                        # 解析数据URI: "data:image/jpeg;base64,{base64_image}"
+                    if image_url and image_url.startswith("data:"):
                         try:
-                            mime_type, base64_data = image_url.split(";")
-                            _, mime_type = mime_type.split(":")
-                            _, base64_data = base64_data.split(",")
-                            parts.append(
+                            header, base64_data = image_url.split(",", 1)
+                            mime_type = header.split(":")[1].split(";")[0]
+                            gemini_parts.append(
                                 {
                                     "inlineData": {
                                         "mimeType": mime_type,
@@ -94,14 +137,17 @@ async def openai_request_to_gemini_payload(
                                     }
                                 }
                             )
-                        except ValueError:
-                            continue
-            contents.append({"role": role, "parts": parts})
-        elif message.content:
-            # 简单文本内容
-            contents.append({"role": role, "parts": [{"text": message.content}]})
+                        except (ValueError, IndexError):
+                            log.warning(f"无法解析图片数据URI: {image_url[:50]}...")
 
-    # 将OpenAI生成参数映射到Gemini格式
+        if gemini_parts:
+            # 合并连续的同角色消息
+            if contents and contents[-1]["role"] == role:
+                contents[-1]["parts"].extend(gemini_parts)
+            else:
+                contents.append({"role": role, "parts": gemini_parts})
+
+    # 4. 构建生成配置 (generationConfig)
     generation_config = {}
     if openai_request.temperature is not None:
         generation_config["temperature"] = openai_request.temperature
@@ -110,81 +156,54 @@ async def openai_request_to_gemini_payload(
     if openai_request.max_tokens is not None:
         generation_config["maxOutputTokens"] = openai_request.max_tokens
     if openai_request.stop is not None:
-        if isinstance(openai_request.stop, str):
-            generation_config["stopSequences"] = [openai_request.stop]
-        elif isinstance(openai_request.stop, list):
-            generation_config["stopSequences"] = openai_request.stop
-    if openai_request.frequency_penalty is not None:
-        generation_config["frequencyPenalty"] = openai_request.frequency_penalty
-    if openai_request.presence_penalty is not None:
-        generation_config["presencePenalty"] = openai_request.presence_penalty
+        stop_seq = (
+            [openai_request.stop]
+            if isinstance(openai_request.stop, str)
+            else openai_request.stop
+        )
+        generation_config["stopSequences"] = stop_seq
     if openai_request.n is not None:
         generation_config["candidateCount"] = openai_request.n
-    if openai_request.seed is not None:
-        generation_config["seed"] = openai_request.seed
-    if openai_request.response_format is not None:
-        if openai_request.response_format.get("type") == "json_object":
-            generation_config["responseMimeType"] = "application/json"
+    if (
+        openai_request.response_format
+        and openai_request.response_format.get("type") == "json_object"
+    ):
+        generation_config["responseMimeType"] = "application/json"
 
-    if openai_request.size:
-        try:
-            width_str, height_str = openai_request.size.lower().split("x")
-            width = int(width_str)
-            height = int(height_str)
-
-            aspect_ratio_value = ""
-            if width == height:
-                aspect_ratio_value = "SQUARE"
-            elif width < height:
-                aspect_ratio_value = "PORTRAIT"
-            else:  # width > height
-                aspect_ratio_value = "LANDSCAPE"
-
-            if aspect_ratio_value:
-                generation_config["imageConfig"] = {"aspectRatio": aspect_ratio_value}
-        except (ValueError, AttributeError) as e:
-            log.warning(
-                f"Invalid 'size' format: '{openai_request.size}'. Expected 'widthxheight'. Error: {e}"
-            )
-
-    if not contents:
-        contents.append({"role": "user", "parts": [{"text": "请根据系统指令回答。"}]})
-
+    # 5. 构建最终请求体
     request_data = {
         "contents": contents,
-        "generationConfig": generation_config,
         "safetySettings": DEFAULT_SAFETY_SETTINGS,
     }
+    if generation_config:
+        request_data["generationConfig"] = generation_config
+
+    if system_instructions_parts:
+        request_data["systemInstruction"] = {
+            "parts": [{"text": "\n\n".join(system_instructions_parts)}]
+        }
 
     if openai_request.tools:
         request_data["tools"] = openai_request.tools
 
     if openai_request.tool_choice:
         tool_choice = openai_request.tool_choice
-        if isinstance(tool_choice, str):
-            if tool_choice == "none":
-                request_data["toolConfig"] = {"functionCallingConfig": {"mode": "NONE"}}
-            elif tool_choice == "auto":
-                request_data["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
+        if isinstance(tool_choice, str) and tool_choice in ["none", "auto"]:
+            request_data["toolConfig"] = {
+                "functionCallingConfig": {"mode": tool_choice.upper()}
+            }
         elif isinstance(tool_choice, dict) and "function" in tool_choice:
-            function_name = tool_choice["function"].get("name")
-            if function_name:
+            func_name = tool_choice["function"].get("name")
+            if func_name:
                 request_data["toolConfig"] = {
                     "functionCallingConfig": {
                         "mode": "ANY",
-                        "allowedFunctionNames": [function_name],
+                        "allowedFunctionNames": [func_name],
                     }
                 }
 
-    if system_instructions and not compatibility_mode:
-        combined_system_instruction = "\n\n".join(system_instructions)
-        request_data["systemInstruction"] = {
-            "parts": [{"text": combined_system_instruction}]
-        }
-
-    log.debug(
-        f"Request prepared: {len(contents)} messages, compatibility_mode: {compatibility_mode}"
-    )
+    if is_search_model(openai_request.model):
+        request_data["tools"] = [{"googleSearch": {}}]
 
     # 决定是否包含思维链以及其预算
     custom_thinking_setting = getattr(openai_request, "thinking_budget", None)
@@ -224,12 +243,10 @@ async def openai_request_to_gemini_payload(
 
         request_data["generationConfig"]["thinkingConfig"] = thinking_config
 
-    if is_search_model(openai_request.model):
-        request_data["tools"] = [{"googleSearch": {}}]
-
-    request_data = {k: v for k, v in request_data.items() if v is not None}
-
-    return {"model": get_base_model_name(openai_request.model), "request": request_data}
+    return {
+        "model": get_base_model_name(openai_request.model),
+        "request": request_data,
+    }
 
 
 def _extract_content_and_reasoning(parts: list) -> tuple[list, str]:
