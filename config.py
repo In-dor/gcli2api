@@ -66,6 +66,9 @@ def get_thinking_budget(model_name):
 # Helper function to check if thinking should be included in output
 def should_include_thoughts(model_name):
     """Check if thoughts should be included in the response."""
+    # 图片模型不支持 thinking
+    if is_image_model(model_name):
+        return False
     if is_nothinking_model(model_name):
         # For nothinking mode, still include thoughts if it's a pro model
         base_model = get_base_model_name(model_name)

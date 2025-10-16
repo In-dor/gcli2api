@@ -4,6 +4,7 @@ OpenAI Transfer Module - Handles conversion between OpenAI and Gemini API format
 """
 
 import json
+import re
 from logging import INFO, info
 import time
 import uuid
@@ -117,8 +118,47 @@ async def openai_request_to_gemini_payload(
         gemini_parts = []
         msg_content = message.content
         if isinstance(msg_content, str):
-            if msg_content:
-                gemini_parts.append({"text": msg_content})
+            # New logic to handle mixed text and image content from assistant history
+            if message.role == "assistant" and "![image](data:" in msg_content:
+                # Use regex to find all markdown images and surrounding text
+                pattern = r"!\[image\]\((data:[^)]+)\)"
+
+                last_end = 0
+                for match in re.finditer(pattern, msg_content):
+                    start, end = match.span()
+
+                    # Add preceding text if any
+                    preceding_text = msg_content[last_end:start].strip()
+                    if preceding_text:
+                        gemini_parts.append({"text": preceding_text})
+
+                    # Add the image part
+                    data_uri = match.group(1)
+                    try:
+                        header, base64_data = data_uri.split(",", 1)
+                        mime_type = header.split(":")[1].split(";")[0]
+                        gemini_parts.append(
+                            {
+                                "inlineData": {
+                                    "mimeType": mime_type,
+                                    "data": base64_data,
+                                }
+                            }
+                        )
+                    except (ValueError, IndexError):
+                        # If parsing fails, add the raw markdown as text
+                        gemini_parts.append({"text": msg_content[start:end]})
+
+                    last_end = end
+
+                # Add any remaining text after the last image
+                remaining_text = msg_content[last_end:].strip()
+                if remaining_text:
+                    gemini_parts.append({"text": remaining_text})
+            else:
+                # Original logic for simple text content
+                if msg_content:
+                    gemini_parts.append({"text": msg_content})
         elif isinstance(msg_content, list):
             for part in msg_content:
                 if part.get("type") == "text" and part.get("text"):
