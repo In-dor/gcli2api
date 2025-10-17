@@ -84,3 +84,4 @@ Thumbs.db
 *.log
 log.txt
 *.txt
+docker-compose.yml
