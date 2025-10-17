@@ -155,16 +155,44 @@ async def generate_content(
     """处理Gemini格式的内容生成请求（非流式）"""
 
     log.info(f"收到 Gemini 格式非流式请求, 模型: {model}")
-    # 获取原始请求数据
+    # 获取并清理原始请求数据
     try:
-        request_data = await request.json()
-    except Exception as e:
-        log.error(f"Failed to parse JSON request: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+        body = await request.body()
+        raw_data = body.decode("utf-8", errors="ignore")
+        log.debug(f"收到的原始请求体 (非流式): {raw_data}")
 
-    # 验证必要字段
+        # 替换 "[undefined]" 字符串为 null
+        cleaned_data_str = raw_data.replace('"[undefined]"', "null")
+        log.debug(f"清理后的请求体 (非流式): {cleaned_data_str}")
+
+        request_data = json.loads(cleaned_data_str)
+
+    except json.JSONDecodeError as e:
+        log.error(f"解析JSON请求失败 (非流式): {e}. 清理后的请求体: {cleaned_data_str}")
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+    except Exception as e:
+        log.error(f"读取或解析请求体时发生未知错误 (非流式): {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Error reading request body: {str(e)}"
+        )
+
+    # 过滤掉 parts 为空的 content
+    if "contents" in request_data:
+        original_count = len(request_data["contents"])
+        request_data["contents"] = [
+            content for content in request_data["contents"] if content.get("parts")
+        ]
+        filtered_count = len(request_data["contents"])
+        if original_count != filtered_count:
+            log.info(
+                f"已过滤掉 {original_count - filtered_count} 个空的 content/parts (非流式)。"
+            )
+
+    # 再次验证必要字段
     if "contents" not in request_data or not request_data["contents"]:
-        raise HTTPException(status_code=400, detail="Missing required field: contents")
+        raise HTTPException(
+            status_code=400, detail="Missing required field: contents (after filtering)"
+        )
 
     # 请求预处理：限制参数
     if "generationConfig" in request_data and request_data["generationConfig"]:
@@ -351,23 +379,45 @@ async def stream_generate_content(
     log.debug(f"Stream request received for model: {model}")
     log.debug(f"Request headers: {dict(request.headers)}")
     log.debug(f"API key received: {api_key[:10] if api_key else None}...")
+    log.info(f"收到 Gemini 格式流式请求, 模型: {model}")
+    # 获取并清理原始请求数据
     try:
         body = await request.body()
-        log.debug(f"request body: {body.decode() if isinstance(body, bytes) else body}")
-    except Exception as e:
-        log.error(f"Failed to read request body: {e}")
+        raw_data = body.decode("utf-8", errors="ignore")
+        log.debug(f"收到的原始请求体 (流式): {raw_data}")
 
-    log.info(f"收到 Gemini 格式流式请求, 模型: {model}")
-    # 获取原始请求数据
-    try:
-        request_data = await request.json()
-    except Exception as e:
-        log.error(f"Failed to parse JSON request: {e}")
+        # 替换 "[undefined]" 字符串为 null
+        cleaned_data_str = raw_data.replace('"[undefined]"', "null")
+        log.debug(f"清理后的请求体 (流式): {cleaned_data_str}")
+
+        request_data = json.loads(cleaned_data_str)
+
+    except json.JSONDecodeError as e:
+        log.error(f"解析JSON请求失败 (流式): {e}. 清理后的请求体: {cleaned_data_str}")
         raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
+    except Exception as e:
+        log.error(f"读取或解析请求体时发生未知错误 (流式): {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Error reading request body: {str(e)}"
+        )
 
-    # 验证必要字段
+    # 过滤掉 parts 为空的 content
+    if "contents" in request_data:
+        original_count = len(request_data["contents"])
+        request_data["contents"] = [
+            content for content in request_data["contents"] if content.get("parts")
+        ]
+        filtered_count = len(request_data["contents"])
+        if original_count != filtered_count:
+            log.info(
+                f"已过滤掉 {original_count - filtered_count} 个空的 content/parts (流式)。"
+            )
+
+    # 再次验证必要字段
     if "contents" not in request_data or not request_data["contents"]:
-        raise HTTPException(status_code=400, detail="Missing required field: contents")
+        raise HTTPException(
+            status_code=400, detail="Missing required field: contents (after filtering)"
+        )
 
     # 请求预处理：限制参数
     if "generationConfig" in request_data and request_data["generationConfig"]:
