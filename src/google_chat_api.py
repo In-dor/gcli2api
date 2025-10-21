@@ -86,6 +86,12 @@ async def _prepare_request_headers_and_payload(
         raise Exception("凭证中没有找到有效的访问令牌（token或access_token字段）")
 
     source_request = payload.get("request", {})
+    if use_public_api:
+        if "generationConfig" in source_request:
+            imageConfig = source_request["generationConfig"].get("imageConfig")
+            source_request["generationConfig"] = (
+                {"imageConfig": imageConfig} if imageConfig else {}
+            )
 
     # 内部API使用Bearer Token和项目ID
     headers = {
