@@ -1,6 +1,6 @@
 """
-Google API Client - Handles all communication with Google's Gemini API.
-This module is used by both OpenAI compatibility layer and native Gemini endpoints.
+Google API 客户端 - 处理与 Google Gemini API 的所有通信。
+该模块供 OpenAI 兼容层和原生 Gemini 端点使用。
 """
 
 import asyncio
@@ -33,7 +33,7 @@ from .utils import get_user_agent
 
 
 def _create_error_response(message: str, status_code: int = 500) -> Response:
-    """Create standardized error response."""
+    """创建标准化的错误响应。"""
     return Response(
         content=json.dumps(
             {"error": {"message": message, "type": "api_error", "code": status_code}}
@@ -48,16 +48,14 @@ async def _handle_api_error(
     status_code: int,
     response_content: str = "",
 ):
-    """Handle API errors by rotating credentials when needed. Error recording should be done before calling this function."""
+    """处理 API 错误，在需要时轮换凭证。错误记录应在此函数调用之前完成。"""
     if status_code == 429 and credential_manager:
         if response_content:
             log.error(
-                f"Google API returned status 429 - quota exhausted. Response details: {response_content[:500]}"
+                f"Google API 返回状态 429 - 配额已用尽。响应详情: {response_content[:500]}"
             )
         else:
-            log.error(
-                "Google API returned status 429 - quota exhausted, switching credentials"
-            )
+            log.error("Google API 返回状态 429 - 配额已用尽，正在切换凭证")
         await credential_manager.force_rotate_credential()
 
     # 处理自动封禁的错误码
@@ -68,11 +66,11 @@ async def _handle_api_error(
     ):
         if response_content:
             log.error(
-                f"Google API returned status {status_code} - auto ban triggered. Response details: {response_content[:500]}"
+                f"Google API 返回状态 {status_code} - 已触发自动封禁。响应详情: {response_content[:500]}"
             )
         else:
             log.warning(
-                f"Google API returned status {status_code} - auto ban triggered, rotating credentials"
+                f"Google API 返回状态 {status_code} - 已触发自动封禁，正在轮换凭证"
             )
         await credential_manager.force_rotate_credential()
 
@@ -80,7 +78,7 @@ async def _handle_api_error(
 async def _prepare_request_headers_and_payload(
     payload: dict, credential_data: dict, use_public_api: bool, target_url: str
 ):
-    """Prepare request headers and final payload from credential data."""
+    """从凭证数据准备请求头和最终的 payload。"""
     token = credential_data.get("token") or credential_data.get("access_token", "")
     if not token:
         raise Exception("凭证中没有找到有效的访问令牌（token或access_token字段）")
@@ -117,15 +115,15 @@ async def send_gemini_request(
     credential_manager: Optional[CredentialManager] = None,
 ) -> Response:
     """
-    Send a request to Google's Gemini API.
+    向 Google Gemini API 发送请求。
 
-    Args:
-        payload: The request payload in Gemini format
-        is_streaming: Whether this is a streaming request
-        credential_manager: CredentialManager instance
+    参数:
+        payload: Gemini 格式的请求负载
+        is_streaming: 是否为流式请求
+        credential_manager: CredentialManager 实例
 
-    Returns:
-        FastAPI Response object
+    返回:
+        FastAPI 响应对象
     """
     # 获取429重试配置
     max_retries = await get_retry_429_max_retries()
@@ -143,13 +141,13 @@ async def send_gemini_request(
 
     # 确保有credential_manager
     if not credential_manager:
-        return _create_error_response("Credential manager not provided", 500)
+        return _create_error_response("未提供凭证管理器", 500)
 
     # 获取当前凭证
     try:
         credential_result = await credential_manager.get_valid_credential()
         if not credential_result:
-            return _create_error_response("No valid credentials available", 500)
+            return _create_error_response("没有可用的有效凭证", 500)
 
         current_file, credential_data = credential_result
         headers, final_payload, target_url = await _prepare_request_headers_and_payload(
@@ -184,18 +182,16 @@ async def send_gemini_request(
                                     "utf-8", errors="ignore"
                                 )
                         except Exception as e:
-                            log.debug(
-                                f"[STREAMING] Failed to read 429 response content: {e}"
-                            )
+                            log.debug(f"[流式] 读取 429 响应内容失败: {e}")
 
                         # 显示详细的429错误信息
                         if response_content:
                             log.error(
-                                f"Google API returned status 429 (STREAMING). Response details: {response_content[:500]}"
+                                f"Google API 返回状态 429 (流式)。响应详情: {response_content[:500]}"
                             )
                         else:
                             log.error(
-                                "Google API returned status 429 (STREAMING) - quota exhausted, no response details available"
+                                "Google API 返回状态 429 (流式) - 配额已用尽，无响应详情"
                             )
 
                         if credential_manager and current_file:
@@ -213,7 +209,7 @@ async def send_gemini_request(
                         # 如果重试可用且未达到最大次数，进行重试
                         if retry_429_enabled and attempt < max_retries:
                             log.warning(
-                                f"[RETRY] 429 error encountered, retrying ({attempt + 1}/{max_retries})"
+                                f"[重试] 遇到 429 错误，正在重试 ({attempt + 1}/{max_retries})"
                             )
                             if credential_manager:
                                 # 429错误时强制轮换凭证，不增加调用计数
@@ -242,7 +238,7 @@ async def send_gemini_request(
                             async def error_stream():
                                 error_response = {
                                     "error": {
-                                        "message": "429 rate limit exceeded, max retries reached",
+                                        "message": "超出 429 速率限制，已达到最大重试次数",
                                         "type": "api_error",
                                         "code": 429,
                                     }
@@ -264,18 +260,16 @@ async def send_gemini_request(
                                     "utf-8", errors="ignore"
                                 )
                         except Exception as e:
-                            log.debug(
-                                f"[STREAMING] Failed to read error response content: {e}"
-                            )
+                            log.debug(f"[流式] 读取错误响应内容失败: {e}")
 
                         # 显示详细的错误信息
                         if response_content:
                             log.error(
-                                f"Google API returned status {resp.status_code} (STREAMING). Response details: {response_content[:500]}"
+                                f"Google API 返回状态 {resp.status_code} (流式)。响应详情: {response_content[:500]}"
                             )
                         else:
                             log.error(
-                                f"Google API returned status {resp.status_code} (STREAMING) - no response details available"
+                                f"Google API 返回状态 {resp.status_code} (流式) - 无响应详情"
                             )
 
                         # 记录API调用错误
@@ -300,7 +294,7 @@ async def send_gemini_request(
                         async def error_stream():
                             error_response = {
                                 "error": {
-                                    "message": f"API error: {resp.status_code}",
+                                    "message": f"API 错误: {resp.status_code}",
                                     "type": "api_error",
                                     "code": resp.status_code,
                                 }
@@ -348,7 +342,7 @@ async def send_gemini_request(
                         # 如果重试可用且未达到最大次数，继续重试
                         if retry_429_enabled and attempt < max_retries:
                             log.warning(
-                                f"[RETRY] 429 error encountered, retrying ({attempt + 1}/{max_retries})"
+                                f"[重试] 遇到 429 错误，正在重试 ({attempt + 1}/{max_retries})"
                             )
                             if credential_manager:
                                 # 429错误时强制轮换凭证，不增加调用计数
@@ -373,9 +367,9 @@ async def send_gemini_request(
                             await asyncio.sleep(retry_interval)
                             continue
                         else:
-                            log.error(f"[RETRY] Max retries exceeded for 429 error")
+                            log.error(f"[重试] 429 错误已超出最大重试次数")
                             return _create_error_response(
-                                "429 rate limit exceeded, max retries reached", 429
+                                "超出 429 速率限制，已达到最大重试次数", 429
                             )
                     else:
                         # 非429错误或成功响应，正常处理
@@ -389,16 +383,16 @@ async def send_gemini_request(
         except Exception as e:
             if attempt < max_retries:
                 log.warning(
-                    f"[RETRY] Request failed with exception, retrying ({attempt + 1}/{max_retries}): {str(e)}"
+                    f"[重试] 请求失败并出现异常，正在重试 ({attempt + 1}/{max_retries}): {str(e)}"
                 )
                 await asyncio.sleep(retry_interval)
                 continue
             else:
-                log.error(f"Request to Google API failed: {str(e)}")
-                return _create_error_response(f"Request failed: {str(e)}")
+                log.error(f"向 Google API 的请求失败: {str(e)}")
+                return _create_error_response(f"请求失败: {str(e)}")
 
     # 如果循环结束仍未成功，返回错误
-    return _create_error_response("Max retries exceeded", 429)
+    return _create_error_response("超出最大重试次数", 429)
 
 
 def _handle_streaming_response_managed(
@@ -409,7 +403,7 @@ def _handle_streaming_response_managed(
     model_name: str = "",
     current_file: Optional[str] = None,
 ) -> StreamingResponse:
-    """Handle streaming response with complete resource lifecycle management."""
+    """处理流式响应并进行完整的资源生命周期管理。"""
 
     # 检查HTTP错误
     if resp.status_code != 200:
@@ -431,28 +425,24 @@ def _handle_streaming_response_managed(
                 if isinstance(content_bytes, bytes):
                     response_content = content_bytes.decode("utf-8", errors="ignore")
             except Exception as e:
-                log.debug(
-                    f"[STREAMING] Failed to read response content for error analysis: {e}"
-                )
+                log.debug(f"[流式] 读取用于错误分析的响应内容失败: {e}")
                 response_content = ""
 
             # 显示详细错误信息
             if resp.status_code == 429:
                 if response_content:
                     log.error(
-                        f"Google API returned status 429 (STREAMING). Response details: {response_content[:500]}"
+                        f"Google API 返回状态 429 (流式)。响应详情: {response_content[:500]}"
                     )
                 else:
-                    log.error(f"Google API returned status 429 (STREAMING)")
+                    log.error(f"Google API 返回状态 429 (流式)")
             else:
                 if response_content:
                     log.error(
-                        f"Google API returned status {resp.status_code} (STREAMING). Response details: {response_content[:500]}"
+                        f"Google API 返回状态 {resp.status_code} (流式)。响应详情: {response_content[:500]}"
                     )
                 else:
-                    log.error(
-                        f"Google API returned status {resp.status_code} (STREAMING)"
-                    )
+                    log.error(f"Google API 返回状态 {resp.status_code} (流式)")
 
             # 记录API调用错误
             if credential_manager and current_file:
@@ -466,7 +456,7 @@ def _handle_streaming_response_managed(
 
             error_response = {
                 "error": {
-                    "message": f"API error: {resp.status_code}",
+                    "message": f"API 错误: {resp.status_code}",
                     "type": "api_error",
                     "code": resp.status_code,
                 }
@@ -498,7 +488,7 @@ def _handle_streaming_response_managed(
                         try:
                             await record_successful_call(current_file, model_name)
                         except Exception as e:
-                            log.debug(f"Failed to record usage statistics: {e}")
+                            log.debug(f"记录使用情况统计失败: {e}")
                     success_recorded = True
 
                 payload = chunk[len("data: ") :]
@@ -520,7 +510,7 @@ def _handle_streaming_response_managed(
                     continue
 
         except Exception as e:
-            log.error(f"Streaming error: {e}")
+            log.error(f"流式处理错误: {e}")
             err = {"error": {"message": str(e), "type": "api_error", "code": 500}}
             yield f"data: {json.dumps(err)}\n\n".encode()
         finally:
@@ -528,11 +518,11 @@ def _handle_streaming_response_managed(
             try:
                 await stream_ctx.__aexit__(None, None, None)
             except Exception as e:
-                log.debug(f"Error closing stream context: {e}")
+                log.debug(f"关闭流上下文时出错: {e}")
             try:
                 await client.aclose()
             except Exception as e:
-                log.debug(f"Error closing client: {e}")
+                log.debug(f"关闭客户端时出错: {e}")
 
     return StreamingResponse(managed_stream_generator(), media_type="text/event-stream")
 
@@ -543,7 +533,7 @@ async def _handle_non_streaming_response(
     model_name: str = "",
     current_file: Optional[str] = None,
 ) -> Response:
-    """Handle non-streaming response from Google API."""
+    """处理来自 Google API 的非流式响应。"""
     if resp.status_code == 200:
         try:
             # 记录成功响应
@@ -553,7 +543,7 @@ async def _handle_non_streaming_response(
                 try:
                     await record_successful_call(current_file, model_name)
                 except Exception as e:
-                    log.debug(f"Failed to record usage statistics: {e}")
+                    log.debug(f"记录使用情况统计失败: {e}")
 
             raw = await resp.aread()
             google_api_response = raw.decode("utf-8")
@@ -573,7 +563,7 @@ async def _handle_non_streaming_response(
                 media_type="application/json; charset=utf-8",
             )
         except Exception as e:
-            log.error(f"Failed to parse Google API response: {str(e)}")
+            log.error(f"解析 Google API 响应失败: {str(e)}")
             return Response(
                 content=resp.content,
                 status_code=resp.status_code,
@@ -592,28 +582,24 @@ async def _handle_non_streaming_response(
                 if isinstance(content_bytes, bytes):
                     response_content = content_bytes.decode("utf-8", errors="ignore")
         except Exception as e:
-            log.debug(
-                f"[NON-STREAMING] Failed to read response content for error analysis: {e}"
-            )
+            log.debug(f"[非流式] 读取用于错误分析的响应内容失败: {e}")
             response_content = ""
 
         # 显示详细错误信息
         if resp.status_code == 429:
             if response_content:
                 log.error(
-                    f"Google API returned status 429 (NON-STREAMING). Response details: {response_content[:500]}"
+                    f"Google API 返回状态 429 (非流式)。响应详情: {response_content[:500]}"
                 )
             else:
-                log.error(f"Google API returned status 429 (NON-STREAMING)")
+                log.error(f"Google API 返回状态 429 (非流式)")
         else:
             if response_content:
                 log.error(
-                    f"Google API returned status {resp.status_code} (NON-STREAMING). Response details: {response_content[:500]}"
+                    f"Google API 返回状态 {resp.status_code} (非流式)。响应详情: {response_content[:500]}"
                 )
             else:
-                log.error(
-                    f"Google API returned status {resp.status_code} (NON-STREAMING)"
-                )
+                log.error(f"Google API 返回状态 {resp.status_code} (非流式)")
 
         # 记录API调用错误
         if credential_manager and current_file:
@@ -623,16 +609,14 @@ async def _handle_non_streaming_response(
 
         await _handle_api_error(credential_manager, resp.status_code, response_content)
 
-        return _create_error_response(
-            f"API error: {resp.status_code}", resp.status_code
-        )
+        return _create_error_response(f"API 错误: {resp.status_code}", resp.status_code)
 
 
 def build_gemini_payload_from_native(
     native_request: dict, model_from_path: str
 ) -> dict:
     """
-    Build a Gemini API payload from a native Gemini request with full pass-through support.
+    从原生 Gemini 请求构建 Gemini API 负载，支持完全透传。
     """
     # 创建请求副本以避免修改原始数据
     request_data = native_request.copy()
