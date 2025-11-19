@@ -190,12 +190,12 @@ async def get_retry_429_interval() -> float:
 BASE_MODELS = [
     "gemini-2.5-pro-preview-06-05",
     "gemini-2.5-pro",
-    "gemini-2.5-pro-preview-05-06",
     "gemini-2.5-flash",
     "gemini-flash-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-flash-lite-latest",
     "gemini-2.5-flash-image",
-    "gemini-2.5-flash-image-preview",
-    "gemini-2.5-flash-preview-09-2025",
+    "gemini-3-pro-preview",
 ]
 
 PUBLIC_API_MODELS = ["gemini-2.5-flash-image", "gemini-2.5-flash-image-preview"]
