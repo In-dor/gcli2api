@@ -191,10 +191,7 @@ BASE_MODELS = [
     "gemini-2.5-pro-preview-06-05",
     "gemini-2.5-pro",
     "gemini-2.5-flash",
-    "gemini-flash-latest",
     "gemini-2.5-flash-lite",
-    "gemini-flash-lite-latest",
-    "gemini-2.5-flash-image",
     "gemini-3-pro-preview",
 ]
 
