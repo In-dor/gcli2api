@@ -32,12 +32,18 @@ from config import (
     get_gemini_retry_if_no_image_enabled,
     get_gemini_retry_if_no_image_max_attempts,
 )
+from src.utils import estimate_tokens_from_gemini_contents
 from log import log
 from .anti_truncation import apply_anti_truncation_to_stream
 from .credential_manager import CredentialManager
 from .google_chat_api import send_gemini_request, build_gemini_payload_from_native
 from .openai_transfer import _extract_content_and_reasoning
 from .task_manager import create_managed_task
+from .stream_utils import (
+    monitor_task_with_heartbeat,
+    decode_response_body,
+    create_gemini_error_chunk,
+)
 
 # 创建路由器
 router = APIRouter()
@@ -507,24 +513,13 @@ async def count_tokens(
 
     # 如果有contents字段
     if "contents" in request_data:
-        for content in request_data["contents"]:
-            if "parts" in content:
-                for part in content["parts"]:
-                    if "text" in part:
-                        # 简单估算：大约4字符=1token
-                        text_length = len(part["text"])
-                        total_tokens += max(1, text_length // 4)
+        total_tokens = estimate_tokens_from_gemini_contents(request_data["contents"])
 
     # 如果有generateContentRequest字段
     elif "generateContentRequest" in request_data:
         gen_request = request_data["generateContentRequest"]
         if "contents" in gen_request:
-            for content in gen_request["contents"]:
-                if "parts" in content:
-                    for part in content["parts"]:
-                        if "text" in part:
-                            text_length = len(part["text"])
-                            total_tokens += max(1, text_length // 4)
+            total_tokens = estimate_tokens_from_gemini_contents(gen_request["contents"])
 
     # 返回Gemini格式的响应
     return JSONResponse(content={"totalTokens": total_tokens})
@@ -576,14 +571,7 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
             credential_result = await cred_mgr.get_valid_credential()
             if not credential_result:
                 log.error("当前无可用凭证，请去控制台获取")
-                error_chunk = {
-                    "error": {
-                        "message": "当前无凭证，请去控制台获取",
-                        "type": "authentication_error",
-                        "code": 500,
-                    }
-                }
-                yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+                yield f"data: {json.dumps(create_gemini_error_chunk('当前无凭证，请去控制台获取'))}\n\n".encode()
                 yield "data: [DONE]\n\n".encode()
                 return
 
@@ -595,19 +583,12 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
                 api_payload = build_gemini_payload_from_native(request_data, model)
             except Exception as e:
                 log.error(f"Gemini payload build failed: {e}")
-                error_chunk = {
-                    "error": {
-                        "message": f"Request processing failed: {str(e)}",
-                        "type": "api_error",
-                        "code": 500,
-                    }
-                }
-                yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+                yield f"data: {json.dumps(create_gemini_error_chunk(f'Request processing failed: {str(e)}'))}\n\n".encode()
                 yield "data: [DONE]\n\n".encode()
                 return
 
             # 发送心跳
-            heartbeat = {
+            heartbeat_data = {
                 "candidates": [
                     {
                         "content": {"parts": [{"text": ""}], "role": "model"},
@@ -616,7 +597,7 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
                     }
                 ]
             }
-            yield f"data: {json.dumps(heartbeat)}\n\n".encode()
+            yield f"data: {json.dumps(heartbeat_data)}\n\n".encode()
 
             # 异步发送实际请求
             async def get_response():
@@ -628,52 +609,26 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
             )
 
             try:
-                # 每3秒发送一次心跳，直到收到响应
-                while not response_task.done():
-                    await asyncio.sleep(3.0)
-                    if not response_task.done():
-                        yield f"data: {json.dumps(heartbeat)}\n\n".encode()
+                # 监控任务并发送心跳
+                async for heartbeat in monitor_task_with_heartbeat(
+                    response_task, heartbeat_data
+                ):
+                    yield heartbeat
 
                 # 获取响应结果
                 response = await response_task
 
-            except asyncio.CancelledError:
-                # 取消任务并传播取消
-                response_task.cancel()
-                try:
-                    await response_task
-                except asyncio.CancelledError:
-                    pass
-                raise
             except Exception as e:
-                # 取消任务并处理其他异常
-                response_task.cancel()
-                try:
-                    await response_task
-                except asyncio.CancelledError:
-                    pass
                 log.error(f"Fake streaming request failed: {e}")
+                # 确保任务已取消
+                if not response_task.done():
+                    response_task.cancel()
                 raise
-
-            # 发送实际请求
-            # response 已在上面获取
 
             # 处理结果
             try:
-                if hasattr(response, "body"):
-                    response_data = json.loads(
-                        response.body.decode()
-                        if isinstance(response.body, bytes)
-                        else response.body
-                    )
-                elif hasattr(response, "content"):
-                    response_data = json.loads(
-                        response.content.decode()
-                        if isinstance(response.content, bytes)
-                        else response.content
-                    )
-                else:
-                    response_data = json.loads(str(response))
+                body_str = decode_response_body(response)
+                response_data = json.loads(body_str)
 
                 log.debug(f"Gemini fake stream response data: {response_data}")
 
@@ -699,8 +654,6 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
 
                         if content:
                             # 构建包含分离内容的响应
-                            # content is a list of openai_parts, e.g., [{'type': 'text', 'text': '...'}].
-                            # We need to extract the text and form a valid Gemini part.
                             final_text = ""
                             # 如果 content 是字符串（占位符），直接使用
                             if isinstance(content, str):
@@ -791,14 +744,7 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
 
         except Exception as e:
             log.error(f"Fake streaming error: {e}")
-            error_chunk = {
-                "error": {
-                    "message": f"Fake streaming error: {str(e)}",
-                    "type": "api_error",
-                    "code": 500,
-                }
-            }
-            yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+            yield f"data: {json.dumps(create_gemini_error_chunk(f'Fake streaming error: {str(e)}'))}\n\n".encode()
             yield "data: [DONE]\n\n".encode()
 
     return StreamingResponse(gemini_stream_generator(), media_type="text/event-stream")

@@ -33,7 +33,14 @@ from .openai_transfer import (
     openai_request_to_gemini_payload,
     gemini_response_to_openai,
     gemini_stream_chunk_to_openai,
+    _extract_content_and_reasoning,
     _convert_usage_metadata,
+)
+from .stream_utils import (
+    monitor_task_with_heartbeat,
+    decode_response_body,
+    create_openai_chunk,
+    create_openai_error_chunk,
 )
 
 # 创建路由器
@@ -312,7 +319,7 @@ async def fake_stream_response(
     async def stream_generator():
         try:
             # 发送心跳
-            heartbeat = {
+            heartbeat_data = {
                 "choices": [
                     {
                         "index": 0,
@@ -321,7 +328,7 @@ async def fake_stream_response(
                     }
                 ]
             }
-            yield f"data: {json.dumps(heartbeat)}\n\n".encode()
+            yield f"data: {json.dumps(heartbeat_data)}\n\n".encode()
 
             # 异步发送实际请求
             async def get_response():
@@ -333,51 +340,24 @@ async def fake_stream_response(
             )
 
             try:
-                # 每3秒发送一次心跳，直到收到响应
-                while not response_task.done():
-                    await asyncio.sleep(3.0)
-                    if not response_task.done():
-                        yield f"data: {json.dumps(heartbeat)}\n\n".encode()
+                # 监控任务并发送心跳
+                async for heartbeat in monitor_task_with_heartbeat(
+                    response_task, heartbeat_data
+                ):
+                    yield heartbeat
 
                 # 获取响应结果
                 response = await response_task
 
-            except asyncio.CancelledError:
-                # 取消任务并传播取消
-                response_task.cancel()
-                try:
-                    await response_task
-                except asyncio.CancelledError:
-                    pass
-                raise
             except Exception as e:
-                # 取消任务并处理其他异常
-                response_task.cancel()
-                try:
-                    await response_task
-                except asyncio.CancelledError:
-                    pass
                 log.error(f"Fake streaming request failed: {e}")
+                # 确保任务已取消
+                if not response_task.done():
+                    response_task.cancel()
                 raise
-
-            # 发送实际请求
-            # response 已在上面获取
 
             # 处理结果
-            if hasattr(response, "body"):
-                body_str = (
-                    response.body.decode()
-                    if isinstance(response.body, bytes)
-                    else str(response.body)
-                )
-            elif hasattr(response, "content"):
-                body_str = (
-                    response.content.decode()
-                    if isinstance(response.content, bytes)
-                    else str(response.content)
-                )
-            else:
-                body_str = str(response)
+            body_str = decode_response_body(response)
 
             try:
                 response_data = json.loads(body_str)
@@ -387,8 +367,6 @@ async def fake_stream_response(
                 reasoning_content = ""
                 if "candidates" in response_data and response_data["candidates"]:
                     # Gemini格式响应 - 使用思维链分离
-                    from .openai_transfer import _extract_content_and_reasoning
-
                     candidate = response_data["candidates"][0]
                     if "content" in candidate and "parts" in candidate["content"]:
                         parts = candidate["content"]["parts"]
@@ -424,84 +402,31 @@ async def fake_stream_response(
                     if reasoning_content:
                         delta["reasoning_content"] = reasoning_content
 
+                    # 创建 OpenAi chunk
+                    content_chunk = create_openai_chunk(
+                        delta=delta, finish_reason="stop"
+                    )
+
                     # 转换usageMetadata为OpenAI格式
                     usage = _convert_usage_metadata(response_data.get("usageMetadata"))
-
-                    # 构建完整的OpenAI格式的流式响应块
-                    content_chunk = {
-                        "id": str(uuid.uuid4()),
-                        "object": "chat.completion.chunk",
-                        "created": int(time.time()),
-                        "model": "gcli2api-streaming",
-                        "choices": [
-                            {"index": 0, "delta": delta, "finish_reason": "stop"}
-                        ],
-                    }
 
                     # 只有在有usage数据时才添加usage字段（确保在最后一个chunk中）
                     if usage:
                         content_chunk["usage"] = usage
 
-                    content_chunk["system_fingerprint"] = "gcli2api-fake-stream"
-
                     yield f"data: {json.dumps(content_chunk)}\n\n".encode()
                 else:
                     log.warning(f"No content found in response: {response_data}")
                     # 如果完全没有内容，提供默认回复
-                    error_chunk = {
-                        "id": str(uuid.uuid4()),
-                        "object": "chat.completion.chunk",
-                        "created": int(time.time()),
-                        "model": "gcli2api-streaming",
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {
-                                    "role": "assistant",
-                                    "content": "[响应为空，请重新尝试]",
-                                },
-                                "finish_reason": "stop",
-                            }
-                        ],
-                        "system_fingerprint": "gcli2api-fake-stream",
-                    }
-                    yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+                    yield f"data: {json.dumps(create_openai_error_chunk('[响应为空，请重新尝试]'))}\n\n".encode()
             except json.JSONDecodeError:
-                error_chunk = {
-                    "id": str(uuid.uuid4()),
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": "gcli2api-streaming",
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {"role": "assistant", "content": body_str},
-                            "finish_reason": "stop",
-                        }
-                    ],
-                    "system_fingerprint": "gcli2api-fake-stream",
-                }
-                yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+                yield f"data: {json.dumps(create_openai_error_chunk(body_str))}\n\n".encode()
 
             yield "data: [DONE]\n\n".encode()
 
         except Exception as e:
             log.error(f"Fake streaming error: {e}")
-            error_chunk = {
-                "id": str(uuid.uuid4()),
-                "object": "chat.completion.chunk",
-                "created": int(time.time()),
-                "model": "gcli2api-streaming",
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {"role": "assistant", "content": f"Error: {str(e)}"},
-                        "finish_reason": "stop",
-                    }
-                ],
-                "system_fingerprint": "gcli2api-fake-stream",
-            }
-            yield f"data: {json.dumps(error_chunk)}\n\n".encode()
+            yield f"data: {json.dumps(create_openai_error_chunk(f'Error: {str(e)}'))}\n\n".encode()
             yield "data: [DONE]\n\n".encode()
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")

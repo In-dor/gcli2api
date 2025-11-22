@@ -17,9 +17,12 @@ from log import setup_logging
 
 setup_logging()
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Import all routers
 from src.openai_router import router as openai_router
@@ -105,6 +108,38 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# 全局异常处理
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """处理 HTTP 异常"""
+    log.error(f"HTTP error occurred: {exc.detail} (Status: {exc.status_code})")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """处理请求验证异常"""
+    log.error(f"Validation error: {exc.errors()}")
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors(), "body": str(exc.body)},
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """全局未捕获异常处理"""
+    log.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Internal Server Error", "error": str(exc)},
+    )
+
+
 # CORS中间件
 app.add_middleware(
     CORSMiddleware,
@@ -125,6 +160,8 @@ app.include_router(gemini_router, prefix="", tags=["Gemini Native API"])
 app.include_router(web_router, prefix="", tags=["Web Interface"])
 
 # 静态文件路由 - 服务docs目录下的文件（如捐赠图片）
+if not os.path.exists("docs"):
+    os.makedirs("docs")
 app.mount("/docs", StaticFiles(directory="docs"), name="docs")
 
 
