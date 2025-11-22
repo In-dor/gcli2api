@@ -5,174 +5,248 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google OAuth 认证</title>
     <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            --secondary-gradient: linear-gradient(135deg, #34a853 0%, #fbbc04 100%);
+            --download-gradient: linear-gradient(135deg, #ea4335 0%, #ff6900 100%);
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #e1e4e8;
+            --radius-lg: 16px;
+            --radius-md: 8px;
+            --shadow-lg: 0 20px 40px rgba(0,0,0,0.1);
+            --shadow-hover: 0 10px 20px rgba(66, 133, 244, 0.2);
+            --transition: all 0.3s ease;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            max-width: 700px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            color: var(--text-primary);
         }
+
         .container {
-            background: white;
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            background: var(--card-bg);
+            padding: 50px;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
             width: 100%;
-            max-width: 600px;
+            max-width: 650px;
+            position: relative;
+            overflow: hidden;
         }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: var(--primary-gradient);
+        }
+
         h1 {
-            color: #333;
+            color: var(--text-primary);
             text-align: center;
             margin-bottom: 30px;
-            font-size: 28px;
-            font-weight: 300;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
+
         .logo {
             text-align: center;
             margin-bottom: 30px;
+            animation: float 3s ease-in-out infinite;
         }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
         .logo svg {
-            width: 60px;
-            height: 60px;
+            width: 70px;
+            height: 70px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
         }
+
         .form-group {
             margin-bottom: 25px;
         }
+
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             font-weight: 600;
-            color: #555;
-            font-size: 14px;
+            color: var(--text-primary);
+            font-size: 0.95rem;
         }
+
         input[type="text"], input[type="password"] {
             width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            font-size: 16px;
+            padding: 14px 18px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
             box-sizing: border-box;
-            transition: all 0.3s ease;
+            transition: var(--transition);
+            background-color: #fcfcfc;
         }
+
         input[type="text"]:focus, input[type="password"]:focus {
             border-color: #4285f4;
             outline: none;
-            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+            box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.15);
+            background-color: #fff;
         }
+
         .btn {
-            background: linear-gradient(135deg, #4285f4, #34a853);
+            background: var(--primary-gradient);
             color: white;
-            padding: 14px 30px;
+            padding: 15px 30px;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: var(--radius-md);
+            font-size: 1.05rem;
             cursor: pointer;
             width: 100%;
             margin-bottom: 15px;
             font-weight: 600;
-            transition: all 0.3s ease;
+            transition: var(--transition);
+            letter-spacing: 0.5px;
         }
+
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(66, 133, 244, 0.3);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
         }
+
         .btn:active {
-            transform: translateY(0);
+            transform: translateY(-1px);
         }
+
         .btn:disabled {
-            background: #ccc;
+            background: #e0e0e0;
+            color: #a0a0a0;
             cursor: not-allowed;
             transform: none;
             box-shadow: none;
         }
+
         .btn.secondary {
-            background: linear-gradient(135deg, #34a853, #fbbc04);
+            background: var(--secondary-gradient);
         }
+
         .btn.download {
-            background: linear-gradient(135deg, #ea4335, #ff6900);
+            background: var(--download-gradient);
         }
+
         .auth-url {
-            background: #f8f9fa;
-            border: 2px solid #e1e4e8;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 25px 0;
+            background: #f0f7ff;
+            border: 1px solid #cce5ff;
+            border-radius: var(--radius-md);
+            padding: 25px;
+            margin: 30px 0;
             word-break: break-all;
-            border-left: 4px solid #4285f4;
+            text-align: center;
+            position: relative;
         }
+
         .auth-url a {
             color: #4285f4;
             text-decoration: none;
             font-weight: 600;
+            font-size: 1.1rem;
         }
+
         .auth-url a:hover {
             text-decoration: underline;
         }
+
         .credentials {
-            background: #f0f8ff;
-            border: 2px solid #b0d4ff;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 25px 0;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 12px;
+            background: #2d2d2d;
+            color: #f8f8f2;
+            border: 1px solid #444;
+            border-radius: var(--radius-md);
+            padding: 25px;
+            margin: 30px 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
             white-space: pre-wrap;
             word-break: break-all;
-            max-height: 400px;
+            max-height: 450px;
             overflow-y: auto;
-            border-left: 4px solid #34a853;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
         }
         .status {
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin: 20px 0;
+            padding: 20px;
+            border-radius: var(--radius-md);
+            margin: 25px 0;
             font-weight: 500;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            line-height: 1.6;
         }
+
         .status.success {
-            background: #d4edda;
-            border: 2px solid #c3e6cb;
-            color: #155724;
-            border-left: 4px solid #28a745;
+            background: #e8f8f5;
+            border-left: 5px solid #2ecc71;
+            color: #0e6251;
         }
+
         .status.error {
-            background: #f8d7da;
-            border: 2px solid #f5c6cb;
-            color: #721c24;
-            border-left: 4px solid #dc3545;
+            background: #fdedec;
+            border-left: 5px solid #e74c3c;
+            color: #922b21;
         }
+
         .status.info {
-            background: #d1ecf1;
-            border: 2px solid #bee5eb;
-            color: #0c5460;
-            border-left: 4px solid #17a2b8;
+            background: #eaf2f8;
+            border-left: 5px solid #3498db;
+            color: #21618c;
         }
+
         .status.warning {
-            background: #fff3cd;
-            border: 2px solid #ffeaa7;
-            color: #856404;
-            border-left: 4px solid #ffc107;
+            background: #fef9e7;
+            border-left: 5px solid #f1c40f;
+            color: #9a7d0a;
         }
+
         .hidden {
             display: none;
         }
+
         .loading {
             text-align: center;
-            color: #666;
+            color: var(--text-secondary);
+            font-style: italic;
         }
+
         .login-form {
             text-align: center;
-            padding: 20px 0;
+            padding: 30px 0;
         }
+
         .steps {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 25px 0;
-            border-left: 4px solid #ffc107;
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 25px;
+            margin: 30px 0;
+            border-left: 5px solid #ffc107;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
         }
         .steps h4 {
             margin-top: 0;
@@ -226,11 +300,11 @@
         }
         .footer {
             text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #e1e5e9;
-            color: #666;
-            font-size: 14px;
+            margin-top: 40px;
+            padding-top: 25px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
         }
         @media (max-width: 768px) {
             body {
