@@ -24,7 +24,7 @@ DEFAULT_SAFETY_SETTINGS = [
 # Helper function to get base model name from any variant
 def get_base_model_name(model_name):
     """Convert variant model name to base model name."""
-    # Remove all possible suffixes in order
+    # 移除所有可能的后缀
     suffixes = ["-maxthinking", "-nothinking", "-search"]
     for suffix in suffixes:
         if model_name.endswith(suffix):
@@ -32,49 +32,83 @@ def get_base_model_name(model_name):
     return model_name
 
 
+# Helper function to check if model is Gemini 3
+def is_gemini_3_model(model_name):
+    """Check if model is a Gemini 3 model."""
+    # 检查是否为 Gemini 3 模型
+    return "gemini-3" in model_name
+
+
 # Helper function to check if model uses search grounding
 def is_search_model(model_name):
     """Check if model name indicates search grounding should be enabled."""
+    # 检查模型名称是否表示应启用搜索接地
     return "-search" in model_name
 
 
 # Helper function to check if model uses no thinking
 def is_nothinking_model(model_name):
     """Check if model name indicates thinking should be disabled."""
+    # 检查模型名称是否表示应禁用思考
     return "-nothinking" in model_name
 
 
 # Helper function to check if model uses max thinking
 def is_maxthinking_model(model_name):
     """Check if model name indicates maximum thinking budget should be used."""
+    # 检查模型名称是否表示应使用最大思考预算
     return "-maxthinking" in model_name
 
 
 # Helper function to get thinking budget for a model
 def get_thinking_budget(model_name):
     """Get the appropriate thinking budget for a model based on its name and variant."""
+    # 根据模型名称和变体获取适当的思考预算。
+
+    # Gemini 3 使用 thinkingLevel 而不是 thinkingBudget（通常情况）
+    # 我们在这里返回 None，在 payload 构建器中单独处理
+    if is_gemini_3_model(model_name):
+        return None
 
     if is_nothinking_model(model_name):
-        return 128  # Limited thinking for pro
+        # 对于 2.5 模型，0 表示禁用思考
+        return 0
     elif is_maxthinking_model(model_name):
         return 32768
     else:
-        # Default thinking budget for regular models
-        return None  # Default for all models
+        # 默认行为
+
+        # 对于 Flash Lite，默认是不思考。要启用动态思考，使用 -1。
+        if "flash-lite" in model_name:
+            return -1
+
+        # 对于其他模型（Pro, Flash），默认为动态思考（-1）。
+        # 我们返回 -1 以显式启用它并允许 includeThoughts=True。
+        return -1
 
 
 # Helper function to check if thinking should be included in output
 def should_include_thoughts(model_name):
     """Check if thoughts should be included in the response."""
+    # 检查是否应在响应中包含思考过程。
+
     # 图片模型不支持 thinking
     if is_image_model(model_name):
         return False
+
+    # Gemini 3 始终包含思考（如果启用），或者我们无法轻易关闭它
+    if is_gemini_3_model(model_name):
+        return True
+
     if is_nothinking_model(model_name):
-        # For nothinking mode, still include thoughts if it's a pro model
-        base_model = get_base_model_name(model_name)
-        return "pro" in base_model
+        return False
+
+    # 对于 2.5 Flash Lite，默认不开启思考
+    if "flash-lite" in model_name:
+        return False
+
     else:
-        # For all other modes, include thoughts
+        # 对于所有其他模式，默认包含思考
         return True
 
 

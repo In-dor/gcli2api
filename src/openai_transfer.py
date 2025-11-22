@@ -267,19 +267,19 @@ async def openai_request_to_gemini_payload(
             # 如果是 <= 0 的整数，则禁用思维链
     else:
         # 用户未指定 thinking_budget，回退到基于模型名称的逻辑
+        final_thinking_budget = get_thinking_budget(openai_request.model)
         include_thoughts_flag = should_include_thoughts(openai_request.model)
-        if include_thoughts_flag:
-            final_thinking_budget = get_thinking_budget(openai_request.model)
 
     # 为thinking模型添加thinking配置
-    if include_thoughts_flag:
+    # 只有当有明确的 budget 时才添加配置 (0, -1, >0)
+    if final_thinking_budget is not None:
         if "generationConfig" not in request_data:
             request_data["generationConfig"] = {}
 
-        thinking_config: Dict[str, Union[bool, int]] = {"includeThoughts": True}
-
-        if final_thinking_budget is not None:
-            thinking_config["thinkingBudget"] = final_thinking_budget
+        thinking_config: Dict[str, Union[bool, int]] = {
+            "includeThoughts": include_thoughts_flag,
+            "thinkingBudget": final_thinking_budget,
+        }
 
         request_data["generationConfig"]["thinkingConfig"] = thinking_config
 

@@ -635,7 +635,7 @@ def build_gemini_payload_from_native(
     if "thinkingConfig" not in generation_config:
         budget = get_thinking_budget(model_from_path)
 
-        # 只有在有budget的情况下才考虑添加thinkingConfig
+        # 只有在有budget的情况下才考虑添加thinkingConfig (0, -1, >0)
         if budget is not None:
             include_thoughts = should_include_thoughts(model_from_path)
             thinking_config = {
