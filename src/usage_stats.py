@@ -164,10 +164,10 @@ class UsageStats:
                             "total_calls": stats_data.get("total_calls", 0),
                             "next_reset_time": stats_data.get("next_reset_time"),
                             "daily_limit_gemini_2_5_pro": stats_data.get(
-                                "daily_limit_gemini_2_5_pro", 100
+                                "daily_limit_gemini_2_5_pro", 200
                             ),
                             "daily_limit_gemini_3_pro": stats_data.get(
-                                "daily_limit_gemini_3_pro", 100
+                                "daily_limit_gemini_3_pro", 200
                             ),
                             "daily_limit_total": stats_data.get("daily_limit_total", 1000),
                         }
@@ -219,8 +219,8 @@ class UsageStats:
                         "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                         "total_calls": stats.get("total_calls", 0),
                         "next_reset_time": stats.get("next_reset_time"),
-                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 100),
-                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 100),
+                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 200),
+                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 200),
                         "daily_limit_total": stats.get("daily_limit_total", 1000),
                     }
 
@@ -375,8 +375,8 @@ class UsageStats:
                     "gemini_2_5_pro_calls": stats.get("gemini_2_5_pro_calls", 0),
                     "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                     "total_calls": stats.get("total_calls", 0),
-                    "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 100),
-                    "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 100),
+                    "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 200),
+                    "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 200),
                     "daily_limit_total": stats.get("daily_limit_total", 1000),
                     "next_reset_time": stats.get("next_reset_time"),
                 }
@@ -390,8 +390,8 @@ class UsageStats:
                         "gemini_2_5_pro_calls": stats.get("gemini_2_5_pro_calls", 0),
                         "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                         "total_calls": stats.get("total_calls", 0),
-                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 100),
-                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 100),
+                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 200),
+                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 200),
                         "daily_limit_total": stats.get("daily_limit_total", 1000),
                         "next_reset_time": stats.get("next_reset_time"),
                     }

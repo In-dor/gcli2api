@@ -1811,6 +1811,7 @@ async def get_aggregated_usage_statistics(token: str = Depends(verify_token)):
 class UsageLimitsUpdateRequest(BaseModel):
     filename: str
     gemini_2_5_pro_limit: Optional[int] = None
+    gemini_3_pro_limit: Optional[int] = None
     total_limit: Optional[int] = None
 
 
@@ -1830,13 +1831,15 @@ async def update_usage_limits(
     try:
         stats_instance = await get_usage_stats_instance()
 
-        await stats_instance.update_daily_limits(
-            filename=request.filename,
-            gemini_2_5_pro_limit=(
-                request.gemini_2_5_pro_limit if request.gemini_2_5_pro_limit is not None else -1
-            ),
-            total_limit=request.total_limit if request.total_limit is not None else -1,
-        )
+        kwargs = {}
+        if request.gemini_2_5_pro_limit is not None:
+            kwargs["gemini_2_5_pro_limit"] = request.gemini_2_5_pro_limit
+        if request.gemini_3_pro_limit is not None:
+            kwargs["gemini_3_pro_limit"] = request.gemini_3_pro_limit
+        if request.total_limit is not None:
+            kwargs["total_limit"] = request.total_limit
+
+        await stats_instance.update_daily_limits(filename=request.filename, **kwargs)
 
         return JSONResponse(
             content={

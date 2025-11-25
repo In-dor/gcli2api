@@ -946,6 +946,10 @@
             background-color: #ff6b35;
         }
 
+        .usage-progress-fill.gemini3 {
+            background-color: #9c27b0;
+        }
+
         .usage-progress-fill.total {
             background-color: #007bff;
         }
@@ -1457,6 +1461,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <span class="stat-number" id="geminiProCalls">0</span>
                         <span class="stat-label">Gemini 2.5 Pro</span>
                     </div>
+                    <div class="stat-item normal" style="border-left: 4px solid #9c27b0;">
+                        <span class="stat-number" id="gemini3ProCalls">0</span>
+                        <span class="stat-label">Gemini 3.0 Pro</span>
+                    </div>
                     <div class="stat-item disabled">
                         <span class="stat-number" id="totalFiles">0</span>
                         <span class="stat-label">活跃文件数</span>
@@ -1482,8 +1490,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <strong>统计范围：</strong>
                         <ul>
                             <li><strong>Gemini 2.5 Pro 调用次数：</strong>仅统计 gemini-2.5-pro 及其变体模型的成功调用</li>
+                            <li><strong>Gemini 3.0 Pro 调用次数：</strong>仅统计 gemini-3.0-pro 及其变体模型的成功调用</li>
                             <li><strong>所有模型调用次数：</strong>统计所有模型的成功调用总数</li>
-                            <li><strong>每日配额：</strong>默认每日配额 Gemini 2.5 Pro: 100次，所有模型: 1000次</li>
+                            <li><strong>每日配额：</strong>默认每日配额 Gemini 2.5 Pro: 200次，Gemini 3.0 Pro: 200次，所有模型: 1000次</li>
                             <li><strong>配额重置：</strong>每天 UTC 07:00 自动重置调用计数</li>
                         </ul>
 
@@ -1791,6 +1800,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     <label for="modalGeminiLimit">Gemini 2.5 Pro 每日限制:</label>
                     <input type="number" id="modalGeminiLimit" class="config-input" min="1" max="10000" />
                     <small class="config-note">每日Gemini 2.5 Pro模型调用次数限制</small>
+                </div>
+                <div class="form-group">
+                    <label for="modalGemini3Limit">Gemini 3.0 Pro 每日限制:</label>
+                    <input type="number" id="modalGemini3Limit" class="config-input" min="1" max="10000" />
+                    <small class="config-note">每日Gemini 3.0 Pro模型调用次数限制</small>
                 </div>
                 <div class="form-group">
                     <label for="modalTotalLimit">所有模型每日限制:</label>
@@ -3657,6 +3671,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     // 更新概览统计
                     document.getElementById('totalApiCalls').textContent = aggregatedData.data.total_all_model_calls || 0;
                     document.getElementById('geminiProCalls').textContent = aggregatedData.data.total_gemini_2_5_pro_calls || 0;
+                    document.getElementById('gemini3ProCalls').textContent = aggregatedData.data.total_gemini_3_pro_calls || 0;
                     document.getElementById('totalFiles').textContent = aggregatedData.data.total_files || 0;
 
                     // 渲染使用统计列表
@@ -3697,13 +3712,14 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             // 计算使用百分比
             const geminiPercent = Math.min((stats.gemini_2_5_pro_calls / stats.daily_limit_gemini_2_5_pro) * 100, 100);
+            const gemini3Percent = Math.min((stats.gemini_3_pro_calls / stats.daily_limit_gemini_3_pro) * 100, 100);
             const totalPercent = Math.min((stats.total_calls / stats.daily_limit_total) * 100, 100);
 
             // 确定进度条颜色
-            function getProgressClass(percent) {
+            function getProgressClass(percent, type = 'gemini') {
                 if (percent >= 90) return 'danger';
                 if (percent >= 70) return 'warning';
-                return 'gemini';
+                return type;
             }
 
             function getTotalProgressClass(percent) {
@@ -3734,7 +3750,17 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <span>${stats.gemini_2_5_pro_calls}/${stats.daily_limit_gemini_2_5_pro} (${geminiPercent.toFixed(1)}%)</span>
                     </div>
                     <div class="usage-progress-bar">
-                        <div class="usage-progress-fill ${getProgressClass(geminiPercent)}" style="width: ${geminiPercent}%"></div>
+                        <div class="usage-progress-fill ${getProgressClass(geminiPercent, 'gemini')}" style="width: ${geminiPercent}%"></div>
+                    </div>
+                </div>
+
+                <div class="usage-progress">
+                    <div class="usage-progress-label">
+                        <span>Gemini 3.0 Pro</span>
+                        <span>${stats.gemini_3_pro_calls}/${stats.daily_limit_gemini_3_pro} (${gemini3Percent.toFixed(1)}%)</span>
+                    </div>
+                    <div class="usage-progress-bar">
+                        <div class="usage-progress-fill ${getProgressClass(gemini3Percent, 'gemini3')}" style="width: ${gemini3Percent}%"></div>
                     </div>
                 </div>
                 
@@ -3775,6 +3801,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             currentEditingFile = filename;
             document.getElementById('modalFilename').value = filename;
             document.getElementById('modalGeminiLimit').value = stats.daily_limit_gemini_2_5_pro;
+            document.getElementById('modalGemini3Limit').value = stats.daily_limit_gemini_3_pro;
             document.getElementById('modalTotalLimit').value = stats.daily_limit_total;
             document.getElementById('limitsModal').style.display = 'block';
         }
@@ -3788,10 +3815,16 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 保存限制设置
         async function saveLimits() {
             const geminiLimit = parseInt(document.getElementById('modalGeminiLimit').value);
+            const gemini3Limit = parseInt(document.getElementById('modalGemini3Limit').value);
             const totalLimit = parseInt(document.getElementById('modalTotalLimit').value);
 
             if (isNaN(geminiLimit) || geminiLimit < 1) {
                 showStatus('Gemini 2.5 Pro 限制必须是大于0的数字', 'error');
+                return;
+            }
+
+            if (isNaN(gemini3Limit) || gemini3Limit < 1) {
+                showStatus('Gemini 3.0 Pro 限制必须是大于0的数字', 'error');
                 return;
             }
 
@@ -3807,6 +3840,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     body: JSON.stringify({
                         filename: currentEditingFile,
                         gemini_2_5_pro_limit: geminiLimit,
+                        gemini_3_pro_limit: gemini3Limit,
                         total_limit: totalLimit
                     })
                 });
