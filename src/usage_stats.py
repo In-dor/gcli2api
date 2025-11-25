@@ -109,6 +109,35 @@ class UsageStats:
 
             return clean_model == "gemini-2.5-pro"
 
+    def _is_gemini_3_pro(self, model_name: str) -> bool:
+        """
+        检查模型是否为 gemini-3-pro 的变体。
+        """
+        if not model_name:
+            return False
+
+        try:
+            from config import get_base_model_name, get_base_model_from_feature_model
+
+            base_with_suffix = get_base_model_from_feature_model(model_name)
+            pure_base_model = get_base_model_name(base_with_suffix)
+
+            return "gemini-3-pro" in pure_base_model
+
+        except ImportError:
+            clean_model = model_name
+            for prefix in ["流式抗截断/", "假流式/"]:
+                if clean_model.startswith(prefix):
+                    clean_model = clean_model[len(prefix) :]
+                    break
+
+            for suffix in ["-maxthinking", "-nothinking", "-search"]:
+                if clean_model.endswith(suffix):
+                    clean_model = clean_model[: -len(suffix)]
+                    break
+
+            return "gemini-3-pro" in clean_model
+
     async def _load_stats(self):
         """从统一存储加载统计信息"""
         try:
@@ -130,22 +159,23 @@ class UsageStats:
 
                         # 提取使用统计字段
                         usage_data = {
-                            "gemini_2_5_pro_calls": stats_data.get(
-                                "gemini_2_5_pro_calls", 0
-                            ),
+                            "gemini_2_5_pro_calls": stats_data.get("gemini_2_5_pro_calls", 0),
+                            "gemini_3_pro_calls": stats_data.get("gemini_3_pro_calls", 0),
                             "total_calls": stats_data.get("total_calls", 0),
                             "next_reset_time": stats_data.get("next_reset_time"),
                             "daily_limit_gemini_2_5_pro": stats_data.get(
                                 "daily_limit_gemini_2_5_pro", 100
                             ),
-                            "daily_limit_total": stats_data.get(
-                                "daily_limit_total", 1000
+                            "daily_limit_gemini_3_pro": stats_data.get(
+                                "daily_limit_gemini_3_pro", 100
                             ),
+                            "daily_limit_total": stats_data.get("daily_limit_total", 1000),
                         }
 
                         # 只加载有实际使用数据的统计，或者有reset时间的
                         if (
                             usage_data.get("gemini_2_5_pro_calls", 0) > 0
+                            or usage_data.get("gemini_3_pro_calls", 0) > 0
                             or usage_data.get("total_calls", 0) > 0
                             or usage_data.get("next_reset_time")
                         ):
@@ -174,9 +204,7 @@ class UsageStats:
         current_time = time.time()
 
         # 使用脏标记和时间间隔控制，减少不必要的写入
-        if not self._cache_dirty or (
-            current_time - self._last_save_time < self._save_interval
-        ):
+        if not self._cache_dirty or (current_time - self._last_save_time < self._save_interval):
             return
 
         try:
@@ -188,17 +216,15 @@ class UsageStats:
                 try:
                     stats_data = {
                         "gemini_2_5_pro_calls": stats.get("gemini_2_5_pro_calls", 0),
+                        "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                         "total_calls": stats.get("total_calls", 0),
                         "next_reset_time": stats.get("next_reset_time"),
-                        "daily_limit_gemini_2_5_pro": stats.get(
-                            "daily_limit_gemini_2_5_pro", 100
-                        ),
+                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 100),
+                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 100),
                         "daily_limit_total": stats.get("daily_limit_total", 1000),
                     }
 
-                    success = await self._storage_adapter.update_usage_stats(
-                        filename, stats_data
-                    )
+                    success = await self._storage_adapter.update_usage_stats(filename, stats_data)
                     if success:
                         saved_count += 1
                 except Exception as e:
@@ -232,9 +258,11 @@ class UsageStats:
             next_reset = _get_next_utc_7am()
             self._stats_cache[normalized_filename] = {
                 "gemini_2_5_pro_calls": 0,
+                "gemini_3_pro_calls": 0,
                 "total_calls": 0,
                 "next_reset_time": next_reset.isoformat(),
                 "daily_limit_gemini_2_5_pro": 100,
+                "daily_limit_gemini_3_pro": 100,
                 "daily_limit_total": 1000,
             }
             self._cache_dirty = True  # 标记缓存已修改
@@ -259,6 +287,7 @@ class UsageStats:
             # 简单比较：如果当前时间 >= 下一次重置时间，则重置
             if now >= next_reset:
                 old_gemini_calls = stats.get("gemini_2_5_pro_calls", 0)
+                old_gemini_3_calls = stats.get("gemini_3_pro_calls", 0)
                 old_total_calls = stats.get("total_calls", 0)
 
                 # 重置计数器并设置新的下一次重置时间
@@ -266,6 +295,7 @@ class UsageStats:
                 stats.update(
                     {
                         "gemini_2_5_pro_calls": 0,
+                        "gemini_3_pro_calls": 0,
                         "total_calls": 0,
                         "next_reset_time": new_next_reset.isoformat(),
                     }
@@ -273,7 +303,7 @@ class UsageStats:
 
                 self._cache_dirty = True  # 标记缓存已修改
                 log.info(
-                    f"已执行每日配额重置。先前统计 - Gemini 2.5 Pro: {old_gemini_calls}, 总计: {old_total_calls}"
+                    f"已执行每日配额重置。先前统计 - 2.5 Pro: {old_gemini_calls}, 3.0 Pro: {old_gemini_3_calls}, 总计: {old_total_calls}"
                 )
                 return True
 
@@ -297,16 +327,23 @@ class UsageStats:
 
                 # 增加计数器
                 is_gemini_2_5_pro = self._is_gemini_2_5_pro(model_name)
+                is_gemini_3_pro = self._is_gemini_3_pro(model_name)
 
                 stats["total_calls"] += 1
                 if is_gemini_2_5_pro:
                     stats["gemini_2_5_pro_calls"] += 1
+                elif is_gemini_3_pro:
+                    # 初始化字段，如果不存在（向后兼容）
+                    if "gemini_3_pro_calls" not in stats:
+                        stats["gemini_3_pro_calls"] = 0
+                    stats["gemini_3_pro_calls"] += 1
 
                 self._cache_dirty = True  # 标记缓存已修改
 
                 log.debug(
                     f"已记录使用情况 - 文件: {normalized_filename}, 模型: {model_name}, "
-                    f"Gemini 2.5 Pro: {stats['gemini_2_5_pro_calls']}/{stats.get('daily_limit_gemini_2_5_pro', 100)}, "
+                    f"2.5 Pro: {stats['gemini_2_5_pro_calls']}/{stats.get('daily_limit_gemini_2_5_pro', 100)}, "
+                    f"3.0 Pro: {stats.get('gemini_3_pro_calls', 0)}/{stats.get('daily_limit_gemini_3_pro', 100)}, "
                     f"总计: {stats['total_calls']}/{stats.get('daily_limit_total', 1000)}"
                 )
 
@@ -336,10 +373,10 @@ class UsageStats:
                 return {
                     "filename": normalized_filename,
                     "gemini_2_5_pro_calls": stats.get("gemini_2_5_pro_calls", 0),
+                    "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                     "total_calls": stats.get("total_calls", 0),
-                    "daily_limit_gemini_2_5_pro": stats.get(
-                        "daily_limit_gemini_2_5_pro", 100
-                    ),
+                    "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 100),
+                    "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 100),
                     "daily_limit_total": stats.get("daily_limit_total", 1000),
                     "next_reset_time": stats.get("next_reset_time"),
                 }
@@ -351,10 +388,10 @@ class UsageStats:
                     self._check_and_reset_daily_quota(stats)
                     all_stats[filename] = {
                         "gemini_2_5_pro_calls": stats.get("gemini_2_5_pro_calls", 0),
+                        "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                         "total_calls": stats.get("total_calls", 0),
-                        "daily_limit_gemini_2_5_pro": stats.get(
-                            "daily_limit_gemini_2_5_pro", 100
-                        ),
+                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 100),
+                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 100),
                         "daily_limit_total": stats.get("daily_limit_total", 1000),
                         "next_reset_time": stats.get("next_reset_time"),
                     }
@@ -369,24 +406,32 @@ class UsageStats:
         all_stats = await self.get_usage_stats()
 
         total_gemini_2_5_pro = 0
+        total_gemini_3_pro = 0
         total_all_models = 0
         total_files = len(all_stats)
 
         for stats in all_stats.values():
-            total_gemini_2_5_pro += stats["gemini_2_5_pro_calls"]
-            total_all_models += stats["total_calls"]
+            total_gemini_2_5_pro += stats.get("gemini_2_5_pro_calls", 0)
+            total_gemini_3_pro += stats.get("gemini_3_pro_calls", 0)
+            total_all_models += stats.get("total_calls", 0)
 
         return {
             "total_files": total_files,
             "total_gemini_2_5_pro_calls": total_gemini_2_5_pro,
+            "total_gemini_3_pro_calls": total_gemini_3_pro,
             "total_all_model_calls": total_all_models,
             "avg_gemini_2_5_pro_per_file": total_gemini_2_5_pro / max(total_files, 1),
+            "avg_gemini_3_pro_per_file": total_gemini_3_pro / max(total_files, 1),
             "avg_total_per_file": total_all_models / max(total_files, 1),
             "next_reset_time": _get_next_utc_7am().isoformat(),
         }
 
     async def update_daily_limits(
-        self, filename: str, gemini_2_5_pro_limit: int = None, total_limit: int = None
+        self,
+        filename: str,
+        gemini_2_5_pro_limit: int = None,
+        gemini_3_pro_limit: int = None,
+        total_limit: int = None,
     ):
         """更新特定凭证文件的每日限制。"""
         if not self._initialized:
@@ -400,12 +445,16 @@ class UsageStats:
                 if gemini_2_5_pro_limit is not None:
                     stats["daily_limit_gemini_2_5_pro"] = gemini_2_5_pro_limit
 
+                if gemini_3_pro_limit is not None:
+                    stats["daily_limit_gemini_3_pro"] = gemini_3_pro_limit
+
                 if total_limit is not None:
                     stats["daily_limit_total"] = total_limit
 
                 log.info(
                     f"已更新 {normalized_filename} 的每日限制: "
-                    f"Gemini 2.5 Pro = {stats.get('daily_limit_gemini_2_5_pro', 100)}, "
+                    f"2.5 Pro = {stats.get('daily_limit_gemini_2_5_pro', 100)}, "
+                    f"3.0 Pro = {stats.get('daily_limit_gemini_3_pro', 100)}, "
                     f"总计 = {stats.get('daily_limit_total', 1000)}"
                 )
 
@@ -429,6 +478,7 @@ class UsageStats:
                     self._stats_cache[normalized_filename].update(
                         {
                             "gemini_2_5_pro_calls": 0,
+                            "gemini_3_pro_calls": 0,
                             "total_calls": 0,
                             "next_reset_time": next_reset.isoformat(),
                         }
@@ -441,6 +491,7 @@ class UsageStats:
                     stats.update(
                         {
                             "gemini_2_5_pro_calls": 0,
+                            "gemini_3_pro_calls": 0,
                             "total_calls": 0,
                             "next_reset_time": next_reset.isoformat(),
                         }

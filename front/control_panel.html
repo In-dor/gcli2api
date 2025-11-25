@@ -1108,7 +1108,6 @@
                 <button class="tab" onclick="switchTab('usage')">使用统计</button>
                 <button class="tab" onclick="switchTab('config')">配置管理</button>
                 <button class="tab" onclick="switchTab('logs')">实时日志</button>
-                <button class="tab" onclick="switchTab('about')">项目信息</button>
             </div>
 
             <!-- OAuth认证标签页 -->
@@ -1761,74 +1760,6 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 </div>
             </div>
 
-            <!-- 项目信息标签页 -->
-            <div id="aboutTab" class="tab-content">
-                <h3>项目信息</h3>
-                <p>关于GCLI2API项目的详细信息和支持方式</p>
-
-                <!-- 项目介绍 -->
-                <div
-                    style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #007bff;">
-                    <h4 style="margin-top: 0; color: #007bff;">📋 项目简介</h4>
-                    <p style="margin: 10px 0; line-height: 1.6; color: #495057;">
-                        GCLI2API是一个将Google Gemini API转换为OpenAI 和GEMINI API格式的代理工具，支持多账户管理、自动轮换、实时日志监控等功能。
-                    </p>
-                    <div style="margin: 15px 0;">
-                        <p style="margin: 5px 0;"><strong>🔗 项目地址：</strong> <a
-                                href="https://github.com/su-kaka/gcli2api" target="_blank"
-                                style="color: #007bff; text-decoration: none;">GitHub - su-kaka/gcli2api</a></p>
-                        <p style="margin: 5px 0;"><strong>⚠️ 使用声明：</strong> <span
-                                style="color: #dc3545; font-weight: 500;">禁止商业用途和倒卖 - 仅供学习使用</span></p>
-                    </div>
-                </div>
-
-                <!-- 功能特性 -->
-                <div
-                    style="background-color: #e7f3ff; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #17a2b8;">
-                    <h4 style="margin-top: 0; color: #17a2b8;">✨ 主要功能</h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
-                        <div>
-                            <p><strong>🔄 多账户管理：</strong> 支持批量上传和管理多个Google账户</p>
-                            <p><strong>⚡ 自动轮换：</strong> 智能轮换账户，避免单账户限额</p>
-                            <p><strong>📊 实时监控：</strong> 使用统计、错误监控、实时日志</p>
-                        </div>
-                        <div>
-                            <p><strong>🛡️ 安全可靠：</strong> OAuth2认证、自动封禁异常账户</p>
-                            <p><strong>🎛️ 配置灵活：</strong> 支持热更新配置、代理设置</p>
-                            <p><strong>📱 界面友好：</strong> 响应式设计、移动端适配</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 支持项目 -->
-                <div
-                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 15px; margin: 30px 0; text-align: center; box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);">
-                    <h4 style="margin: 0 0 15px 0; font-size: 24px; font-weight: 600;">💝 支持项目发展</h4>
-                    <p style="margin: 0 0 25px 0; font-size: 16px; opacity: 0.9; line-height: 1.6;">
-                        如果这个项目对您有帮助，欢迎通过币安扫码捐赠支持项目的持续发展！<br>
-                        您的每一份支持都是我们前进的动力 ❤️
-                    </p>
-
-                    <div
-                        style="display: inline-block; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 25px rgba(0,0,0,0.1);">
-                        <img src="docs/币安.jpg" alt="币安捐赠二维码"
-                            style="width: 200px; height: 200px; border-radius: 10px; display: block;">
-                        <p style="color: #666; margin: 12px 0 0 0; font-size: 14px; font-weight: 600;">扫码币安捐赠</p>
-                    </div>
-                </div>
-
-                <!-- 联系和反馈 -->
-                <div
-                    style="background-color: #d1ecf1; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #bee5eb;">
-                    <h4 style="margin-top: 0; color: #0c5460;">📞 联系我们</h4>
-                    <div style="color: #0c5460; line-height: 1.6;">
-                        <p>• <strong>问题反馈：</strong> 通过GitHub Issues提交问题和建议</p>
-                        <p>• <strong>功能请求：</strong> 在GitHub Discussions中讨论新功能</p>
-                        <p>• <strong>代码贡献：</strong> 欢迎提交Pull Request改进项目</p>
-                        <p>• <strong>文档完善：</strong> 帮助改进项目文档和使用指南</p>
-                    </div>
-                </div>
-            </div>
 
             <div id="statusSection"></div>
 
@@ -2530,13 +2461,52 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             displayLogs();
         }
 
+        // 解析 ANSI 颜色码并转为 HTML
+        function ansiToHtml(text) {
+            if (!text) return '';
+            
+            // 基础颜色映射
+            const colors = {
+                '30': 'black', '31': 'red', '32': 'green', '33': 'yellow',
+                '34': 'blue', '35': 'magenta', '36': 'cyan', '37': 'white',
+                '90': 'grey', '91': 'lightred', '92': 'lightgreen', '93': 'lightyellow',
+                '94': 'lightblue', '95': 'lightmagenta', '96': 'lightcyan', '97': 'white'
+            };
+            
+            // 简单的正则替换处理 ANSI 颜色码
+            // \x1b\[(\d+)(?:;(\d+))?m
+            let html = text.replace(/\x1b\[(\d+)(?:;(\d+))?m/g, (match, p1, p2) => {
+                const colorCode = p1;
+                if (colorCode === '0') {
+                    return '</span>';
+                }
+                if (colors[colorCode]) {
+                    return `<span style="color: ${colors[colorCode]}">`;
+                }
+                return '';
+            });
+            
+            // 处理可能未关闭的标签
+            // (这只是一个简化的处理，复杂的嵌套可能需要更完善的库)
+            const openTags = (html.match(/<span/g) || []).length;
+            const closeTags = (html.match(/<\/span>/g) || []).length;
+            
+            if (openTags > closeTags) {
+                html += '</span>'.repeat(openTags - closeTags);
+            }
+            
+            return html;
+        }
+
         function displayLogs() {
             const logContent = document.getElementById('logContent');
             if (filteredLogs.length === 0) {
                 logContent.textContent = currentLogFilter === 'all' ?
                     '暂无日志...' : `暂无${currentLogFilter}级别的日志...`;
             } else {
-                logContent.textContent = filteredLogs.join('\n');
+                // 使用 innerHTML 并处理颜色
+                const htmlLogs = filteredLogs.map(log => ansiToHtml(log)).join('\n');
+                logContent.innerHTML = htmlLogs;
             }
         }
 

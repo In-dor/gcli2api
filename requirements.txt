@@ -12,3 +12,4 @@ motor
 redis
 asyncpg
 colorlog
+itsdangerous

@@ -19,6 +19,7 @@ setup_logging()
 
 from fastapi import FastAPI, Response, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -147,6 +148,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Session中间件 - 用于持久化登录状态
+# 优先从环境变量读取SECRET_KEY，如果不存在则使用默认固定值
+session_secret_key = os.getenv("SECRET_KEY", "gcli2api_fixed_secret_key_for_session_persistence")
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret_key,
+    max_age=7 * 24 * 60 * 60,  # 7天过期
 )
 
 # 挂载路由器
