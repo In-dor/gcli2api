@@ -38,7 +38,7 @@ class UsageStats:
         # 状态文件路径将在初始化时异步设置
         self._state_file = None
         self._state_manager = None
-        self._storage_adapter = None
+        self._storage_adapter: Any = None
         self._stats_cache: Dict[str, Dict[str, Any]] = {}
         self._initialized = False
         self._cache_dirty = False  # 缓存脏标记，减少不必要的写入
@@ -159,8 +159,12 @@ class UsageStats:
 
                         # 提取使用统计字段
                         usage_data = {
-                            "gemini_2_5_pro_calls": stats_data.get("gemini_2_5_pro_calls", 0),
-                            "gemini_3_pro_calls": stats_data.get("gemini_3_pro_calls", 0),
+                            "gemini_2_5_pro_calls": stats_data.get(
+                                "gemini_2_5_pro_calls", 0
+                            ),
+                            "gemini_3_pro_calls": stats_data.get(
+                                "gemini_3_pro_calls", 0
+                            ),
                             "total_calls": stats_data.get("total_calls", 0),
                             "next_reset_time": stats_data.get("next_reset_time"),
                             "daily_limit_gemini_2_5_pro": stats_data.get(
@@ -169,7 +173,9 @@ class UsageStats:
                             "daily_limit_gemini_3_pro": stats_data.get(
                                 "daily_limit_gemini_3_pro", 200
                             ),
-                            "daily_limit_total": stats_data.get("daily_limit_total", 1000),
+                            "daily_limit_total": stats_data.get(
+                                "daily_limit_total", 1000
+                            ),
                         }
 
                         # 只加载有实际使用数据的统计，或者有reset时间的
@@ -199,12 +205,21 @@ class UsageStats:
             log.error(f"加载使用情况统计失败: {e}")
             self._stats_cache = {}
 
-    async def _save_stats(self):
-        """将统计信息保存到统一存储。"""
+    async def _save_stats(self, force: bool = False):
+        """
+        将统计信息保存到统一存储。
+
+        Args:
+            force: 是否强制保存（忽略时间间隔和脏标记检查）
+        """
         current_time = time.time()
 
         # 使用脏标记和时间间隔控制，减少不必要的写入
-        if not self._cache_dirty or (current_time - self._last_save_time < self._save_interval):
+        # 如果强制保存，则跳过检查
+        if not force and (
+            not self._cache_dirty
+            or (current_time - self._last_save_time < self._save_interval)
+        ):
             return
 
         try:
@@ -219,23 +234,30 @@ class UsageStats:
                         "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                         "total_calls": stats.get("total_calls", 0),
                         "next_reset_time": stats.get("next_reset_time"),
-                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 200),
-                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 200),
+                        "daily_limit_gemini_2_5_pro": stats.get(
+                            "daily_limit_gemini_2_5_pro", 200
+                        ),
+                        "daily_limit_gemini_3_pro": stats.get(
+                            "daily_limit_gemini_3_pro", 200
+                        ),
                         "daily_limit_total": stats.get("daily_limit_total", 1000),
                     }
 
-                    success = await self._storage_adapter.update_usage_stats(filename, stats_data)
+                    success = await self._storage_adapter.update_usage_stats(
+                        filename, stats_data
+                    )
                     if success:
                         saved_count += 1
                 except Exception as e:
                     log.error(f"保存 {filename} 的统计信息失败: {e}")
                     continue
 
-            self._cache_dirty = False  # 清除脏标记
-            self._last_save_time = current_time
-            log.debug(
-                f"已成功将 {saved_count}/{len(self._stats_cache)} 个使用情况统计保存到统一存储"
-            )
+            if saved_count > 0:
+                self._cache_dirty = False  # 清除脏标记
+                self._last_save_time = current_time
+                log.debug(
+                    f"已成功将 {saved_count}/{len(self._stats_cache)} 个使用情况统计保存到统一存储"
+                )
         except Exception as e:
             log.error(f"保存使用情况统计失败: {e}")
 
@@ -359,7 +381,7 @@ class UsageStats:
         except Exception as e:
             log.error(f"记录后保存使用情况统计失败: {e}")
 
-    async def get_usage_stats(self, filename: str = None) -> Dict[str, Any]:
+    async def get_usage_stats(self, filename: Optional[str] = None) -> Dict[str, Any]:
         """获取使用情况统计。"""
         if not self._initialized:
             await self.initialize()
@@ -375,8 +397,12 @@ class UsageStats:
                     "gemini_2_5_pro_calls": stats.get("gemini_2_5_pro_calls", 0),
                     "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                     "total_calls": stats.get("total_calls", 0),
-                    "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 200),
-                    "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 200),
+                    "daily_limit_gemini_2_5_pro": stats.get(
+                        "daily_limit_gemini_2_5_pro", 200
+                    ),
+                    "daily_limit_gemini_3_pro": stats.get(
+                        "daily_limit_gemini_3_pro", 200
+                    ),
                     "daily_limit_total": stats.get("daily_limit_total", 1000),
                     "next_reset_time": stats.get("next_reset_time"),
                 }
@@ -390,8 +416,12 @@ class UsageStats:
                         "gemini_2_5_pro_calls": stats.get("gemini_2_5_pro_calls", 0),
                         "gemini_3_pro_calls": stats.get("gemini_3_pro_calls", 0),
                         "total_calls": stats.get("total_calls", 0),
-                        "daily_limit_gemini_2_5_pro": stats.get("daily_limit_gemini_2_5_pro", 200),
-                        "daily_limit_gemini_3_pro": stats.get("daily_limit_gemini_3_pro", 200),
+                        "daily_limit_gemini_2_5_pro": stats.get(
+                            "daily_limit_gemini_2_5_pro", 200
+                        ),
+                        "daily_limit_gemini_3_pro": stats.get(
+                            "daily_limit_gemini_3_pro", 200
+                        ),
                         "daily_limit_total": stats.get("daily_limit_total", 1000),
                         "next_reset_time": stats.get("next_reset_time"),
                     }
@@ -429,9 +459,9 @@ class UsageStats:
     async def update_daily_limits(
         self,
         filename: str,
-        gemini_2_5_pro_limit: int = None,
-        gemini_3_pro_limit: int = None,
-        total_limit: int = None,
+        gemini_2_5_pro_limit: Optional[int] = None,
+        gemini_3_pro_limit: Optional[int] = None,
+        total_limit: Optional[int] = None,
     ):
         """更新特定凭证文件的每日限制。"""
         if not self._initialized:
@@ -451,6 +481,8 @@ class UsageStats:
                 if total_limit is not None:
                     stats["daily_limit_total"] = total_limit
 
+                self._cache_dirty = True  # 标记缓存已修改
+
                 log.info(
                     f"已更新 {normalized_filename} 的每日限制: "
                     f"2.5 Pro = {stats.get('daily_limit_gemini_2_5_pro', 100)}, "
@@ -462,9 +494,10 @@ class UsageStats:
                 log.error(f"更新每日限制失败: {e}")
                 raise
 
-        await self._save_stats()
+        # 强制立即保存配置更改
+        await self._save_stats(force=True)
 
-    async def reset_stats(self, filename: str = None):
+    async def reset_stats(self, filename: Optional[str] = None):
         """重置使用情况统计。"""
         if not self._initialized:
             await self.initialize()
@@ -498,7 +531,10 @@ class UsageStats:
                     )
                 log.info("已重置所有凭证文件的使用情况统计")
 
-        await self._save_stats()
+            self._cache_dirty = True  # 标记缓存已修改
+
+        # 强制立即保存重置结果
+        await self._save_stats(force=True)
 
 
 # 全局实例
@@ -520,7 +556,7 @@ async def record_successful_call(filename: str, model_name: str):
     await stats.record_successful_call(filename, model_name)
 
 
-async def get_usage_stats(filename: str = None) -> Dict[str, Any]:
+async def get_usage_stats(filename: Optional[str] = None) -> Dict[str, Any]:
     """用于获取使用情况统计的便捷函数。"""
     stats = await get_usage_stats_instance()
     return await stats.get_usage_stats(filename)
