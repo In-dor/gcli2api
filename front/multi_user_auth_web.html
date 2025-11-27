@@ -479,7 +479,7 @@
     <script>
         let currentProjectId = '';
         let authInProgress = false;
-        let authToken = '';
+        let authToken = localStorage.getItem('gcli_auth_token') || '';
         let currentCredentials = null;
 
         function showStatus(message, type = 'info') {
@@ -514,6 +514,7 @@
                 
                 if (response.ok) {
                     authToken = data.token;
+                    localStorage.setItem('gcli_auth_token', authToken);
                     document.getElementById('loginSection').classList.add('hidden');
                     document.getElementById('mainSection').classList.remove('hidden');
                     showStatus('登录成功', 'success');
@@ -522,6 +523,33 @@
                 }
             } catch (error) {
                 showStatus(`网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkToken() {
+            if (!authToken) return;
+
+            try {
+                const response = await fetch('/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('mainSection').classList.remove('hidden');
+                    showStatus('自动登录成功', 'success');
+                } else {
+                    localStorage.removeItem('gcli_auth_token');
+                    authToken = '';
+                    showStatus('会话已过期，请重新登录', 'info');
+                }
+            } catch (error) {
+                console.error('Token check error:', error);
+                localStorage.removeItem('gcli_auth_token');
+                authToken = '';
             }
         }
 
@@ -826,10 +854,14 @@
 
         // 页面加载时的初始化
         window.onload = function() {
-            showStatus('请输入密码登录以开始 OAuth 认证', 'info');
-            
-            // 自动聚焦到密码输入框
-            document.getElementById('password').focus();
+            if (authToken) {
+                showStatus('正在验证登录状态...', 'info');
+                checkToken();
+            } else {
+                showStatus('请输入密码登录以开始 OAuth 认证', 'info');
+                // 自动聚焦到密码输入框
+                document.getElementById('password').focus();
+            }
         };
     </script>
 </body>

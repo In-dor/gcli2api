@@ -133,7 +133,9 @@ class ConnectionManager:
         self.active_connections = alive_connections
         cleaned = original_count - len(self.active_connections)
         if cleaned > 0:
-            log.debug(f"清理了 {cleaned} 个死连接，剩余连接数: {len(self.active_connections)}")
+            log.debug(
+                f"清理了 {cleaned} 个死连接，剩余连接数: {len(self.active_connections)}"
+            )
 
 
 manager = ConnectionManager()
@@ -143,7 +145,9 @@ manager = ConnectionManager()
 class WebSocketLogHandler(logging.Handler):
     """一个将日志记录直接发送到WebSocket的处理器"""
 
-    def __init__(self, connection_manager: ConnectionManager, max_cache_size: int = 500):
+    def __init__(
+        self, connection_manager: ConnectionManager, max_cache_size: int = 500
+    ):
         super().__init__()
         self.connection_manager = connection_manager
         self.log_cache: deque = deque(maxlen=max_cache_size)
@@ -354,6 +358,12 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/auth/verify")
+async def verify_auth_token_endpoint(token: str = Depends(verify_token)):
+    """验证当前Token是否有效"""
+    return JSONResponse(content={"valid": True, "message": "Token有效"})
+
+
 @router.post("/auth/start")
 async def start_auth(request: AuthStartRequest, token: str = Depends(verify_token)):
     """开始认证流程，支持自动检测项目ID和批量获取所有项目"""
@@ -381,7 +391,9 @@ async def start_auth(request: AuthStartRequest, token: str = Depends(verify_toke
                 content={
                     "auth_url": result["auth_url"],
                     "state": result["state"],
-                    "auto_project_detection": result.get("auto_project_detection", False),
+                    "auto_project_detection": result.get(
+                        "auto_project_detection", False
+                    ),
                     "detected_project_id": result.get("detected_project_id"),
                     "get_all_projects": request.get_all_projects,
                 }
@@ -397,7 +409,9 @@ async def start_auth(request: AuthStartRequest, token: str = Depends(verify_toke
 
 
 @router.post("/auth/callback")
-async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verify_token)):
+async def auth_callback(
+    request: AuthCallbackRequest, token: str = Depends(verify_token)
+):
     """处理认证回调，支持自动检测项目ID和批量获取所有项目"""
     try:
         # 项目ID现在是可选的，在回调处理中进行自动检测
@@ -427,7 +441,9 @@ async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verif
                         "credentials": result["credentials"],
                         "file_path": result["file_path"],
                         "message": "认证成功，凭证已保存",
-                        "auto_detected_project": result.get("auto_detected_project", False),
+                        "auto_detected_project": result.get(
+                            "auto_detected_project", False
+                        ),
                     }
                 )
         else:
@@ -462,11 +478,15 @@ async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verif
 
 
 @router.post("/auth/callback-url")
-async def auth_callback_url(request: AuthCallbackUrlRequest, token: str = Depends(verify_token)):
+async def auth_callback_url(
+    request: AuthCallbackUrlRequest, token: str = Depends(verify_token)
+):
     """从回调URL直接完成认证，支持批量获取所有项目"""
     try:
         # 验证URL格式
-        if not request.callback_url or not request.callback_url.startswith(("http://", "https://")):
+        if not request.callback_url or not request.callback_url.startswith(
+            ("http://", "https://")
+        ):
             raise HTTPException(status_code=400, detail="请提供有效的回调URL")
 
         # 从回调URL完成认证
@@ -492,7 +512,9 @@ async def auth_callback_url(request: AuthCallbackUrlRequest, token: str = Depend
                         "credentials": result["credentials"],
                         "file_path": result["file_path"],
                         "message": "从回调URL认证成功，凭证已保存",
-                        "auto_detected_project": result.get("auto_detected_project", False),
+                        "auto_detected_project": result.get(
+                            "auto_detected_project", False
+                        ),
                     }
                 )
         else:
@@ -553,13 +575,17 @@ async def extract_json_files_from_zip(zip_file: UploadFile) -> List[dict]:
             # 获取ZIP中的所有文件
             file_list = zip_ref.namelist()
             json_files = [
-                f for f in file_list if f.endswith(".json") and not f.startswith("__MACOSX/")
+                f
+                for f in file_list
+                if f.endswith(".json") and not f.startswith("__MACOSX/")
             ]
 
             if not json_files:
                 raise HTTPException(status_code=400, detail="ZIP文件中没有找到JSON文件")
 
-            log.info(f"从ZIP文件 {zip_file.filename} 中找到 {len(json_files)} 个JSON文件")
+            log.info(
+                f"从ZIP文件 {zip_file.filename} 中找到 {len(json_files)} 个JSON文件"
+            )
 
             for json_filename in json_files:
                 try:
@@ -575,7 +601,9 @@ async def extract_json_files_from_zip(zip_file: UploadFile) -> List[dict]:
 
                         # 使用原始文件名（去掉路径）
                         filename = os.path.basename(json_filename)
-                        files_data.append({"filename": filename, "content": content_str})
+                        files_data.append(
+                            {"filename": filename, "content": content_str}
+                        )
 
                 except Exception as e:
                     log.warning(f"处理ZIP中的文件 {json_filename} 时出错: {e}")
@@ -616,7 +644,9 @@ async def upload_credentials(
                 # 处理ZIP文件
                 zip_files_data = await extract_json_files_from_zip(file)
                 files_data.extend(zip_files_data)
-                log.info(f"从ZIP文件 {file.filename} 中提取了 {len(zip_files_data)} 个JSON文件")
+                log.info(
+                    f"从ZIP文件 {file.filename} 中提取了 {len(zip_files_data)} 个JSON文件"
+                )
 
             elif file.filename.endswith(".json"):
                 # 处理单个JSON文件
@@ -665,7 +695,9 @@ async def upload_credentials(
                     credential_data = json.loads(content_str)
 
                     # 存储到统一存储系统
-                    success = await storage_adapter.store_credential(filename, credential_data)
+                    success = await storage_adapter.store_credential(
+                        filename, credential_data
+                    )
                     if success:
                         # 创建默认状态记录（如果不存在）
                         try:
@@ -684,14 +716,20 @@ async def upload_credentials(
                             }
                             # 只在状态不存在时创建，避免覆盖现有状态
                             # 检查数据库中是否真正存在状态记录
-                            all_states = await storage_adapter.get_all_credential_states()
+                            all_states = (
+                                await storage_adapter.get_all_credential_states()
+                            )
                             if filename not in all_states:
                                 await storage_adapter.update_credential_state(
                                     filename, default_state
                                 )
-                                log.debug(f"Created default state for new credential: {filename}")
+                                log.debug(
+                                    f"Created default state for new credential: {filename}"
+                                )
                         except Exception as e:
-                            log.warning(f"Failed to create default state for {filename}: {e}")
+                            log.warning(
+                                f"Failed to create default state for {filename}: {e}"
+                            )
 
                         log.debug(f"成功上传凭证文件: {filename}")
                         return {
@@ -721,8 +759,12 @@ async def upload_credentials(
 
             # 并发处理这一批文件
             log.info(f"开始并发处理 {len(batch_files)} 个文件...")
-            concurrent_tasks = [process_single_file(file_data) for file_data in batch_files]
-            batch_results = await asyncio.gather(*concurrent_tasks, return_exceptions=True)
+            concurrent_tasks = [
+                process_single_file(file_data) for file_data in batch_files
+            ]
+            batch_results = await asyncio.gather(
+                *concurrent_tasks, return_exceptions=True
+            )
 
             # 处理异常结果
             processed_results = []
@@ -810,7 +852,9 @@ async def get_creds_status(token: str = Depends(verify_token)):
                         "daily_limit_gemini_2_5_pro": 100,
                         "daily_limit_total": 1000,
                     }
-                    await storage_adapter.update_credential_state(filename, default_state)
+                    await storage_adapter.update_credential_state(
+                        filename, default_state
+                    )
                     file_status = default_state
                     log.debug(f"为凭证 {filename} 创建了默认状态记录")
                 except Exception as e:
@@ -869,7 +913,9 @@ async def get_creds_status(token: str = Depends(verify_token)):
 
         # 并发处理所有凭证数据获取
         log.debug(f"开始并发获取 {len(all_credentials)} 个凭证数据...")
-        concurrent_tasks = [process_credential_data(filename) for filename in all_credentials]
+        concurrent_tasks = [
+            process_credential_data(filename) for filename in all_credentials
+        ]
         results = await asyncio.gather(*concurrent_tasks, return_exceptions=True)
 
         # 组装结果
@@ -889,7 +935,9 @@ async def get_creds_status(token: str = Depends(verify_token)):
 
 
 @router.post("/creds/action")
-async def creds_action(request: CredFileActionRequest, token: str = Depends(verify_token)):
+async def creds_action(
+    request: CredFileActionRequest, token: str = Depends(verify_token)
+):
     """对凭证文件执行操作（启用/禁用/删除）"""
     try:
         await ensure_credential_manager_initialized()
@@ -919,13 +967,17 @@ async def creds_action(request: CredFileActionRequest, token: str = Depends(veri
             log.info(f"Web request: ENABLING file {filename}")
             await credential_manager.set_cred_disabled(filename, False)
             log.info(f"Web request: ENABLED file {filename} successfully")
-            return JSONResponse(content={"message": f"已启用凭证文件 {os.path.basename(filename)}"})
+            return JSONResponse(
+                content={"message": f"已启用凭证文件 {os.path.basename(filename)}"}
+            )
 
         elif action == "disable":
             log.info(f"Web request: DISABLING file {filename}")
             await credential_manager.set_cred_disabled(filename, True)
             log.info(f"Web request: DISABLED file {filename} successfully")
-            return JSONResponse(content={"message": f"已禁用凭证文件 {os.path.basename(filename)}"})
+            return JSONResponse(
+                content={"message": f"已禁用凭证文件 {os.path.basename(filename)}"}
+            )
 
         elif action == "delete":
             try:
@@ -934,7 +986,9 @@ async def creds_action(request: CredFileActionRequest, token: str = Depends(veri
                 if success:
                     log.info(f"Successfully deleted credential: {filename}")
                     return JSONResponse(
-                        content={"message": f"已删除凭证文件 {os.path.basename(filename)}"}
+                        content={
+                            "message": f"已删除凭证文件 {os.path.basename(filename)}"
+                        }
                     )
                 else:
                     raise HTTPException(status_code=500, detail="删除凭证失败")
@@ -999,10 +1053,14 @@ async def creds_batch_action(
                 elif action == "delete":
                     try:
                         # 使用存储适配器删除凭证
-                        delete_success = await storage_adapter.delete_credential(filename)
+                        delete_success = await storage_adapter.delete_credential(
+                            filename
+                        )
                         if delete_success:
                             success_count += 1
-                            log.info(f"Successfully deleted credential in batch: {filename}")
+                            log.info(
+                                f"Successfully deleted credential in batch: {filename}"
+                            )
                         else:
                             errors.append(f"{filename}: 删除失败")
                             continue
@@ -1019,7 +1077,9 @@ async def creds_batch_action(
                 continue
 
         # 构建返回消息
-        result_message = f"批量操作完成：成功处理 {success_count}/{len(filenames)} 个文件"
+        result_message = (
+            f"批量操作完成：成功处理 {success_count}/{len(filenames)} 个文件"
+        )
         if errors:
             result_message += f"\n错误详情：\n" + "\n".join(errors)
 
@@ -1203,7 +1263,9 @@ async def download_all_creds(token: str = Depends(verify_token)):
                     credential_data = await storage_adapter.get_credential(filename)
                     if credential_data:
                         # 转换为JSON字符串
-                        content = json.dumps(credential_data, ensure_ascii=False, indent=2)
+                        content = json.dumps(
+                            credential_data, ensure_ascii=False, indent=2
+                        )
 
                         # 添加到ZIP文件中
                         zip_file.writestr(os.path.basename(filename), content)
@@ -1244,8 +1306,12 @@ async def get_config(token: str = Depends(verify_token)):
         # 代理端点配置
         current_config["oauth_proxy_url"] = await config.get_oauth_proxy_url()
         current_config["googleapis_proxy_url"] = await config.get_googleapis_proxy_url()
-        current_config["resource_manager_api_url"] = await config.get_resource_manager_api_url()
-        current_config["service_usage_api_url"] = await config.get_service_usage_api_url()
+        current_config["resource_manager_api_url"] = (
+            await config.get_resource_manager_api_url()
+        )
+        current_config["service_usage_api_url"] = (
+            await config.get_service_usage_api_url()
+        )
 
         # 检查环境变量锁定状态
         if os.getenv("CODE_ASSIST_ENDPOINT"):
@@ -1284,7 +1350,9 @@ async def get_config(token: str = Depends(verify_token)):
         current_config["calls_per_rotation"] = await config.get_calls_per_rotation()
 
         # 429重试配置
-        current_config["retry_429_max_retries"] = await config.get_retry_429_max_retries()
+        current_config["retry_429_max_retries"] = (
+            await config.get_retry_429_max_retries()
+        )
         current_config["retry_429_enabled"] = await config.get_retry_429_enabled()
         current_config["retry_429_interval"] = await config.get_retry_429_interval()
 
@@ -1324,7 +1392,9 @@ async def get_config(token: str = Depends(verify_token)):
         if os.getenv("PASSWORD"):
             env_locked.append("password")
 
-        return JSONResponse(content={"config": current_config, "env_locked": env_locked})
+        return JSONResponse(
+            content={"config": current_config, "env_locked": env_locked}
+        )
 
     except Exception as e:
         log.error(f"获取配置失败: {e}")
@@ -1347,14 +1417,18 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
                 not isinstance(new_config["calls_per_rotation"], int)
                 or new_config["calls_per_rotation"] < 1
             ):
-                raise HTTPException(status_code=400, detail="凭证轮换调用次数必须是大于0的整数")
+                raise HTTPException(
+                    status_code=400, detail="凭证轮换调用次数必须是大于0的整数"
+                )
 
         if "retry_429_max_retries" in new_config:
             if (
                 not isinstance(new_config["retry_429_max_retries"], int)
                 or new_config["retry_429_max_retries"] < 0
             ):
-                raise HTTPException(status_code=400, detail="最大429重试次数必须是大于等于0的整数")
+                raise HTTPException(
+                    status_code=400, detail="最大429重试次数必须是大于等于0的整数"
+                )
 
         if "retry_429_enabled" in new_config:
             if not isinstance(new_config["retry_429_enabled"], bool):
@@ -1365,9 +1439,13 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
             try:
                 interval = float(new_config["retry_429_interval"])
                 if interval < 0.01 or interval > 10:
-                    raise HTTPException(status_code=400, detail="429重试间隔必须在0.01-10秒之间")
+                    raise HTTPException(
+                        status_code=400, detail="429重试间隔必须在0.01-10秒之间"
+                    )
             except (ValueError, TypeError):
-                raise HTTPException(status_code=400, detail="429重试间隔必须是有效的数字")
+                raise HTTPException(
+                    status_code=400, detail="429重试间隔必须是有效的数字"
+                )
 
         if "anti_truncation_max_attempts" in new_config:
             if (
@@ -1381,11 +1459,16 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
 
         if "compatibility_mode_enabled" in new_config:
             if not isinstance(new_config["compatibility_mode_enabled"], bool):
-                raise HTTPException(status_code=400, detail="兼容性模式开关必须是布尔值")
+                raise HTTPException(
+                    status_code=400, detail="兼容性模式开关必须是布尔值"
+                )
 
         # 验证服务器配置
         if "host" in new_config:
-            if not isinstance(new_config["host"], str) or not new_config["host"].strip():
+            if (
+                not isinstance(new_config["host"], str)
+                or not new_config["host"].strip()
+            ):
                 raise HTTPException(status_code=400, detail="服务器主机地址不能为空")
 
         if "port" in new_config:
@@ -1394,7 +1477,9 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
                 or new_config["port"] < 1
                 or new_config["port"] > 65535
             ):
-                raise HTTPException(status_code=400, detail="端口号必须是1-65535之间的整数")
+                raise HTTPException(
+                    status_code=400, detail="端口号必须是1-65535之间的整数"
+                )
 
         if "api_password" in new_config:
             if not isinstance(new_config["api_password"], str):
@@ -1503,7 +1588,10 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
             # save_config_to_toml已经更新了缓存，不需要reload
 
             # 1. credential_manager配置通过config模块动态获取，无需手动更新
-            if "calls_per_rotation" in new_config and "calls_per_rotation" not in env_locked_keys:
+            if (
+                "calls_per_rotation" in new_config
+                and "calls_per_rotation" not in env_locked_keys
+            ):
                 # 新的credential_manager会通过get_calls_per_rotation()动态获取最新配置
                 hot_updated.append("calls_per_rotation")
 
@@ -1550,7 +1638,9 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
         # 构建响应消息
         response_data = {
             "message": "配置保存成功",
-            "saved_config": {k: v for k, v in new_config.items() if k not in env_locked_keys},
+            "saved_config": {
+                k: v for k, v in new_config.items() if k not in env_locked_keys
+            },
         }
 
         # 添加热更新状态信息
@@ -1688,11 +1778,15 @@ async def clear_logs(token: str = Depends(verify_token)):
                 await manager.broadcast("--- 日志文件已清空 ---")
 
                 return JSONResponse(
-                    content={"message": f"日志文件已清空: {os.path.basename(log_file_path)}"}
+                    content={
+                        "message": f"日志文件已清空: {os.path.basename(log_file_path)}"
+                    }
                 )
             except Exception as e:
                 log.error(f"清空日志文件失败: {e}")
-                raise HTTPException(status_code=500, detail=f"清空日志文件失败: {str(e)}")
+                raise HTTPException(
+                    status_code=500, detail=f"清空日志文件失败: {str(e)}"
+                )
         else:
             return JSONResponse(content={"message": "日志文件不存在"})
 
@@ -1752,7 +1846,9 @@ async def websocket_logs(websocket: WebSocket):
                 await manager.send_personal_message(log_line, websocket)
 
         # 2. 发送连接确认消息
-        await manager.send_personal_message("--- 历史日志加载完毕, WebSocket已连接 ---", websocket)
+        await manager.send_personal_message(
+            "--- 历史日志加载完毕, WebSocket已连接 ---", websocket
+        )
 
         # 3. 保持连接打开，等待WebSocketLogHandler推送新日志
         while websocket.client_state == WebSocketState.CONNECTED:
@@ -1774,7 +1870,9 @@ async def websocket_logs(websocket: WebSocket):
 
 
 @router.get("/usage/stats")
-async def get_usage_statistics(filename: Optional[str] = None, token: str = Depends(verify_token)):
+async def get_usage_statistics(
+    filename: Optional[str] = None, token: str = Depends(verify_token)
+):
     """
     获取使用统计信息
 
@@ -1858,7 +1956,9 @@ class UsageResetRequest(BaseModel):
 
 
 @router.post("/usage/reset")
-async def reset_usage_statistics(request: UsageResetRequest, token: str = Depends(verify_token)):
+async def reset_usage_statistics(
+    request: UsageResetRequest, token: str = Depends(verify_token)
+):
     """
     重置使用统计
 

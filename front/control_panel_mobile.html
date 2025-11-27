@@ -929,6 +929,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <span class="stat-number" id="geminiProCalls">0</span>
                         <span class="stat-label">Gemini 2.5 Pro</span>
                     </div>
+                    <div class="stat-item" style="border-left: 4px solid #9c27b0;">
+                        <span class="stat-number" id="gemini3ProCalls">0</span>
+                        <span class="stat-label">Gemini 3.0 Pro</span>
+                    </div>
                     <div class="stat-item" style="border-left: 4px solid #6c757d;">
                         <span class="stat-number" id="totalFiles">0</span>
                         <span class="stat-label">活跃文件数</span>
@@ -1384,6 +1388,11 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         Pro模型调用次数限制</small>
                 </div>
                 <div class="form-group">
+                    <label for="modalGemini3Limit">Gemini 3.0 Pro 每日限制:</label>
+                    <input type="number" id="modalGemini3Limit" min="1" max="10000" />
+                    <small style="display: block; color: #666; font-size: 12px; margin-top: 5px;">每日Gemini 3.0 Pro模型调用次数限制</small>
+                </div>
+                <div class="form-group">
                     <label for="modalTotalLimit">所有模型每日限制:</label>
                     <input type="number" id="modalTotalLimit" min="1" max="50000" />
                     <small style="display: block; color: #666; font-size: 12px; margin-top: 5px;">每日所有模型调用次数总限制</small>
@@ -1399,7 +1408,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
     <script>
         // 基础变量
-        let authToken = '';
+        let authToken = localStorage.getItem('gcli_auth_token') || '';
         let currentProjectId = '';
         let authInProgress = false;
         let uploadSelectedFiles = []; // 上传页面用的文件列表
@@ -1434,6 +1443,42 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         let filteredLogMessages = [];
         let currentLogFilter = 'all';
 
+        // 解析 ANSI 颜色码并转为 HTML
+        function ansiToHtml(text) {
+            if (!text) return '';
+            
+            // 基础颜色映射 - 适配移动端暗色背景
+            const colors = {
+                '30': '#000000', '31': '#ff6b6b', '32': '#51cf66', '33': '#fcc419',
+                '34': '#339af0', '35': '#cc5de8', '36': '#66d9e8', '37': '#ffffff',
+                '90': '#868e96', '91': '#ff8787', '92': '#69db7c', '93': '#ffd43b',
+                '94': '#4dabf7', '95': '#da77f2', '96': '#99e9f2', '97': '#ffffff'
+            };
+            
+            // 简单的正则替换处理 ANSI 颜色码
+            // \x1b\[(\d+)(?:;(\d+))?m
+            let html = text.replace(/\x1b\[(\d+)(?:;(\d+))?m/g, (match, p1, p2) => {
+                const colorCode = p1;
+                if (colorCode === '0') {
+                    return '</span>';
+                }
+                if (colors[colorCode]) {
+                    return `<span style="color: ${colors[colorCode]}">`;
+                }
+                return '';
+            });
+            
+            // 处理可能未关闭的标签
+            const openTags = (html.match(/<span/g) || []).length;
+            const closeTags = (html.match(/<\/span>/g) || []).length;
+            
+            if (openTags > closeTags) {
+                html += '</span>'.repeat(openTags - closeTags);
+            }
+            
+            return html;
+        }
+
         // 基础函数
         function showStatus(message, type = 'info') {
             const statusSection = document.getElementById('statusSection');
@@ -1464,6 +1509,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                 if (response.ok) {
                     authToken = data.token;
+                    localStorage.setItem('gcli_auth_token', authToken);
                     document.getElementById('loginSection').classList.add('hidden');
                     document.getElementById('mainSection').classList.remove('hidden');
                     showStatus('登录成功', 'success');
@@ -1472,6 +1518,35 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 }
             } catch (error) {
                 showStatus(`网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkToken() {
+            if (!authToken) return;
+
+            try {
+                const response = await fetch('/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    console.log('Token valid, auto logging in');
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('mainSection').classList.remove('hidden');
+                    showStatus('自动登录成功', 'success');
+                } else {
+                    console.log('Token invalid, clearing storage');
+                    localStorage.removeItem('gcli_auth_token');
+                    authToken = '';
+                    showStatus('会话已过期，请重新登录', 'info');
+                }
+            } catch (error) {
+                console.error('Token check error:', error);
+                localStorage.removeItem('gcli_auth_token');
+                authToken = '';
             }
         }
 
@@ -2784,6 +2859,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     // 更新概览统计
                     document.getElementById('totalApiCalls').textContent = aggregatedData.data.total_all_model_calls || 0;
                     document.getElementById('geminiProCalls').textContent = aggregatedData.data.total_gemini_2_5_pro_calls || 0;
+                    document.getElementById('gemini3ProCalls').textContent = aggregatedData.data.total_gemini_3_pro_calls || 0;
                     document.getElementById('totalFiles').textContent = aggregatedData.data.total_files || 0;
 
                     // 渲染使用统计列表
@@ -2825,6 +2901,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
             // 计算使用百分比
             const geminiPercent = Math.min((stats.gemini_2_5_pro_calls / stats.daily_limit_gemini_2_5_pro) * 100, 100);
+            const gemini3Percent = Math.min((stats.gemini_3_pro_calls / stats.daily_limit_gemini_3_pro) * 100, 100);
             const totalPercent = Math.min((stats.total_calls / stats.daily_limit_total) * 100, 100);
 
             // 确定进度条颜色
@@ -2865,6 +2942,16 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                         <div style="width: ${geminiPercent}%; height: 100%; background-color: ${getProgressClass(geminiPercent)}; transition: width 0.3s ease;"></div>
                     </div>
                 </div>
+
+                <div style="margin: 10px 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 12px;">
+                        <span>Gemini 3.0 Pro</span>
+                        <span>${stats.gemini_3_pro_calls}/${stats.daily_limit_gemini_3_pro} (${gemini3Percent.toFixed(1)}%)</span>
+                    </div>
+                    <div class="progress-bar" style="height: 8px;">
+                        <div style="width: ${gemini3Percent}%; height: 100%; background-color: ${getProgressClass(gemini3Percent)}; transition: width 0.3s ease;"></div>
+                    </div>
+                </div>
                 
                 <div style="margin: 10px 0;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 12px;">
@@ -2903,6 +2990,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             currentEditingFile = filename;
             document.getElementById('modalFilename').value = filename;
             document.getElementById('modalGeminiLimit').value = stats.daily_limit_gemini_2_5_pro;
+            document.getElementById('modalGemini3Limit').value = stats.daily_limit_gemini_3_pro;
             document.getElementById('modalTotalLimit').value = stats.daily_limit_total;
             document.getElementById('limitsModal').style.display = 'block';
         }
@@ -2916,10 +3004,16 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         // 保存限制设置
         async function saveLimits() {
             const geminiLimit = parseInt(document.getElementById('modalGeminiLimit').value);
+            const gemini3Limit = parseInt(document.getElementById('modalGemini3Limit').value);
             const totalLimit = parseInt(document.getElementById('modalTotalLimit').value);
 
             if (isNaN(geminiLimit) || geminiLimit < 1) {
                 showStatus('Gemini 2.5 Pro 限制必须是大于0的数字', 'error');
+                return;
+            }
+
+            if (isNaN(gemini3Limit) || gemini3Limit < 1) {
+                showStatus('Gemini 3.0 Pro 限制必须是大于0的数字', 'error');
                 return;
             }
 
@@ -2935,6 +3029,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     body: JSON.stringify({
                         filename: currentEditingFile,
                         gemini_2_5_pro_limit: geminiLimit,
+                        gemini_3_pro_limit: gemini3Limit,
                         total_limit: totalLimit
                     })
                 });
@@ -3407,7 +3502,9 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     '点击"启动日志流"开始查看实时日志...' :
                     currentLogFilter === 'all' ? '暂无日志...' : `暂无${currentLogFilter.toUpperCase()}级别的日志...`;
             } else {
-                logMessagesDiv.textContent = filteredLogMessages.join('\n');
+                // 使用 innerHTML 并处理颜色
+                const htmlLogs = filteredLogMessages.map(log => ansiToHtml(log)).join('\n');
+                logMessagesDiv.innerHTML = htmlLogs;
             }
 
             // 自动滚动到底部
@@ -3530,13 +3627,19 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
         // 页面加载时显示登录提示并设置拖拽功能
         window.onload = function () {
-            showStatus('请输入密码登录', 'info');
             setupDragAndDrop();
 
             // 添加勾选框事件监听器
             const checkbox = document.getElementById('getAllProjectsCreds');
             if (checkbox) {
                 checkbox.addEventListener('change', handleGetAllProjectsChange);
+            }
+
+            if (authToken) {
+                showStatus('正在验证登录状态...', 'info');
+                checkToken();
+            } else {
+                showStatus('请输入密码登录', 'info');
             }
         };
 

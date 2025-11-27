@@ -1823,7 +1823,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
         let currentProjectId = '';
         let authInProgress = false;
         let uploadSelectedFiles = []; // 上传页面用的文件列表
-        let authToken = '';
+        let authToken = localStorage.getItem('gcli_auth_token') || '';
         let credsData = {};
 
         // 分页和筛选相关变量
@@ -1878,6 +1878,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
 
                 if (response.ok) {
                     authToken = data.token;
+                    localStorage.setItem('gcli_auth_token', authToken);
                     console.log('Login successful, token received');
                     document.getElementById('loginSection').classList.add('hidden');
                     document.getElementById('mainSection').classList.remove('hidden');
@@ -1889,6 +1890,35 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             } catch (error) {
                 console.error('Login error:', error);
                 showStatus(`网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkToken() {
+            if (!authToken) return;
+
+            try {
+                const response = await fetch('/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    console.log('Token valid, auto logging in');
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('mainSection').classList.remove('hidden');
+                    showStatus('自动登录成功', 'success');
+                } else {
+                    console.log('Token invalid, clearing storage');
+                    localStorage.removeItem('gcli_auth_token');
+                    authToken = '';
+                    showStatus('会话已过期，请重新登录', 'info');
+                }
+            } catch (error) {
+                console.error('Token check error:', error);
+                localStorage.removeItem('gcli_auth_token');
+                authToken = '';
             }
         }
 
@@ -3631,7 +3661,12 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 checkbox.addEventListener('change', handleGetAllProjectsChange);
             }
 
-            showStatus('请输入密码登录', 'info');
+            if (authToken) {
+                showStatus('正在验证登录状态...', 'info');
+                checkToken();
+            } else {
+                showStatus('请输入密码登录', 'info');
+            }
         };
 
         // =====================================================================
