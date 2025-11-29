@@ -251,6 +251,11 @@ class CredentialManager:
             # 加载状态信息
             state_data = await self._storage_adapter.get_credential_state(current_file)
 
+            # 检查凭证状态，如果已禁用则视为无效
+            if state_data.get("disabled", False):
+                log.warning(f"检测到当前凭证已被禁用: {current_file}")
+                return None
+
             # 缓存当前凭证信息
             self._current_credential_file = current_file
             self._current_credential_data = credential_data
@@ -387,11 +392,8 @@ class CredentialManager:
             success = await self.update_credential_state(credential_name, state_updates)
 
             if success:
-                # 如果禁用了当前正在使用的凭证，需要重新发现可用凭证
-                if disabled and credential_name == self._current_credential_file:
-                    await self._discover_credentials()
-                    if self._credential_files:
-                        await self._rotate_credential()
+                # 无论禁用哪个凭证，只要执行了禁用操作，都强制刷新凭证列表
+                await self._discover_credentials()
 
                 action = "禁用" if disabled else "启用"
                 log.info(f"凭证 {action}: {credential_name}")
