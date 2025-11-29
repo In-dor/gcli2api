@@ -61,21 +61,15 @@ credential_manager = CredentialManager()
 
 
 class ConnectionManager:
-    def __init__(self, max_connections: int = 3):  # 进一步降低最大连接数
-        # 使用双端队列严格限制内存使用
-        self.active_connections: deque = deque(maxlen=max_connections)
-        self.max_connections = max_connections
+    def __init__(self):
+        # 使用双端队列存储连接，移除最大连接数限制以避免自动断开
+        self.active_connections: deque = deque()
         self._last_cleanup = 0
         self._cleanup_interval = 120  # 120秒清理一次死连接
 
     async def connect(self, websocket: WebSocket):
         # 自动清理死连接
         self._auto_cleanup()
-
-        # 限制最大连接数，防止内存无限增长
-        if len(self.active_connections) >= self.max_connections:
-            await websocket.close(code=1008, reason="Too many connections")
-            return False
 
         await websocket.accept()
         self.active_connections.append(websocket)
@@ -126,8 +120,7 @@ class ConnectionManager:
                 for conn in self.active_connections
                 if hasattr(conn, "client_state")
                 and conn.client_state != WebSocketState.DISCONNECTED
-            ],
-            maxlen=self.max_connections,
+            ]
         )
 
         self.active_connections = alive_connections
