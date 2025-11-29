@@ -271,72 +271,22 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
     return credentials.credentials
 
 
-def is_mobile_user_agent(user_agent: str) -> bool:
-    """检测是否为移动设备用户代理"""
-    if not user_agent:
-        return False
-
-    user_agent_lower = user_agent.lower()
-    mobile_keywords = [
-        "mobile",
-        "android",
-        "iphone",
-        "ipad",
-        "ipod",
-        "blackberry",
-        "windows phone",
-        "samsung",
-        "htc",
-        "motorola",
-        "nokia",
-        "palm",
-        "webos",
-        "opera mini",
-        "opera mobi",
-        "fennec",
-        "minimo",
-        "symbian",
-        "psp",
-        "nintendo",
-        "tablet",
-    ]
-
-    return any(keyword in user_agent_lower for keyword in mobile_keywords)
-
-
 @router.get("/", response_class=HTMLResponse)
 @router.get("/v1", response_class=HTMLResponse)
 @router.get("/auth", response_class=HTMLResponse)
 async def serve_control_panel(request: Request):
     """提供统一控制面板（包含认证、文件管理、配置等功能）"""
     try:
-        # 获取用户代理并判断是否为移动设备
-        user_agent = request.headers.get("user-agent", "")
-        is_mobile = is_mobile_user_agent(user_agent)
-
-        # 根据设备类型选择相应的HTML文件
-        if is_mobile:
-            html_file_path = "front/control_panel_mobile.html"
-            log.info(f"Serving mobile control panel to user-agent: {user_agent}")
-        else:
-            html_file_path = "front/control_panel.html"
-            log.info(f"Serving desktop control panel to user-agent: {user_agent}")
+        # 统一使用桌面版控制面板
+        html_file_path = "front/control_panel.html"
+        # log.info(f"Serving control panel to user-agent: {request.headers.get('user-agent', '')}")
 
         with open(html_file_path, "r", encoding="utf-8") as f:
             html_content = f.read()
         return HTMLResponse(content=html_content)
     except FileNotFoundError:
         log.error(f"控制面板页面文件不存在: {html_file_path}")
-        # 如果移动端文件不存在，回退到桌面版
-        if is_mobile:
-            try:
-                with open("front/control_panel.html", "r", encoding="utf-8") as f:
-                    html_content = f.read()
-                return HTMLResponse(content=html_content)
-            except FileNotFoundError:
-                raise HTTPException(status_code=404, detail="控制面板页面不存在")
-        else:
-            raise HTTPException(status_code=404, detail="控制面板页面不存在")
+        raise HTTPException(status_code=404, detail="控制面板页面不存在")
     except Exception as e:
         log.error(f"加载控制面板页面失败: {e}")
         raise HTTPException(status_code=500, detail="服务器内部错误")
