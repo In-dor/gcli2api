@@ -7,18 +7,21 @@
     <title>GCLI2API 移动端控制面板</title>
     <style>
         :root {
-            --primary-color: #4285f4;
-            --bg-color: #f4f7f6;
+            /* 同步 PC 端色系 */
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
             --card-bg: #ffffff;
-            --text-primary: #2c3e50;
-            --text-secondary: #7f8c8d;
-            --border-color: #ecf0f1;
-            --success-color: #2ecc71;
-            --danger-color: #e74c3c;
-            --warning-color: #f1c40f;
-            --info-color: #3498db;
-            --shadow: 0 2px 8px rgba(0,0,0,0.05);
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --info-color: #3b82f6;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             --radius: 12px;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         * {
@@ -536,7 +539,13 @@
 
         <!-- 主界面 -->
         <div id="mainSection" class="hidden">
-            <h1>GCLI2API 移动端控制面板</h1>
+            <div style="text-align: center; margin: 15px 0 20px 0;">
+                <h1 style="margin: 0 0 10px 0;">GCLI2API 移动端控制面板</h1>
+                <div style="display: inline-flex; align-items: center; background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600;">
+                    <span style="display: inline-block; width: 6px; height: 6px; background: #059669; border-radius: 50%; margin-right: 6px;"></span>
+                    系统运行中
+                </div>
+            </div>
 
             <!-- 移动端优化的标签页 -->
             <div class="tabs">
@@ -1306,7 +1315,7 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                     </p>
                     <div style="margin: 15px 0; font-size: 14px;">
                         <p style="margin: 5px 0;"><strong>🔗 项目地址：</strong> <a
-                                href="https://github.com/su-kaka/gcli2api" target="_blank"
+                                href="https://github.com/In-dor/gcli2api" target="_blank"
                                 style="color: #007bff; text-decoration: none;">GitHub - su-kaka/gcli2api</a></p>
                         <p style="margin: 5px 0;"><strong>⚠️ 使用声明：</strong> <span
                                 style="color: #dc3545; font-weight: 500;">禁止商业用途和倒卖 - 仅供学习使用</span></p>
@@ -2485,9 +2494,13 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
             }
 
             if (status.error_codes && status.error_codes.length > 0) {
-                statusBadges += `<span style="background-color: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-right: 5px;">错误码: ${status.error_codes.join(', ')}</span>`;
+                // 独立的错误码徽章样式
+                status.error_codes.forEach(code => {
+                    statusBadges += `<span style="background-color: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 10px; font-size: 11px; margin-right: 3px; font-weight: 600;">${code}</span>`;
+                });
             } else {
-                statusBadges += '<span style="background-color: #28a745; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px;">无错误</span>';
+                // PC 端实际上并未显式显示"无错误"，这里保持一致或保留移动端特色皆可，此处选择保留但样式微调
+                // statusBadges += '<span style="background-color: #d1fae5; color: #065f46; padding: 2px 6px; border-radius: 10px; font-size: 11px;">无错误</span>';
             }
 
             // 为HTML ID生成安全的标识符
@@ -3467,10 +3480,10 @@ docker run -e GCLI_CREDS_1='{"client_id":"..."}' \
                 filteredLogMessages = allLogMessages.filter(logLine => {
                     const logLower = logLine.toLowerCase();
 
-                    // 级别筛选
+                    // 级别筛选 (更宽容的匹配，与 PC 端一致)
                     if (levelFilter !== 'all') {
-                        const levelPattern = `[${levelFilter.toUpperCase()}]`;
-                        if (!logLower.includes(levelPattern.toLowerCase())) {
+                        // 只要包含级别字符串即可，不再强制要求方括号格式
+                        if (!logLower.includes(levelFilter.toLowerCase())) {
                             return false;
                         }
                     }
