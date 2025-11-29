@@ -17,6 +17,7 @@ from config import (
     get_base_model_name,
     get_thinking_budget,
     should_include_thoughts,
+    is_gemini_3_model,
     is_search_model,
     get_auto_ban_enabled,
     get_auto_ban_error_codes,
@@ -634,15 +635,20 @@ def build_gemini_payload_from_native(
     # 配置thinking（如果未指定thinkingConfig）
     if "thinkingConfig" not in generation_config:
         budget = get_thinking_budget(model_from_path)
+        include_thoughts = should_include_thoughts(model_from_path)
 
         # 只有在有budget的情况下才考虑添加thinkingConfig (0, -1, >0)
         if budget is not None:
-            include_thoughts = should_include_thoughts(model_from_path)
             thinking_config = {
                 "thinkingBudget": budget,
                 "includeThoughts": include_thoughts,
             }
             generation_config["thinkingConfig"] = thinking_config
+        # 对于 Gemini 3，如果默认启用了 thinking，确保添加 includeThoughts
+        elif is_gemini_3_model(model_from_path) and include_thoughts:
+            generation_config["thinkingConfig"] = {
+                "includeThoughts": True,
+            }
 
     # 为搜索模型添加Google Search工具（如果未指定且没有functionDeclarations）
     if is_search_model(model_from_path):
