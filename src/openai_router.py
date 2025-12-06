@@ -47,18 +47,14 @@ from .stream_utils import (
 router = APIRouter()
 security = HTTPBearer()
 
-# 全局凭证管理器实例
-credential_manager = None
-
 
 @asynccontextmanager
 async def get_credential_manager():
     """获取全局凭证管理器实例"""
-    global credential_manager
-    if not credential_manager:
-        credential_manager = CredentialManager()
-        await credential_manager.initialize()
-    yield credential_manager
+    from src.credential_manager import get_credential_manager as get_global_manager
+
+    manager = await get_global_manager()
+    yield manager
 
 
 async def authenticate(

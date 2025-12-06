@@ -54,8 +54,8 @@ from .storage_adapter import get_storage_adapter
 router = APIRouter()
 security = HTTPBearer()
 
-# 创建credential manager实例
-credential_manager = CredentialManager()
+# 移除局部实例，统一使用 get_credential_manager() 获取
+# credential_manager = CredentialManager()
 
 # WebSocket连接管理
 
@@ -197,17 +197,17 @@ _logger.addHandler(websocket_log_handler)
 
 async def ensure_credential_manager_initialized():
     """确保credential manager已初始化"""
-    if not credential_manager._initialized:
-        await credential_manager.initialize()
+    from .credential_manager import get_credential_manager as get_global_manager
+
+    manager = await get_global_manager()
+    if not manager._initialized:
+        await manager.initialize()
+    return manager
 
 
-async def get_credential_manager():
-    """获取全局凭证管理器实例"""
-    global credential_manager
-    if not credential_manager:
-        credential_manager = CredentialManager()
-        await credential_manager.initialize()
-    return credential_manager
+# 移除本地定义的 get_credential_manager，直接使用导入的
+# async def get_credential_manager():
+#     ...
 
 
 async def authenticate(
@@ -761,14 +761,14 @@ async def upload_credentials(
 async def get_creds_status(token: str = Depends(verify_token)):
     """获取所有凭证文件的状态"""
     try:
-        await ensure_credential_manager_initialized()
+        manager = await ensure_credential_manager_initialized()
 
         # 获取存储适配器
         storage_adapter = await get_storage_adapter()
 
         # 获取所有凭证和状态
         all_credentials = await storage_adapter.list_credentials()
-        all_states = await credential_manager.get_creds_status()
+        all_states = await manager.get_creds_status()
 
         # 获取后端信息（一次性获取，避免重复查询）
         backend_info = await storage_adapter.get_backend_info()
@@ -883,7 +883,7 @@ async def creds_action(
 ):
     """对凭证文件执行操作（启用/禁用/删除）"""
     try:
-        await ensure_credential_manager_initialized()
+        manager = await ensure_credential_manager_initialized()
 
         log.info(f"Received request: {request}")
 
@@ -908,7 +908,7 @@ async def creds_action(
 
         if action == "enable":
             log.info(f"Web request: ENABLING file {filename}")
-            await credential_manager.set_cred_disabled(filename, False)
+            await manager.set_cred_disabled(filename, False)
             log.info(f"Web request: ENABLED file {filename} successfully")
             return JSONResponse(
                 content={"message": f"已启用凭证文件 {os.path.basename(filename)}"}
@@ -916,7 +916,7 @@ async def creds_action(
 
         elif action == "disable":
             log.info(f"Web request: DISABLING file {filename}")
-            await credential_manager.set_cred_disabled(filename, True)
+            await manager.set_cred_disabled(filename, True)
             log.info(f"Web request: DISABLED file {filename} successfully")
             return JSONResponse(
                 content={"message": f"已禁用凭证文件 {os.path.basename(filename)}"}
@@ -955,7 +955,7 @@ async def creds_batch_action(
 ):
     """批量对凭证文件执行操作（启用/禁用/删除）"""
     try:
-        await ensure_credential_manager_initialized()
+        manager = await ensure_credential_manager_initialized()
 
         action = request.action
         filenames = request.filenames
@@ -986,11 +986,11 @@ async def creds_batch_action(
 
                 # 执行相应操作
                 if action == "enable":
-                    await credential_manager.set_cred_disabled(filename, False)
+                    await manager.set_cred_disabled(filename, False)
                     success_count += 1
 
                 elif action == "disable":
-                    await credential_manager.set_cred_disabled(filename, True)
+                    await manager.set_cred_disabled(filename, True)
                     success_count += 1
 
                 elif action == "delete":
@@ -1080,7 +1080,7 @@ async def download_cred_file(filename: str, token: str = Depends(verify_token)):
 async def fetch_user_email(filename: str, token: str = Depends(verify_token)):
     """获取指定凭证文件的用户邮箱地址"""
     try:
-        await ensure_credential_manager_initialized()
+        manager = await ensure_credential_manager_initialized()
 
         # 标准化文件名（只保留文件名部分）
         import os
@@ -1096,7 +1096,7 @@ async def fetch_user_email(filename: str, token: str = Depends(verify_token)):
             raise HTTPException(status_code=404, detail="凭证文件不存在")
 
         # 获取用户邮箱（使用凭证名称而不是文件路径）
-        email = await credential_manager.get_or_fetch_user_email(filename_only)
+        email = await manager.get_or_fetch_user_email(filename_only)
 
         if email:
             return JSONResponse(
@@ -1127,7 +1127,7 @@ async def fetch_user_email(filename: str, token: str = Depends(verify_token)):
 async def refresh_all_user_emails(token: str = Depends(verify_token)):
     """刷新所有凭证文件的用户邮箱地址"""
     try:
-        await ensure_credential_manager_initialized()
+        manager = await ensure_credential_manager_initialized()
 
         # 获取存储适配器
         storage_adapter = await get_storage_adapter()
@@ -1140,7 +1140,7 @@ async def refresh_all_user_emails(token: str = Depends(verify_token)):
 
         for filename in credential_filenames:
             try:
-                email = await credential_manager.get_or_fetch_user_email(filename)
+                email = await manager.get_or_fetch_user_email(filename)
                 if email:
                     success_count += 1
                     results.append(

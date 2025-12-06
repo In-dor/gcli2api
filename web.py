@@ -31,19 +31,15 @@ from src.gemini_router import router as gemini_router
 from src.web_routes import router as web_router
 
 # Import managers and utilities
-from src.credential_manager import CredentialManager
+from src.credential_manager import get_credential_manager
 from src.task_manager import shutdown_all_tasks
 from config import get_server_host, get_server_port
 from log import log, start_log_cleanup_task
-
-# 全局凭证管理器
-global_credential_manager = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global global_credential_manager
 
     log.info("启动 GCLI2API 主服务")
 
@@ -52,12 +48,11 @@ async def lifespan(app: FastAPI):
 
     # 初始化全局凭证管理器
     try:
-        global_credential_manager = CredentialManager()
-        await global_credential_manager.initialize()
+        # 使用单例模式获取和初始化
+        manager = await get_credential_manager()
         log.info("凭证管理器初始化成功")
     except Exception as e:
         log.error(f"凭证管理器初始化失败: {e}")
-        global_credential_manager = None
 
     # 自动从环境变量加载凭证（异步执行）
     try:
@@ -91,12 +86,13 @@ async def lifespan(app: FastAPI):
         log.error(f"关闭异步任务时出错: {e}")
 
     # 然后关闭凭证管理器
-    if global_credential_manager:
-        try:
-            await global_credential_manager.close()
+    try:
+        manager = await get_credential_manager()
+        if manager:
+            await manager.close()
             log.info("凭证管理器已关闭")
-        except Exception as e:
-            log.error(f"关闭凭证管理器时出错: {e}")
+    except Exception as e:
+        log.error(f"关闭凭证管理器时出错: {e}")
 
     log.info("GCLI2API 主服务已停止")
 
@@ -152,7 +148,9 @@ app.add_middleware(
 
 # Session中间件 - 用于持久化登录状态
 # 优先从环境变量读取SECRET_KEY，如果不存在则使用默认固定值
-session_secret_key = os.getenv("SECRET_KEY", "gcli2api_fixed_secret_key_for_session_persistence")
+session_secret_key = os.getenv(
+    "SECRET_KEY", "gcli2api_fixed_secret_key_for_session_persistence"
+)
 app.add_middleware(
     SessionMiddleware,
     secret_key=session_secret_key,
@@ -181,9 +179,10 @@ async def keepalive() -> Response:
     return Response(status_code=200)
 
 
-def get_credential_manager():
-    """获取全局凭证管理器实例"""
-    return global_credential_manager
+# 移除本地定义的 get_credential_manager，直接使用导入的
+# def get_credential_manager():
+#     """获取全局凭证管理器实例"""
+#     return global_credential_manager
 
 
 # 导出给其他模块使用
