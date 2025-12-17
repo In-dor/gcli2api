@@ -2,45 +2,50 @@ version: '3.8'
 
 services:
   gcli2api:
-    image: ghcr.io/su-kaka/gcli2api:latest
+    image: ghcr.io/In-dor/gcli2api:latest
     container_name: gcli2api
     restart: unless-stopped
     network_mode: host
+    # 环境变量文件
+    env_file:
+      - ./.env
     environment:
       # Password configuration (choose one)
       # Option 1: Use common password
-      - PASSWORD=${PASSWORD:-pwd}
+      # - PASSWORD=${PASSWORD:-pwd}
       # Option 2: Use separate passwords (uncomment if needed)
-      # - API_PASSWORD=${API_PASSWORD:-your_api_password}
-      # - PANEL_PASSWORD=${PANEL_PASSWORD:-your_panel_password}
+      - API_PASSWORD=${API_PASSWORD:-your_api_password}
+      - PANEL_PASSWORD=${PANEL_PASSWORD:-your_panel_password}
 
       # Server configuration
       - PORT=${PORT:-7861}
       - HOST=${HOST:-0.0.0.0}
+      - TZ=Asia/Shanghai
 
-      # Optional: Google credentials from environment
-      # - GOOGLE_CREDENTIALS=${GOOGLE_CREDENTIALS}
 
-      # Optional: Logging configuration
-      # - LOG_LEVEL=${LOG_LEVEL:-info}
+    # Optional: Google credentials from environment
+    # - GOOGLE_CREDENTIALS=${GOOGLE_CREDENTIALS}
 
-      # Optional: Redis configuration (for distributed storage)
-      # - REDIS_URI=${REDIS_URI}
-      # - REDIS_DATABASE=${REDIS_DATABASE:-0}
+    # Optional: Logging configuration
+    # - LOG_LEVEL=${LOG_LEVEL:-info}
 
-      # Optional: MongoDB configuration (for distributed storage)
-      # - MONGODB_URI=${MONGODB_URI}
-      # - MONGODB_DATABASE=${MONGODB_DATABASE:-gcli2api}
+    # Optional: Redis configuration (for distributed storage)
+    # - REDIS_URI=${REDIS_URI}
+    # - REDIS_DATABASE=${REDIS_DATABASE:-0}
 
-      # Optional: PostgreSQL configuration (for distributed storage)
-      # - POSTGRES_DSN=${POSTGRES_DSN}
+    # Optional: MongoDB configuration (for distributed storage)
+    # - MONGODB_URI=${MONGODB_URI}
+    # - MONGODB_DATABASE=${MONGODB_DATABASE:-gcli2api}
 
-      # Optional: Proxy configuration
-      # - PROXY=${PROXY}
+    # Optional: PostgreSQL configuration (for distributed storage)
+    # - POSTGRES_DSN=${POSTGRES_DSN}
+
+    # Optional: Proxy configuration
+    # - PROXY=${PROXY}
     volumes:
-      - ./data/creds:/app/creds
+      - ./creds:/app/creds
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
+      test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('API_PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -59,7 +59,8 @@ def _filter_thoughts_from_response(response_data: dict) -> dict:
             if "parts" in candidate["content"]:
                 # 过滤掉包含thought字段的parts
                 candidate["content"]["parts"] = [
-                    part for part in candidate["content"]["parts"]
+                    part
+                    for part in candidate["content"]["parts"]
                     if not isinstance(part, dict) or "thought" not in part
                 ]
 
@@ -79,16 +80,11 @@ def _create_error_response(message: str, status_code: int = 500) -> Response:
 
 async def _check_should_auto_ban(status_code: int) -> bool:
     """检查是否应该触发自动封禁"""
-    return (
-        await get_auto_ban_enabled()
-        and status_code in await get_auto_ban_error_codes()
-    )
+    return await get_auto_ban_enabled() and status_code in await get_auto_ban_error_codes()
 
 
 async def _handle_auto_ban(
-    credential_manager: CredentialManager,
-    status_code: int,
-    credential_name: str
+    credential_manager: CredentialManager, status_code: int, credential_name: str
 ) -> None:
     """处理自动封禁：直接禁用凭证（随机选择机制会自动跳过被禁用的凭证）"""
     if credential_manager and credential_name:
@@ -106,7 +102,7 @@ async def _handle_error_with_retry(
     retry_enabled: bool,
     attempt: int,
     max_retries: int,
-    retry_interval: float
+    retry_interval: float,
 ):
     """
     统一处理错误和重试逻辑
@@ -134,9 +130,7 @@ async def _handle_error_with_retry(
     # 如果不触发自动封禁，使用普通重试逻辑
     if retry_enabled and attempt < max_retries:
         if status_code == 429:
-            log.warning(
-                f"[RETRY] 429 error encountered, retrying ({attempt + 1}/{max_retries})"
-            )
+            log.warning(f"[RETRY] 429 error encountered, retrying ({attempt + 1}/{max_retries})")
         else:
             log.warning(
                 f"[RETRY] Non-200 error encountered (status {status_code}), retrying ({attempt + 1}/{max_retries})"
@@ -146,8 +140,6 @@ async def _handle_error_with_retry(
         return True
 
     return False
-
-
 
 
 async def _prepare_request_headers_and_payload(
@@ -264,9 +256,13 @@ async def send_gemini_request(
                                         error_data = json.loads(response_content)
                                         cooldown_until = parse_quota_reset_timestamp(error_data)
                                         if cooldown_until:
-                                            log.info(f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}")
+                                            log.info(
+                                                f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}"
+                                            )
                                     except Exception as parse_err:
-                                        log.debug(f"[STREAMING] Failed to parse cooldown time: {parse_err}")
+                                        log.debug(
+                                            f"[STREAMING] Failed to parse cooldown time: {parse_err}"
+                                        )
                         except Exception as e:
                             log.debug(f"[STREAMING] Failed to read error response content: {e}")
 
@@ -283,7 +279,11 @@ async def send_gemini_request(
                         # 记录API调用错误（使用模型组 CD）
                         if credential_manager and current_file:
                             await credential_manager.record_api_call_result(
-                                current_file, False, resp.status_code, cooldown_until, model_key=model_group
+                                current_file,
+                                False,
+                                resp.status_code,
+                                cooldown_until,
+                                model_key=model_group,
                             )
 
                         # 清理资源 - 确保按正确顺序清理
@@ -307,7 +307,7 @@ async def send_gemini_request(
                             retry_429_enabled,
                             attempt,
                             max_retries,
-                            retry_interval
+                            retry_interval,
                         )
 
                         if should_retry:
@@ -352,7 +352,9 @@ async def send_gemini_request(
                         if stream_ctx:
                             await stream_ctx.__aexit__(None, None, None)
                     except Exception as cleanup_err:
-                        log.debug(f"Error cleaning up stream_ctx in exception handler: {cleanup_err}")
+                        log.debug(
+                            f"Error cleaning up stream_ctx in exception handler: {cleanup_err}"
+                        )
                     finally:
                         try:
                             if client:
@@ -369,7 +371,11 @@ async def send_gemini_request(
                     # === 修改：统一处理所有非200状态码，沿用429行为 ===
                     if resp.status_code == 200:
                         return await _handle_non_streaming_response(
-                            resp, credential_manager, payload.get("model", ""), current_file, model_group
+                            resp,
+                            credential_manager,
+                            payload.get("model", ""),
+                            current_file,
+                            model_group,
                         )
 
                     # 记录错误
@@ -379,20 +385,28 @@ async def send_gemini_request(
                     # 如果是429错误，尝试获取冷却时间
                     if status == 429:
                         try:
-                            content_bytes = resp.content if hasattr(resp, "content") else await resp.aread()
+                            content_bytes = (
+                                resp.content if hasattr(resp, "content") else await resp.aread()
+                            )
                             if isinstance(content_bytes, bytes):
                                 response_content = content_bytes.decode("utf-8", errors="ignore")
                                 error_data = json.loads(response_content)
                                 cooldown_until = parse_quota_reset_timestamp(error_data)
                                 if cooldown_until:
-                                    log.info(f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}")
+                                    log.info(
+                                        f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}"
+                                    )
                         except Exception as parse_err:
                             log.debug(f"[NON-STREAMING] Failed to parse cooldown time: {parse_err}")
 
                     if credential_manager and current_file:
                         # 保留 429 的统计码不变（使用模型组 CD）
                         await credential_manager.record_api_call_result(
-                            current_file, False, 429 if status == 429 else status, cooldown_until, model_key=model_group
+                            current_file,
+                            False,
+                            429 if status == 429 else status,
+                            cooldown_until,
+                            model_key=model_group,
                         )
 
                     # 使用统一的错误处理和重试逻辑
@@ -403,7 +417,7 @@ async def send_gemini_request(
                         retry_429_enabled,
                         attempt,
                         max_retries,
-                        retry_interval
+                        retry_interval,
                     )
 
                     if should_retry:
@@ -479,9 +493,13 @@ def _handle_streaming_response_managed(
                             error_data = json.loads(response_content)
                             cooldown_until = parse_quota_reset_timestamp(error_data)
                             if cooldown_until:
-                                log.info(f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}")
+                                log.info(
+                                    f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}"
+                                )
                         except Exception as parse_err:
-                            log.debug(f"[STREAMING] Failed to parse cooldown time for error analysis: {parse_err}")
+                            log.debug(
+                                f"[STREAMING] Failed to parse cooldown time for error analysis: {parse_err}"
+                            )
             except Exception as e:
                 log.debug(f"[STREAMING] Failed to read response content for error analysis: {e}")
                 response_content = ""
@@ -566,7 +584,9 @@ def _handle_streaming_response_managed(
                         if bytes_transferred > 10 * 1024 * 1024:  # 10MB
                             gc.collect()
                             bytes_transferred = 0
-                            log.debug(f"Triggered GC after {chunk_count} chunks (~10MB transferred)")
+                            log.debug(
+                                f"Triggered GC after {chunk_count} chunks (~10MB transferred)"
+                            )
                     else:
                         yield f"data: {json.dumps(obj, separators=(',', ':'))}\n\n".encode()
                 except json.JSONDecodeError:
@@ -659,9 +679,13 @@ async def _handle_non_streaming_response(
                     error_data = json.loads(response_content)
                     cooldown_until = parse_quota_reset_timestamp(error_data)
                     if cooldown_until:
-                        log.info(f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}")
+                        log.info(
+                            f"检测到quota冷却时间: {datetime.fromtimestamp(cooldown_until, timezone.utc).isoformat()}"
+                        )
                 except Exception as parse_err:
-                    log.debug(f"[NON-STREAMING] Failed to parse cooldown time for error analysis: {parse_err}")
+                    log.debug(
+                        f"[NON-STREAMING] Failed to parse cooldown time for error analysis: {parse_err}"
+                    )
         except Exception as e:
             log.debug(f"[NON-STREAMING] Failed to read response content for error analysis: {e}")
             response_content = ""
@@ -698,7 +722,7 @@ async def _handle_non_streaming_response(
         return _create_error_response(f"API error: {resp.status_code}", resp.status_code)
 
 
-def build_gemini_payload_from_native(native_request: dict, model_from_path: str) -> dict:
+async def build_gemini_payload_from_native(native_request: dict, model_from_path: str) -> dict:
     """
     Build a Gemini API payload from a native Gemini request with full pass-through support.
     """
@@ -713,7 +737,8 @@ def build_gemini_payload_from_native(native_request: dict, model_from_path: str)
     existing_categories = {s.get("category") for s in user_settings}
     # 遍历默认设置，将用户未配置的项追加到列表中
     user_settings.extend(
-        default_setting for default_setting in DEFAULT_SAFETY_SETTINGS
+        default_setting
+        for default_setting in DEFAULT_SAFETY_SETTINGS
         if default_setting["category"] not in existing_categories
     )
     # 回写合并后的结果
@@ -727,15 +752,30 @@ def build_gemini_payload_from_native(native_request: dict, model_from_path: str)
 
     # 配置thinking（如果未指定thinkingConfig）
     # 注意：只有在thinkingBudget有值时才添加thinkingConfig，避免在thinking未启用时发送includeThoughts
+    # 修改：如果前端开启了返回思维链，则强制添加thinkingConfig (如果模型支持)
+    return_thoughts = await get_return_thoughts_to_frontend()
+
     if "thinkingConfig" not in generation_config:
         thinking_budget = get_thinking_budget(model_from_path)
 
-        # 只有在有thinking budget时才添加thinkingConfig
+        should_add_config = False
+        config_to_add = {}
+
         if thinking_budget is not None:
-            generation_config["thinkingConfig"] = {
-                "thinkingBudget": thinking_budget,
-                "includeThoughts": should_include_thoughts(model_from_path)
-            }
+            config_to_add["thinkingBudget"] = thinking_budget
+            should_add_config = True
+
+        # 如果开启了返回思维链，强制 includeThoughts=True
+        # 这会为 Gemini 3.0 Pro 等不需要 budget 的模型添加 thinkingConfig
+        if return_thoughts:
+            config_to_add["includeThoughts"] = True
+            should_add_config = True
+        elif thinking_budget is not None:
+            # 只有在有 budget 且没有强制开启时，使用默认逻辑
+            config_to_add["includeThoughts"] = should_include_thoughts(model_from_path)
+
+        if should_add_config:
+            generation_config["thinkingConfig"] = config_to_add
     else:
         # 如果用户已经提供了thinkingConfig，但没有设置某些字段，填充默认值
         thinking_config = generation_config["thinkingConfig"]
@@ -743,8 +783,14 @@ def build_gemini_payload_from_native(native_request: dict, model_from_path: str)
             thinking_budget = get_thinking_budget(model_from_path)
             if thinking_budget is not None:
                 thinking_config["thinkingBudget"] = thinking_budget
+
         if "includeThoughts" not in thinking_config:
-            thinking_config["includeThoughts"] = should_include_thoughts(model_from_path)
+            thinking_config["includeThoughts"] = (
+                True if return_thoughts else should_include_thoughts(model_from_path)
+            )
+        elif return_thoughts:
+            # 如果配置了强制返回思维链，则覆盖为True
+            thinking_config["includeThoughts"] = True
 
     # 为搜索模型添加Google Search工具（如果未指定且没有functionDeclarations）
     if is_search_model(model_from_path):

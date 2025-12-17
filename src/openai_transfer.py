@@ -12,6 +12,7 @@ from pypinyin import Style, lazy_pinyin
 
 from config import (
     get_compatibility_mode_enabled,
+    get_return_thoughts_to_frontend,
 )
 from src.utils import (
     DEFAULT_SAFETY_SETTINGS,
@@ -226,11 +227,23 @@ async def openai_request_to_gemini_payload(
         }
     else:  # 如无提供的参数，则为thinking模型添加thinking配置
         thinking_budget = get_thinking_budget(openai_request.model)
+        return_thoughts = await get_return_thoughts_to_frontend()
+
+        config_to_add = {}
+        should_add = False
+
         if thinking_budget is not None:
-            request_data["generationConfig"]["thinkingConfig"] = {
-                "thinkingBudget": thinking_budget,
-                "includeThoughts": should_include_thoughts(openai_request.model),
-            }
+            config_to_add["thinkingBudget"] = thinking_budget
+            should_add = True
+
+        if return_thoughts:
+            config_to_add["includeThoughts"] = True
+            should_add = True
+        elif thinking_budget is not None:
+            config_to_add["includeThoughts"] = should_include_thoughts(openai_request.model)
+
+        if should_add:
+            request_data["generationConfig"]["thinkingConfig"] = config_to_add
 
     # 处理工具定义和配置
     # 首先检查是否有自定义工具

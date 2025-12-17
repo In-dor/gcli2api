@@ -82,6 +82,7 @@ async def authenticate_gemini_flexible(
         detail="Missing or invalid authentication. Use 'key' URL parameter, 'x-goog-api-key' header, or 'Authorization: Bearer <token>'",
     )
 
+
 @router.get("/v1beta/models")
 @router.get("/v1/models")
 async def list_gemini_models():
@@ -111,6 +112,7 @@ async def list_gemini_models():
         gemini_models.append(model_info)
 
     return JSONResponse(content={"models": gemini_models})
+
 
 @router.post("/v1beta/models/{model:path}:generateContent")
 @router.post("/v1/models/{model:path}:generateContent")
@@ -199,7 +201,7 @@ async def generate_content(
 
     # 构建Google API payload
     try:
-        api_payload = build_gemini_payload_from_native(request_data, real_model)
+        api_payload = await build_gemini_payload_from_native(request_data, real_model)
     except Exception as e:
         log.error(f"Gemini payload build failed: {e}")
         raise HTTPException(status_code=500, detail="Request processing failed")
@@ -231,6 +233,7 @@ async def generate_content(
             return JSONResponse(content=json.loads(response.content))
         else:
             raise HTTPException(status_code=500, detail="Response processing failed")
+
 
 @router.post("/v1beta/models/{model:path}:streamGenerateContent")
 @router.post("/v1/models/{model:path}:streamGenerateContent")
@@ -288,7 +291,7 @@ async def stream_generate_content(
     # 对于假流式模型，返回假流式响应
     if use_fake_streaming:
         return await fake_stream_response_gemini(request_data, real_model)
-    
+
     cred_mgr = await get_credential_manager()
 
     # 获取有效凭证
@@ -299,7 +302,7 @@ async def stream_generate_content(
 
     # 构建Google API payload
     try:
-        api_payload = build_gemini_payload_from_native(request_data, real_model)
+        api_payload = await build_gemini_payload_from_native(request_data, real_model)
     except Exception as e:
         log.error(f"Gemini payload build failed: {e}")
         raise HTTPException(status_code=500, detail="Request processing failed")
@@ -318,6 +321,7 @@ async def stream_generate_content(
 
     # 直接返回流式响应
     return response
+
 
 @router.post("/v1beta/models/{model:path}:countTokens")
 @router.post("/v1/models/{model:path}:countTokens")
@@ -358,6 +362,7 @@ async def count_tokens(
 
     # 返回Gemini格式的响应
     return JSONResponse(content={"totalTokens": total_tokens})
+
 
 @router.get("/v1beta/models/{model:path}")
 @router.get("/v1/models/{model:path}")
@@ -413,7 +418,7 @@ async def fake_stream_response_gemini(request_data: dict, model: str):
 
             # 构建Google API payload
             try:
-                api_payload = build_gemini_payload_from_native(request_data, model)
+                api_payload = await build_gemini_payload_from_native(request_data, model)
             except Exception as e:
                 log.error(f"Gemini payload build failed: {e}")
                 error_chunk = {
