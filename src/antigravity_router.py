@@ -23,9 +23,7 @@ from .antigravity_api import (
 from .credential_manager import CredentialManager
 from .models import (
     ChatCompletionRequest,
-    GeminiContent,
     GeminiGenerationConfig,
-    GeminiPart,
     Model,
     ModelList,
     OpenAIChatCompletionChoice,
@@ -373,6 +371,13 @@ def generate_generation_config(
     if "max_tokens" in parameters:
         config_dict["maxOutputTokens"] = parameters["max_tokens"]
 
+    # 图片生成相关参数
+    if "response_modalities" in parameters:
+        config_dict["response_modalities"] = parameters["response_modalities"]
+
+    if "image_config" in parameters:
+        config_dict["image_config"] = parameters["image_config"]
+
     # 思考模型配置
     if enable_thinking:
         config_dict["thinkingConfig"] = {
@@ -409,7 +414,7 @@ def convert_to_openai_tool_call(function_call: Dict[str, Any]) -> Dict[str, Any]
 
 
 async def convert_antigravity_stream_to_openai(
-    response: Any,
+    lines_generator: Any,
     stream_ctx: Any,
     client: Any,
     model: str,
@@ -420,6 +425,8 @@ async def convert_antigravity_stream_to_openai(
     """
     将 Antigravity 流式响应转换为 OpenAI 格式的 SSE 流
 
+    Args:
+        lines_generator: 行生成器 (已经过滤的 SSE 行)
     """
     state = {
         "thinking_started": False,
@@ -456,7 +463,7 @@ async def convert_antigravity_stream_to_openai(
             state["thinking_started"] = False
             return thinking_block
 
-        async for line in response.aiter_lines():
+        async for line in lines_generator:
             if not line or not line.startswith("data: "):
                 continue
 
@@ -716,7 +723,7 @@ def convert_antigravity_response_to_gemini(
 
 
 async def convert_antigravity_stream_to_gemini(
-    response: Any,
+    lines_generator: Any,
     stream_ctx: Any,
     client: Any,
     credential_manager: Any,
@@ -724,11 +731,14 @@ async def convert_antigravity_stream_to_gemini(
 ):
     """
     将 Antigravity 流式响应转换为 Gemini 格式的 SSE 流
+
+    Args:
+        lines_generator: 行生成器 (已经过滤的 SSE 行)
     """
     success_recorded = False
 
     try:
-        async for line in response.aiter_lines():
+        async for line in lines_generator:
             if not line or not line.startswith("data: "):
                 continue
 
@@ -868,15 +878,15 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
 
     generation_config = generate_generation_config(parameters, enable_thinking, actual_model)
 
-    # 获取凭证信息（用于 projectId 和 sessionId）
+    # 获取凭证信息（用于 project_id 和 session_id）
     cred_result = await cred_mgr.get_valid_credential(is_antigravity=True)
     if not cred_result:
         log.error("当前无可用 antigravity 凭证")
         raise HTTPException(status_code=500, detail="当前无可用 antigravity 凭证")
 
     _, credential_data = cred_result
-    project_id = credential_data.get("projectId", "default-project")
-    session_id = credential_data.get("sessionId", f"session-{uuid.uuid4().hex}")
+    project_id = credential_data.get("project_id", "default-project")
+    session_id = f"session-{uuid.uuid4().hex}"
 
     # 构建 Antigravity 请求体
     request_body = build_antigravity_request_body(
@@ -902,6 +912,7 @@ async def chat_completions(request: Request, token: str = Depends(authenticate))
             response, stream_ctx, client = resources
 
             # 转换并返回流式响应,传递资源管理对象
+            # response 现在是 filtered_lines 生成器
             return StreamingResponse(
                 convert_antigravity_stream_to_openai(
                     response, stream_ctx, client, model, request_id, cred_mgr, cred_name
@@ -1033,21 +1044,24 @@ async def gemini_generate_content(
         "top_p": gemini_config.get("topP"),
         "top_k": gemini_config.get("topK"),
         "max_tokens": gemini_config.get("maxOutputTokens"),
+        # 图片生成相关参数
+        "response_modalities": gemini_config.get("response_modalities"),
+        "image_config": gemini_config.get("image_config"),
     }
     # 过滤 None 值
     parameters = {k: v for k, v in parameters.items() if v is not None}
 
     generation_config = generate_generation_config(parameters, enable_thinking, actual_model)
 
-    # 获取凭证信息（用于 projectId 和 sessionId）
+    # 获取凭证信息（用于 project_id 和 session_id）
     cred_result = await cred_mgr.get_valid_credential(is_antigravity=True)
     if not cred_result:
         log.error("当前无可用 antigravity 凭证")
         raise HTTPException(status_code=500, detail="当前无可用 antigravity 凭证")
 
     _, credential_data = cred_result
-    project_id = credential_data.get("projectId", "default-project")
-    session_id = credential_data.get("sessionId", f"session-{uuid.uuid4().hex}")
+    project_id = credential_data.get("project_id", "default-project")
+    session_id = credential_data.get("session_id", f"session-{uuid.uuid4().hex}")
 
     # 处理 systemInstruction
     system_instruction = None
@@ -1137,21 +1151,24 @@ async def gemini_stream_generate_content(
         "top_p": gemini_config.get("topP"),
         "top_k": gemini_config.get("topK"),
         "max_tokens": gemini_config.get("maxOutputTokens"),
+        # 图片生成相关参数
+        "response_modalities": gemini_config.get("response_modalities"),
+        "image_config": gemini_config.get("image_config"),
     }
     # 过滤 None 值
     parameters = {k: v for k, v in parameters.items() if v is not None}
 
     generation_config = generate_generation_config(parameters, enable_thinking, actual_model)
 
-    # 获取凭证信息（用于 projectId 和 sessionId）
+    # 获取凭证信息（用于 project_id 和 session_id）
     cred_result = await cred_mgr.get_valid_credential(is_antigravity=True)
     if not cred_result:
         log.error("当前无可用 antigravity 凭证")
         raise HTTPException(status_code=500, detail="当前无可用 antigravity 凭证")
 
     _, credential_data = cred_result
-    project_id = credential_data.get("projectId", "default-project")
-    session_id = credential_data.get("sessionId", f"session-{uuid.uuid4().hex}")
+    project_id = credential_data.get("project_id", "default-project")
+    session_id = credential_data.get("session_id", f"session-{uuid.uuid4().hex}")
 
     # 处理 systemInstruction
     system_instruction = None
@@ -1184,6 +1201,7 @@ async def gemini_stream_generate_content(
         response, stream_ctx, client = resources
 
         # 转换并返回流式响应
+        # response 现在是 filtered_lines 生成器
         return StreamingResponse(
             convert_antigravity_stream_to_gemini(
                 response, stream_ctx, client, cred_mgr, cred_name

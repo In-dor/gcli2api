@@ -1,10 +1,43 @@
 import platform
-import time
 from datetime import datetime, timezone
 from typing import List, Optional
 
 
 CLI_VERSION = "0.1.5"  # Match current gemini-cli version
+
+# ====================== OAuth Configuration ======================
+
+# OAuth Configuration - 标准模式
+CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
+CLIENT_SECRET = "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"
+SCOPES = [
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+]
+
+# Antigravity OAuth Configuration
+ANTIGRAVITY_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+ANTIGRAVITY_CLIENT_SECRET = "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"
+ANTIGRAVITY_SCOPES = [
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/cclog',
+    'https://www.googleapis.com/auth/experimentsandconfigs'
+]
+
+# 统一的 Token URL（两种模式相同）
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+# 回调服务器配置
+CALLBACK_HOST = "localhost"
+
+# ====================== Antigravity API Configuration ======================
+
+# Antigravity API Host and User-Agent (shared by antigravity_api.py and google_oauth_api.py)
+ANTIGRAVITY_HOST = "daily-cloudcode-pa.sandbox.googleapis.com"
+ANTIGRAVITY_USER_AGENT = "antigravity/1.11.3 windows/amd64"
 
 # ====================== Model Configuration ======================
 
@@ -28,8 +61,6 @@ BASE_MODELS = [
     "gemini-2.5-flash",
     "gemini-3-pro-preview",
 ]
-
-PUBLIC_API_MODELS = ["gemini-2.5-flash-image", "gemini-2.5-flash-image-preview"]
 
 
 # ====================== Model Helper Functions ======================
@@ -125,9 +156,6 @@ def get_available_models(router_type: str = "openai") -> List[str]:
     for base_model in BASE_MODELS:
         # 基础模型
         models.append(base_model)
-
-        if base_model in PUBLIC_API_MODELS:
-            continue
 
         # 假流式模型 (前缀格式)
         models.append(f"假流式/{base_model}")

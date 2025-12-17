@@ -21,41 +21,26 @@ from .google_oauth_api import (
     Credentials,
     Flow,
     enable_required_apis,
+    fetch_project_id,
     get_user_projects,
     select_default_project,
 )
 from .storage_adapter import get_storage_adapter
-
-# OAuth Configuration - 标准模式
-CLIENT_ID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
-CLIENT_SECRET = "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"
-SCOPES = [
-    "https://www.googleapis.com/auth/cloud-platform",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile",
-]
-
-# Antigravity OAuth Configuration
-ANTIGRAVITY_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
-ANTIGRAVITY_CLIENT_SECRET = "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"
-ANTIGRAVITY_SCOPES = [
-    'https://www.googleapis.com/auth/cloud-platform',
-    'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/userinfo.profile',
-    'https://www.googleapis.com/auth/cclog',
-    'https://www.googleapis.com/auth/experimentsandconfigs'
-]
-
-# 统一的 Token URL（两种模式相同）
-TOKEN_URL = "https://oauth2.googleapis.com/token"
-
-# 回调服务器配置
-CALLBACK_HOST = "localhost"
+from .utils import (
+    ANTIGRAVITY_CLIENT_ID,
+    ANTIGRAVITY_CLIENT_SECRET,
+    ANTIGRAVITY_SCOPES,
+    CALLBACK_HOST,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    SCOPES,
+    TOKEN_URL,
+)
 
 
 async def get_callback_port():
     """获取OAuth回调端口"""
-    return int(await get_config_value("oauth_callback_port", "8080", "OAUTH_CALLBACK_PORT"))
+    return int(await get_config_value("oauth_callback_port", "11451", "OAUTH_CALLBACK_PORT"))
 
 
 def _prepare_credentials_data(credentials: Credentials, project_id: str, is_antigravity: bool = False) -> Dict[str, Any]:
@@ -93,9 +78,8 @@ def _prepare_credentials_data(credentials: Credentials, project_id: str, is_anti
 
 def _generate_random_project_id() -> str:
     """生成随机project_id（antigravity模式使用）"""
-    import random
-    import string
-    return ''.join(random.choices(string.ascii_lowercase + string.digits, k=16))
+    random_id = uuid.uuid4().hex[:8]
+    return f"projects/random-{random_id}/locations/global"
 
 
 def _cleanup_auth_flow_server(state: str):
@@ -472,7 +456,7 @@ async def complete_auth_flow(
                     if user_projects:
                         # 如果只有一个项目，自动使用
                         if len(user_projects) == 1:
-                            project_id = user_projects[0].get("projectId")
+                            project_id = user_projects[0].get("project_id")
                             if project_id:
                                 flow_data["project_id"] = project_id
                                 log.info(f"自动选择唯一项目: {project_id}")
@@ -490,8 +474,8 @@ async def complete_auth_flow(
                                     "requires_project_selection": True,
                                     "available_projects": [
                                         {
-                                            "projectId": p.get("projectId"),
-                                            "name": p.get("displayName") or p.get("projectId"),
+                                            "project_id": p.get("project_id"),
+                                            "name": p.get("displayName") or p.get("project_id"),
                                             "projectNumber": p.get("projectNumber"),
                                         }
                                         for p in user_projects
@@ -672,9 +656,15 @@ async def asyncio_complete_auth_flow(
                 # 检查是否为antigravity模式
                 is_antigravity = flow_data.get("use_antigravity", False) or use_antigravity
                 if is_antigravity:
-                    log.info("Antigravity模式：生成随机project_id...")
-                    project_id = _generate_random_project_id()
-                    log.info(f"生成的随机project_id: {project_id}")
+                    log.info("Antigravity模式：从API获取project_id...")
+                    # 使用API获取project_id
+                    project_id = await fetch_project_id(credentials.access_token)
+                    if project_id:
+                        log.info(f"成功从API获取project_id: {project_id}")
+                    else:
+                        log.warning("无法从API获取project_id，回退到随机生成")
+                        project_id = _generate_random_project_id()
+                        log.info(f"生成的随机project_id: {project_id}")
 
                     # 保存antigravity凭证
                     saved_filename = await save_credentials(credentials, project_id, is_antigravity=True)
@@ -704,7 +694,7 @@ async def asyncio_complete_auth_flow(
                     if user_projects:
                         # 如果只有一个项目，自动使用
                         if len(user_projects) == 1:
-                            project_id = user_projects[0].get("projectId")
+                            project_id = user_projects[0].get("project_id")
                             if project_id:
                                 flow_data["project_id"] = project_id
                                 log.info(f"自动选择唯一项目: {project_id}")
@@ -728,8 +718,8 @@ async def asyncio_complete_auth_flow(
                                     "requires_project_selection": True,
                                     "available_projects": [
                                         {
-                                            "projectId": p.get("projectId"),
-                                            "name": p.get("displayName") or p.get("projectId"),
+                                            "project_id": p.get("project_id"),
+                                            "name": p.get("displayName") or p.get("project_id"),
                                             "projectNumber": p.get("projectNumber"),
                                         }
                                         for p in user_projects
@@ -823,9 +813,15 @@ async def complete_auth_flow_from_callback_url(
             # 检查是否为antigravity模式
             is_antigravity = flow_data.get("use_antigravity", False) or use_antigravity
             if is_antigravity:
-                log.info("Antigravity模式（从回调URL）：生成随机project_id...")
-                project_id = _generate_random_project_id()
-                log.info(f"生成的随机project_id: {project_id}")
+                log.info("Antigravity模式（从回调URL）：从API获取project_id...")
+                # 使用API获取project_id
+                project_id = await fetch_project_id(credentials.access_token)
+                if project_id:
+                    log.info(f"成功从API获取project_id: {project_id}")
+                else:
+                    log.warning("无法从API获取project_id，回退到随机生成")
+                    project_id = _generate_random_project_id()
+                    log.info(f"生成的随机project_id: {project_id}")
 
                 # 保存antigravity凭证
                 saved_filename = await save_credentials(credentials, project_id, is_antigravity=True)
@@ -856,17 +852,17 @@ async def complete_auth_flow_from_callback_url(
                     if projects:
                         if len(projects) == 1:
                             # 只有一个项目，自动使用
-                            detected_project_id = projects[0]["projectId"]
+                            detected_project_id = projects[0]["project_id"]
                             auto_detected = True
                             log.info(f"自动检测到唯一项目ID: {detected_project_id}")
                         else:
                             # 多个项目，自动选择第一个
-                            detected_project_id = projects[0]["projectId"]
+                            detected_project_id = projects[0]["project_id"]
                             auto_detected = True
                             log.info(
                                 f"检测到{len(projects)}个项目，自动选择第一个: {detected_project_id}"
                             )
-                            log.debug(f"其他可用项目: {[p['projectId'] for p in projects[1:]]}")
+                            log.debug(f"其他可用项目: {[p['project_id'] for p in projects[1:]]}")
                     else:
                         # 没有项目访问权限
                         return {
