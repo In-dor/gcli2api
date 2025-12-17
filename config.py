@@ -21,6 +21,7 @@ AUTO_BAN_ERROR_CODES = [403]
 
 # ====================== 配置系统 ======================
 
+
 async def init_config():
     """初始化配置缓存（启动时调用一次）"""
     global _config_cache, _config_initialized
@@ -30,6 +31,7 @@ async def init_config():
 
     try:
         from src.storage_adapter import get_storage_adapter
+
         storage_adapter = await get_storage_adapter()
         _config_cache = await storage_adapter.get_all_config()
         _config_initialized = True
@@ -45,10 +47,11 @@ async def reload_config():
 
     try:
         from src.storage_adapter import get_storage_adapter
+
         storage_adapter = await get_storage_adapter()
 
         # 如果后端支持 reload_config_cache，调用它
-        if hasattr(storage_adapter._backend, 'reload_config_cache'):
+        if hasattr(storage_adapter._backend, "reload_config_cache"):
             await storage_adapter._backend.reload_config_cache()
 
         # 重新加载配置缓存
@@ -304,6 +307,25 @@ async def get_return_thoughts_to_frontend() -> bool:
         return env_value.lower() in ("true", "1", "yes", "on")
 
     return bool(await get_config_value("return_thoughts_to_frontend", True))
+
+
+async def get_request_thoughts_from_model() -> bool:
+    """
+    Get request thoughts from model setting.
+
+    控制是否向模型请求思维链。
+    启用后，会向模型发送 includeThoughts=True（如果支持）；
+    禁用后，不会强制发送 includeThoughts=True，除非用户请求中显式包含。
+
+    Environment variable: REQUEST_THOUGHTS_FROM_MODEL
+    TOML config key: request_thoughts_from_model
+    Default: True
+    """
+    env_value = os.getenv("REQUEST_THOUGHTS_FROM_MODEL")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(await get_config_value("request_thoughts_from_model", True))
 
 
 async def get_oauth_proxy_url() -> str:

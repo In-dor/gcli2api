@@ -437,6 +437,7 @@ def get_env_locked_keys() -> set:
         "ANTI_TRUNCATION_MAX_ATTEMPTS": "anti_truncation_max_attempts",
         "COMPATIBILITY_MODE": "compatibility_mode_enabled",
         "RETURN_THOUGHTS_TO_FRONTEND": "return_thoughts_to_frontend",
+        "REQUEST_THOUGHTS_FROM_MODEL": "request_thoughts_from_model",
         "HOST": "host",
         "PORT": "port",
         "API_PASSWORD": "api_password",
@@ -1233,6 +1234,9 @@ async def get_config(token: str = Depends(verify_token)):
         current_config["return_thoughts_to_frontend"] = (
             await config.get_return_thoughts_to_frontend()
         )
+        current_config["request_thoughts_from_model"] = (
+            await config.get_request_thoughts_from_model()
+        )
 
         # 服务器配置
         current_config["host"] = await config.get_server_host()
@@ -1308,6 +1312,10 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
         if "return_thoughts_to_frontend" in new_config:
             if not isinstance(new_config["return_thoughts_to_frontend"], bool):
                 raise HTTPException(status_code=400, detail="思维链返回开关必须是布尔值")
+
+        if "request_thoughts_from_model" in new_config:
+            if not isinstance(new_config["request_thoughts_from_model"], bool):
+                raise HTTPException(status_code=400, detail="请求思维链开关必须是布尔值")
 
         # 验证服务器配置
         if "host" in new_config:

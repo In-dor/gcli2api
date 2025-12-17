@@ -1020,6 +1020,12 @@
                                             </label>
                                             <small style="display: block; color: var(--text-light); font-size: 0.75rem; padding-left: 1.5rem;">启用后返回模型的思考过程 (如 Gemini 3.0 Pro)</small>
                                         </div>
+                                        <div style="margin-top: 0.8rem;">
+                                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.2rem;">
+                                                <input type="checkbox" id="requestThoughtsFromModel" style="width: auto;"> 向模型请求思维链
+                                            </label>
+                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; padding-left: 1.5rem;">强制向模型发送 includeThoughts=True。若关闭，则仅在用户显式请求时发送。</small>
+                                        </div>
                                     </div>
                                 </div>
 

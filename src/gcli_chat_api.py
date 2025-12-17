@@ -15,6 +15,7 @@ from config import (
     get_auto_ban_enabled,
     get_auto_ban_error_codes,
     get_code_assist_endpoint,
+    get_request_thoughts_from_model,
     get_return_thoughts_to_frontend,
     get_retry_429_enabled,
     get_retry_429_interval,
@@ -27,6 +28,7 @@ from src.utils import (
     is_search_model,
     should_include_thoughts,
     get_model_group,
+    is_flash_lite_model,
 )
 from log import log
 
@@ -742,7 +744,8 @@ async def build_gemini_payload_from_native(native_request: dict, model_from_path
     # 配置thinking（如果未指定thinkingConfig）
     # 注意：只有在thinkingBudget有值时才添加thinkingConfig，避免在thinking未启用时发送includeThoughts
     # 修改：如果前端开启了返回思维链，则强制添加thinkingConfig (如果模型支持)
-    return_thoughts = await get_return_thoughts_to_frontend()
+    # return_thoughts = await get_return_thoughts_to_frontend()  # 仅控制响应过滤，不再控制请求构建
+    request_thoughts = await get_request_thoughts_from_model()  # 新增：控制是否向模型请求思维链
 
     if "thinkingConfig" not in generation_config:
         thinking_budget = get_thinking_budget(model_from_path)
@@ -754,11 +757,17 @@ async def build_gemini_payload_from_native(native_request: dict, model_from_path
             config_to_add["thinkingBudget"] = thinking_budget
             should_add_config = True
 
-        # 如果开启了返回思维链，强制 includeThoughts=True
+        # 如果开启了向模型请求思维链，强制 includeThoughts=True
         # 这会为 Gemini 3.0 Pro 等不需要 budget 的模型添加 thinkingConfig
-        if return_thoughts:
-            config_to_add["includeThoughts"] = True
-            should_add_config = True
+        if request_thoughts:
+            # Flash Lite 特殊处理：未提供 thinkingBudget 时不设置 includeThoughts
+            if is_flash_lite_model(model_from_path):
+                if thinking_budget is not None and thinking_budget != 0:
+                    config_to_add["includeThoughts"] = True
+                    should_add_config = True
+            else:
+                config_to_add["includeThoughts"] = True
+                should_add_config = True
         elif thinking_budget is not None:
             # 只有在有 budget 且没有强制开启时，使用默认逻辑
             config_to_add["includeThoughts"] = should_include_thoughts(model_from_path)
@@ -773,13 +782,31 @@ async def build_gemini_payload_from_native(native_request: dict, model_from_path
             if thinking_budget is not None:
                 thinking_config["thinkingBudget"] = thinking_budget
 
+        # 检查是否设置了 thinkingBudget=0 (意图关闭思考)
+        has_zero_budget = thinking_config.get("thinkingBudget") == 0
+
         if "includeThoughts" not in thinking_config:
-            thinking_config["includeThoughts"] = (
-                True if return_thoughts else should_include_thoughts(model_from_path)
-            )
-        elif return_thoughts:
-            # 如果配置了强制返回思维链，则覆盖为True
-            thinking_config["includeThoughts"] = True
+            if has_zero_budget:
+                # 如果明确设置 budget=0，默认不开启 includeThoughts
+                thinking_config["includeThoughts"] = False
+            else:
+                should_include = (
+                    True if request_thoughts else should_include_thoughts(model_from_path)
+                )
+                # Flash Lite 特殊处理：未提供 thinkingBudget 时不设置 includeThoughts
+                if is_flash_lite_model(model_from_path) and "thinkingBudget" not in thinking_config:
+                    should_include = False
+
+                thinking_config["includeThoughts"] = should_include
+        elif request_thoughts and not has_zero_budget:
+            # 只有在没有设置 thinkingBudget=0 的情况下，才强制开启 includeThoughts
+            should_enable = True
+            # Flash Lite 特殊处理：未提供 thinkingBudget 时不设置 includeThoughts
+            if is_flash_lite_model(model_from_path) and "thinkingBudget" not in thinking_config:
+                should_enable = False
+
+            if should_enable:
+                thinking_config["includeThoughts"] = True
 
     # 为搜索模型添加Google Search工具（如果未指定且没有functionDeclarations）
     if is_search_model(model_from_path):

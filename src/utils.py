@@ -20,11 +20,11 @@ SCOPES = [
 ANTIGRAVITY_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 ANTIGRAVITY_CLIENT_SECRET = "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"
 ANTIGRAVITY_SCOPES = [
-    'https://www.googleapis.com/auth/cloud-platform',
-    'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/userinfo.profile',
-    'https://www.googleapis.com/auth/cclog',
-    'https://www.googleapis.com/auth/experimentsandconfigs'
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/cclog",
+    "https://www.googleapis.com/auth/experimentsandconfigs",
 ]
 
 # 统一的 Token URL（两种模式相同）
@@ -65,6 +65,7 @@ BASE_MODELS = [
 
 # ====================== Model Helper Functions ======================
 
+
 def get_base_model_name(model_name: str) -> str:
     """Convert variant model name to base model name."""
     # Remove all possible suffixes (supports multiple suffixes in any order)
@@ -97,10 +98,19 @@ def is_maxthinking_model(model_name: str) -> bool:
     return "-maxthinking" in model_name
 
 
+def is_flash_lite_model(model_name: str) -> bool:
+    """Check if model is Flash Lite."""
+    return "flash-lite" in model_name.lower()
+
+
 def get_thinking_budget(model_name: str) -> Optional[int]:
     """Get the appropriate thinking budget for a model based on its name and variant."""
     if is_nothinking_model(model_name):
-        return 128  # Limited thinking for pro
+        # Determine if it's a Flash model
+        base_model = get_base_model_name(get_base_model_from_feature_model(model_name))
+        if "flash" in base_model.lower():
+            return 0  # Disable thinking for Flash models
+        return 128  # Limited thinking for pro (cannot be 0)
     elif is_maxthinking_model(model_name):
         base_model = get_base_model_name(get_base_model_from_feature_model(model_name))
         if "flash" in base_model:
