@@ -1,5 +1,5 @@
 # Multi-stage build for gcli2api
-FROM python:3.13-slim as base
+FROM python:3.10-slim as base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
