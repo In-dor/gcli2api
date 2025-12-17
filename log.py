@@ -10,6 +10,26 @@ from datetime import datetime
 # 日志级别定义
 LOG_LEVELS = {"debug": 0, "info": 1, "warning": 2, "error": 3, "critical": 4}
 
+
+# ANSI 颜色定义
+class Colors:
+    RESET = "\033[0m"
+    CYAN = "\033[36m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    RED = "\033[31m"
+    MAGENTA = "\033[35m"
+    BLUE = "\033[34m"
+
+
+LEVEL_COLORS = {
+    "debug": Colors.BLUE,
+    "info": Colors.GREEN,
+    "warning": Colors.YELLOW,
+    "error": Colors.RED,
+    "critical": Colors.MAGENTA,
+}
+
 # 线程锁，用于文件写入同步
 _file_lock = threading.Lock()
 
@@ -76,11 +96,20 @@ def _log(level: str, message: str):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     entry = f"[{timestamp}] [{level.upper()}] {message}"
 
+    # 构建带颜色的控制台输出
+    # 时间戳使用青色
+    timestamp_str = f"{Colors.CYAN}{timestamp}{Colors.RESET}"
+    # 级别使用对应颜色
+    level_color = LEVEL_COLORS.get(level, Colors.RESET)
+    level_str = f"{level_color}{level.upper()}{Colors.RESET}"
+
+    console_entry = f"[{timestamp_str}] [{level_str}] {message}"
+
     # 输出到控制台
     if level in ("error", "critical"):
-        print(entry, file=sys.stderr)
+        print(console_entry, file=sys.stderr)
     else:
-        print(entry)
+        print(console_entry)
 
     # 实时写入文件
     _write_to_file(entry)

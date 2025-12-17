@@ -237,13 +237,7 @@ def is_mobile_user_agent(user_agent: str) -> bool:
 async def serve_control_panel(request: Request):
     """提供统一控制面板"""
     try:
-        user_agent = request.headers.get("user-agent", "")
-        is_mobile = is_mobile_user_agent(user_agent)
-
-        if is_mobile:
-            html_file_path = "front/control_panel_mobile.html"
-        else:
-            html_file_path = "front/control_panel.html"
+        html_file_path = "front/control_panel.html"
 
         with open(html_file_path, "r", encoding="utf-8") as f:
             html_content = f.read()
@@ -545,9 +539,7 @@ async def upload_credentials_common(
             try:
                 content_str = content.decode("utf-8")
             except UnicodeDecodeError:
-                raise HTTPException(
-                    status_code=400, detail=f"文件 {file.filename} 编码格式不支持"
-                )
+                raise HTTPException(status_code=400, detail=f"文件 {file.filename} 编码格式不支持")
 
             files_data.append({"filename": file.filename, "content": content_str})
         else:
@@ -654,12 +646,9 @@ async def get_creds_status_common(
     backend_type = backend_info.get("backend_type", "unknown")
 
     # 优先使用高性能的分页摘要查询（SQLite专用）
-    if hasattr(storage_adapter._backend, 'get_credentials_summary'):
+    if hasattr(storage_adapter._backend, "get_credentials_summary"):
         result = await storage_adapter._backend.get_credentials_summary(
-            offset=offset,
-            limit=limit,
-            status_filter=status_filter,
-            is_antigravity=is_antigravity
+            offset=offset, limit=limit, status_filter=status_filter, is_antigravity=is_antigravity
         )
 
         creds_list = []
@@ -676,13 +665,15 @@ async def get_creds_status_common(
 
             creds_list.append(cred_info)
 
-        return JSONResponse(content={
-            "items": creds_list,
-            "total": result["total"],
-            "offset": offset,
-            "limit": limit,
-            "has_more": (offset + limit) < result["total"],
-        })
+        return JSONResponse(
+            content={
+                "items": creds_list,
+                "total": result["total"],
+                "offset": offset,
+                "limit": limit,
+                "has_more": (offset + limit) < result["total"],
+            }
+        )
 
     # 回退到传统方式（MongoDB/其他后端）
     all_credentials = await storage_adapter.list_credentials(is_antigravity=is_antigravity)
@@ -702,16 +693,19 @@ async def get_creds_status_common(
             filtered_credentials.append(filename)
 
     total_count = len(filtered_credentials)
-    paginated_credentials = filtered_credentials[offset:offset + limit]
+    paginated_credentials = filtered_credentials[offset : offset + limit]
 
     creds_list = []
     for filename in paginated_credentials:
-        file_status = all_states.get(filename, {
-            "error_codes": [],
-            "disabled": False,
-            "last_success": time.time(),
-            "user_email": None,
-        })
+        file_status = all_states.get(
+            filename,
+            {
+                "error_codes": [],
+                "disabled": False,
+                "last_success": time.time(),
+                "user_email": None,
+            },
+        )
 
         cred_info = {
             "filename": os.path.basename(filename),
@@ -725,13 +719,15 @@ async def get_creds_status_common(
 
         creds_list.append(cred_info)
 
-    return JSONResponse(content={
-        "items": creds_list,
-        "total": total_count,
-        "offset": offset,
-        "limit": limit,
-        "has_more": (offset + limit) < total_count,
-    })
+    return JSONResponse(
+        content={
+            "items": creds_list,
+            "total": total_count,
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + limit) < total_count,
+        }
+    )
 
 
 async def download_all_creds_common(is_antigravity: bool = False) -> Response:
@@ -753,7 +749,9 @@ async def download_all_creds_common(is_antigravity: bool = False) -> Response:
         success_count = 0
         for idx, filename in enumerate(credential_filenames, 1):
             try:
-                credential_data = await storage_adapter.get_credential(filename, is_antigravity=is_antigravity)
+                credential_data = await storage_adapter.get_credential(
+                    filename, is_antigravity=is_antigravity
+                )
                 if credential_data:
                     content = json.dumps(credential_data, ensure_ascii=False, indent=2)
                     zip_file.writestr(os.path.basename(filename), content)
@@ -785,11 +783,15 @@ async def fetch_user_email_common(filename: str, is_antigravity: bool = False) -
         raise HTTPException(status_code=404, detail="无效的文件名")
 
     storage_adapter = await get_storage_adapter()
-    credential_data = await storage_adapter.get_credential(filename_only, is_antigravity=is_antigravity)
+    credential_data = await storage_adapter.get_credential(
+        filename_only, is_antigravity=is_antigravity
+    )
     if not credential_data:
         raise HTTPException(status_code=404, detail="凭证文件不存在")
 
-    email = await credential_manager.get_or_fetch_user_email(filename_only, is_antigravity=is_antigravity)
+    email = await credential_manager.get_or_fetch_user_email(
+        filename_only, is_antigravity=is_antigravity
+    )
 
     if email:
         return JSONResponse(
@@ -822,28 +824,36 @@ async def refresh_all_user_emails_common(is_antigravity: bool = False) -> JSONRe
 
     for filename in credential_filenames:
         try:
-            email = await credential_manager.get_or_fetch_user_email(filename, is_antigravity=is_antigravity)
+            email = await credential_manager.get_or_fetch_user_email(
+                filename, is_antigravity=is_antigravity
+            )
             if email:
                 success_count += 1
-                results.append({
-                    "filename": os.path.basename(filename),
-                    "user_email": email,
-                    "success": True,
-                })
+                results.append(
+                    {
+                        "filename": os.path.basename(filename),
+                        "user_email": email,
+                        "success": True,
+                    }
+                )
             else:
-                results.append({
+                results.append(
+                    {
+                        "filename": os.path.basename(filename),
+                        "user_email": None,
+                        "success": False,
+                        "error": "无法获取邮箱",
+                    }
+                )
+        except Exception as e:
+            results.append(
+                {
                     "filename": os.path.basename(filename),
                     "user_email": None,
                     "success": False,
-                    "error": "无法获取邮箱",
-                })
-        except Exception as e:
-            results.append({
-                "filename": os.path.basename(filename),
-                "user_email": None,
-                "success": False,
-                "error": str(e),
-            })
+                    "error": str(e),
+                }
+            )
 
     return JSONResponse(
         content={
@@ -876,10 +886,7 @@ async def upload_credentials(
 
 @router.get("/creds/status")
 async def get_creds_status(
-    token: str = Depends(verify_token),
-    offset: int = 0,
-    limit: int = 50,
-    status_filter: str = "all"
+    token: str = Depends(verify_token), offset: int = 0, limit: int = 50, status_filter: str = "all"
 ):
     """
     获取凭证文件的状态（轻量级摘要，不包含完整凭证数据，支持分页和状态筛选）
@@ -943,10 +950,12 @@ async def get_cred_detail(filename: str, token: str = Depends(verify_token)):
         }
 
         if backend_type == "file" and os.path.exists(filename):
-            result.update({
-                "size": os.path.getsize(filename),
-                "modified_time": os.path.getmtime(filename),
-            })
+            result.update(
+                {
+                    "size": os.path.getsize(filename),
+                    "modified_time": os.path.getmtime(filename),
+                }
+            )
 
         return JSONResponse(content=result)
 
@@ -1213,13 +1222,17 @@ async def get_config(token: str = Depends(verify_token)):
         current_config["retry_429_interval"] = await config.get_retry_429_interval()
 
         # 抗截断配置
-        current_config["anti_truncation_max_attempts"] = await config.get_anti_truncation_max_attempts()
+        current_config["anti_truncation_max_attempts"] = (
+            await config.get_anti_truncation_max_attempts()
+        )
 
         # 兼容性配置
         current_config["compatibility_mode_enabled"] = await config.get_compatibility_mode_enabled()
 
         # 思维链返回配置
-        current_config["return_thoughts_to_frontend"] = await config.get_return_thoughts_to_frontend()
+        current_config["return_thoughts_to_frontend"] = (
+            await config.get_return_thoughts_to_frontend()
+        )
 
         # 服务器配置
         current_config["host"] = await config.get_server_host()
@@ -1476,9 +1489,7 @@ async def websocket_logs(websocket: WebSocket):
                 # 使用 asyncio.wait 同时等待定时器和断开信号
                 # timeout=check_interval 替代了 asyncio.sleep
                 done, pending = await asyncio.wait(
-                    [listener_task],
-                    timeout=check_interval,
-                    return_when=asyncio.FIRST_COMPLETED
+                    [listener_task], timeout=check_interval, return_when=asyncio.FIRST_COMPLETED
                 )
 
                 # 如果监听任务结束（通常是因为连接断开），则退出循环
@@ -1553,6 +1564,7 @@ async def websocket_logs(websocket: WebSocket):
 
 # ============ Antigravity 凭证管理路由 ============
 
+
 @router.post("/antigravity/upload")
 async def upload_antigravity_credentials(
     files: List[UploadFile] = File(...), token: str = Depends(verify_token)
@@ -1569,10 +1581,7 @@ async def upload_antigravity_credentials(
 
 @router.get("/antigravity/creds/status")
 async def get_antigravity_creds_status(
-    token: str = Depends(verify_token),
-    offset: int = 0,
-    limit: int = 50,
-    status_filter: str = "all"
+    token: str = Depends(verify_token), offset: int = 0, limit: int = 50, status_filter: str = "all"
 ):
     """
     获取Antigravity凭证文件的状态（轻量级摘要，不包含完整凭证数据，支持分页和状态筛选）
@@ -1595,7 +1604,9 @@ async def get_antigravity_creds_status(
 
 
 @router.post("/antigravity/creds/action")
-async def antigravity_cred_action(request: CredFileActionRequest, token: str = Depends(verify_token)):
+async def antigravity_cred_action(
+    request: CredFileActionRequest, token: str = Depends(verify_token)
+):
     """对 antigravity 凭证执行操作（启用/禁用/删除）"""
     try:
         storage_adapter = await get_storage_adapter()
@@ -1603,10 +1614,14 @@ async def antigravity_cred_action(request: CredFileActionRequest, token: str = D
         action = request.action
 
         if action == "enable":
-            await storage_adapter.update_credential_state(filename, {"disabled": False}, is_antigravity=True)
+            await storage_adapter.update_credential_state(
+                filename, {"disabled": False}, is_antigravity=True
+            )
             return JSONResponse(content={"success": True, "message": f"已启用凭证: {filename}"})
         elif action == "disable":
-            await storage_adapter.update_credential_state(filename, {"disabled": True}, is_antigravity=True)
+            await storage_adapter.update_credential_state(
+                filename, {"disabled": True}, is_antigravity=True
+            )
             return JSONResponse(content={"success": True, "message": f"已禁用凭证: {filename}"})
         elif action == "delete":
             success = await storage_adapter.delete_credential(filename, is_antigravity=True)
@@ -1638,7 +1653,7 @@ async def download_antigravity_cred(filename: str, token: str = Depends(verify_t
         return Response(
             content=json_content,
             media_type="application/json",
-            headers={"Content-Disposition": f"attachment; filename={filename}"}
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
     except HTTPException:
         raise
@@ -1648,7 +1663,9 @@ async def download_antigravity_cred(filename: str, token: str = Depends(verify_t
 
 
 @router.post("/antigravity/creds/batch-action")
-async def antigravity_batch_action(request: CredFileBatchActionRequest, token: str = Depends(verify_token)):
+async def antigravity_batch_action(
+    request: CredFileBatchActionRequest, token: str = Depends(verify_token)
+):
     """批量操作 antigravity 凭证"""
     try:
         storage_adapter = await get_storage_adapter()
@@ -1659,10 +1676,14 @@ async def antigravity_batch_action(request: CredFileBatchActionRequest, token: s
         for filename in filenames:
             try:
                 if action == "enable":
-                    await storage_adapter.update_credential_state(filename, {"disabled": False}, is_antigravity=True)
+                    await storage_adapter.update_credential_state(
+                        filename, {"disabled": False}, is_antigravity=True
+                    )
                     results.append({"filename": filename, "success": True})
                 elif action == "disable":
-                    await storage_adapter.update_credential_state(filename, {"disabled": True}, is_antigravity=True)
+                    await storage_adapter.update_credential_state(
+                        filename, {"disabled": True}, is_antigravity=True
+                    )
                     results.append({"filename": filename, "success": True})
                 elif action == "delete":
                     success = await storage_adapter.delete_credential(filename, is_antigravity=True)
@@ -1673,14 +1694,16 @@ async def antigravity_batch_action(request: CredFileBatchActionRequest, token: s
                 results.append({"filename": filename, "success": False, "error": str(e)})
 
         success_count = sum(1 for r in results if r.get("success"))
-        return JSONResponse(content={
-            "success": True,
-            "success_count": success_count,
-            "total": len(filenames),
-            "succeeded": success_count,
-            "failed": len(filenames) - success_count,
-            "results": results
-        })
+        return JSONResponse(
+            content={
+                "success": True,
+                "success_count": success_count,
+                "total": len(filenames),
+                "succeeded": success_count,
+                "failed": len(filenames) - success_count,
+                "results": results,
+            }
+        )
     except Exception as e:
         log.error(f"批量操作 antigravity 凭证失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1721,5 +1744,3 @@ async def download_all_antigravity_creds(token: str = Depends(verify_token)):
     except Exception as e:
         log.error(f"打包下载Antigravity凭证失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-

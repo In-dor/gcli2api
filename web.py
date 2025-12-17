@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
     # 初始化配置缓存（优先执行）
     try:
         import config
+
         await config.init_config()
         log.info("配置缓存初始化成功")
     except Exception as e:
@@ -156,7 +157,7 @@ async def main():
     # 配置hypercorn
     config = Config()
     config.bind = [f"{host}:{port}"]
-    config.accesslog = "-"
+    config.accesslog = None
     config.errorlog = "-"
     config.loglevel = "INFO"
     config.use_colors = True

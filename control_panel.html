@@ -1,0 +1,1970 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GCLI2API 控制面板</title>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+
+        .navbar {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .brand {
+            font-weight: 700;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+            margin-bottom: 1.5rem;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: #f8fafc;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Form Elements */
+        input[type="text"],
+        input[type="password"],
+        input[type="number"],
+        input[type="url"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            background-color: #fff;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.6rem 1.2rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            background-color: var(--border);
+            color: var(--text-light);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Login Form Specifics */
+        .login-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: var(--bg-gradient);
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            padding: 0.6rem 1rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-light);
+            background: transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            color: var(--primary);
+            background-color: #eff6ff;
+        }
+
+        .tab.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Status Badges */
+        .status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .status.success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid var(--success);
+        }
+
+        .status.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid var(--danger);
+        }
+
+        .status.info {
+            background-color: #eff6ff;
+            color: #1e40af;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* Specific Components */
+        .auth-url {
+            background-color: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            margin: 1.5rem 0;
+            word-break: break-all;
+        }
+
+        .auth-url a {
+            color: var(--primary);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .auth-url a:hover {
+            text-decoration: underline;
+        }
+
+        .credentials, .cred-content {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            background-color: #f8fafc;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary);
+            background-color: #eff6ff;
+        }
+
+        .file-item {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Stats Grid */
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-item {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-light);
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-item.total .stat-number { color: var(--primary); }
+        .stat-item.normal .stat-number { color: var(--success); }
+        .stat-item.disabled .stat-number { color: var(--text-light); }
+
+        /* Credential Cards */
+        .cred-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        .cred-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .cred-card.disabled {
+            background-color: #f1f5f9;
+            opacity: 0.8;
+        }
+
+        .cred-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .cred-filename {
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-badge.enabled { background-color: #d1fae5; color: #065f46; }
+        .status-badge.disabled { background-color: #f1f5f9; color: #64748b; }
+
+        .cred-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .cred-btn {
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: white;
+            transition: all 0.2s;
+        }
+
+        .cred-btn:hover {
+            background: #f8fafc;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .cred-btn.enable { color: var(--success); border-color: var(--success); }
+        .cred-btn.enable:hover { background-color: var(--success); color: white; }
+        
+        .cred-btn.disable { color: var(--text-light); border-color: var(--text-light); }
+        .cred-btn.disable:hover { background-color: var(--text-light); color: white; }
+
+        .cred-btn.delete { color: var(--danger); border-color: var(--danger); }
+        .cred-btn.delete:hover { background-color: var(--danger); color: white; }
+
+        /* Filters and Batch Actions */
+        .batch-controls, .filter-container {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 10vh auto;
+            padding: 2rem;
+            border-radius: 16px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-light);
+        }
+
+        /* Logs */
+        #logContainer {
+            background-color: #1e1e1e;
+            color: #e0e0e0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            height: 70vh;
+            overflow-y: auto;
+            border-radius: 8px;
+            padding: 1rem;
+            white-space: pre-wrap;
+        }
+
+        .hidden { display: none !important; }
+        .visible { display: block !important; }
+
+        /* Utility */
+        .text-primary { color: var(--primary); }
+        .text-success { color: var(--success); }
+        .text-danger { color: var(--danger); }
+        .text-warning { color: var(--warning); }
+        
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 0.75rem;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: var(--primary);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 登录界面 -->
+    <div id="loginSection" class="login-wrapper">
+        <div class="login-card">
+            <div style="margin-bottom: 2rem; color: var(--primary);">
+                <i class="ri-shield-keyhole-line" style="font-size: 3rem;"></i>
+            </div>
+            <h2 style="margin-bottom: 1.5rem; color: var(--text);">GCLI2API 管理面板</h2>
+            <p style="margin-bottom: 2rem; color: var(--text-light);">请输入访问密码以继续</p>
+            <div class="form-group">
+                <input type="password" id="loginPassword" placeholder="输入密码" onkeypress="handlePasswordEnter(event)" />
+            </div>
+            <button class="btn" onclick="login()" style="width: 100%;">
+                <i class="ri-login-circle-line"></i> 登录
+            </button>
+        </div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="mainSection" class="hidden">
+        <nav class="navbar">
+            <div class="brand">
+                <i class="ri-cloud-settings-line"></i> GCLI2API Console
+            </div>
+            <div class="status-badge" style="background: #d1fae5; color: #065f46; padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.875rem;">
+                <span style="display: inline-block; width: 8px; height: 8px; background: #059669; border-radius: 50%; margin-right: 6px;"></span> 系统运行中
+            </div>
+        </nav>
+
+        <div class="container">
+            <!-- 顶部标签页导航 -->
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('oauth')"><i class="ri-google-fill"></i> OAuth认证</button>
+                <button class="tab" onclick="switchTab('upload')"><i class="ri-upload-cloud-2-line"></i> 批量上传</button>
+                <button class="tab" onclick="switchTab('envload')"><i class="ri-terminal-line"></i> 环境变量</button>
+                <button class="tab" onclick="switchTab('manage')"><i class="ri-folder-settings-line"></i> 文件管理</button>
+                <button class="tab" onclick="switchTab('usage')"><i class="ri-bar-chart-box-line"></i> 使用统计</button>
+                <button class="tab" onclick="switchTab('config')"><i class="ri-settings-4-line"></i> 配置管理</button>
+                <button class="tab" onclick="switchTab('logs')"><i class="ri-file-list-3-line"></i> 实时日志</button>
+            </div>
+
+            <!-- 全局状态提示区 -->
+            <div id="statusSection"></div>
+
+            <!-- OAuth认证标签页 -->
+            <div id="oauthTab" class="tab-content active">
+                <div class="card">
+                    <div class="card-header"><i class="ri-key-2-line"></i> Google OAuth 认证</div>
+                    <div class="card-body">
+                        <!-- API 自动启用说明 -->
+                        <div class="status success">
+                            <div>
+                                <strong><i class="ri-magic-line"></i> 自动化优化：</strong> 认证成功后将自动启用必需的API服务
+                                <ul style="margin: 5px 0 0 20px; font-size: 0.85rem;">
+                                    <li>Gemini Cloud Assist API</li>
+                                    <li>Gemini for Google Cloud API</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- 折叠式 Project ID 输入框 -->
+                        <div class="form-group">
+                            <div style="cursor: pointer; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;"
+                                onclick="toggleProjectIdSection()">
+                                <span style="font-weight: 600; color: var(--text);">
+                                    <i class="ri-folder-line"></i> 高级选项：Google Cloud Project ID (可选)
+                                </span>
+                                <i id="projectIdToggleIcon" class="ri-arrow-right-s-line"></i>
+                            </div>
+                            <div id="projectIdSection" style="display: none; margin-top: 10px; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: white;">
+                                <label for="projectId">手动输入项目ID:</label>
+                                <input type="text" id="projectId" placeholder="留空将尝试自动检测" />
+                                <small style="color: var(--text-light); display: block; margin-top: 5px;">
+                                    <i class="ri-lightbulb-line"></i> 提示：通常可以直接留空，系统会自动检测。
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- 为所有项目获取凭证选项 -->
+                        <div class="form-group">
+                            <div style="padding: 1rem; border: 1px solid #bbf7d0; border-radius: 8px; background: #f0fdf4;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <input type="checkbox" id="getAllProjectsCreds" style="width: auto; transform: scale(1.2);">
+                                    <label for="getAllProjectsCreds" style="margin: 0; cursor: pointer; font-weight: 600; color: #166534;">
+                                        <i class="ri-global-line"></i> 为当前账号所有项目获取凭证
+                                    </label>
+                                </div>
+                                <div style="margin-top: 8px; color: #15803d; font-size: 0.9rem;">
+                                    勾选此选项后，系统会自动检测当前Google账号下的所有项目，并<strong>并发</strong>为每个项目生成独立的认证文件。
+                                </div>
+                                <div id="allProjectsNote" style="margin-top: 8px; padding: 6px 10px; background: #dcfce7; border-radius: 6px; font-size: 0.85rem; color: #166534; display: none;">
+                                    <i class="ri-checkbox-circle-line"></i> <strong>批量并发认证模式已启用</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn" id="getAuthBtn" onclick="startAuth()" style="width: 100%; padding: 1rem;">
+                            <i class="ri-google-line"></i> 获取认证链接
+                        </button>
+
+                        <div id="authUrlSection" class="hidden" style="margin-top: 2rem;">
+                            <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">认证步骤：</h3>
+                            <div class="auth-url">
+                                <a id="authUrl" href="#" target="_blank"><i class="ri-external-link-line"></i> 点击此链接进行认证</a>
+                            </div>
+                            
+                            <!-- 快捷回调URL输入选项 -->
+                            <div class="form-group" style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
+                                <div style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;" onclick="toggleCallbackUrlSection()">
+                                    <span style="font-weight: 600; color: var(--primary);"><i class="ri-rocket-line"></i> 无法回源？使用回调URL手动完成</span>
+                                    <i id="callbackUrlToggleIcon" class="ri-arrow-down-s-line"></i>
+                                </div>
+                                <div id="callbackUrlSection" style="display: none;">
+                                    <small style="display: block; margin-bottom: 10px; color: var(--text-light);">
+                                        如果你在云服务器或Docker中运行，无法访问 localhost:8080，请将认证后跳转的完整URL复制到下方：
+                                    </small>
+                                    <input type="url" id="callbackUrlInput" placeholder="粘贴完整的回调URL (http://localhost:8080/?state=...)" />
+                                    <button class="btn" style="margin-top: 10px; background-color: var(--success);" onclick="processCallbackUrl()">
+                                        <i class="ri-check-double-line"></i> 从回调URL获取凭证
+                                    </button>
+                                </div>
+                            </div>
+
+                            <button class="btn" id="getCredsBtn" onclick="getCredentials()" style="width: 100%; margin-top: 1rem;">
+                                <i class="ri-download-cloud-2-line"></i> 获取认证文件 (自动模式)
+                            </button>
+                        </div>
+
+                        <div id="credentialsSection" class="hidden" style="margin-top: 2rem;">
+                            <h3>认证结果：</h3>
+                            <div class="credentials" id="credentialsContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 批量上传标签页 -->
+            <div id="uploadTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header"><i class="ri-upload-cloud-2-line"></i> 批量上传认证文件</div>
+                    <div class="card-body">
+                        <p style="color: var(--text-light); margin-bottom: 1.5rem;">支持上传 .json 或 .zip (自动解压) 格式的认证文件。</p>
+
+                        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                            <i class="ri-upload-2-line" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i>
+                            <p>点击选择文件或拖拽文件到此区域</p>
+                        </div>
+
+                        <input type="file" id="fileInput" multiple accept=".json,.zip" style="display: none;" onchange="handleFileSelect(event)" />
+
+                        <div id="fileListSection" class="hidden" style="margin-top: 1.5rem;">
+                            <h4>待上传文件：</h4>
+                            <div class="file-list" id="fileList"></div>
+                            <div style="display: flex; gap: 1rem;">
+                                <button class="btn" onclick="uploadFiles()"><i class="ri-upload-line"></i> 开始上传</button>
+                                <button class="btn" style="background-color: var(--text-light);" onclick="clearFiles()"><i class="ri-delete-bin-line"></i> 清空列表</button>
+                            </div>
+                        </div>
+
+                        <div id="uploadProgressSection" class="hidden" style="margin-top: 1.5rem;">
+                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
+                                <h4 style="margin-top: 0;">上传进度：</h4>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                                </div>
+                                <p id="progressText" style="text-align: right; font-size: 0.9rem; color: var(--text-light); margin-top: 0.5rem;">0%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 环境变量标签页 -->
+            <div id="envloadTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header"><i class="ri-terminal-box-line"></i> 环境变量凭证导入</div>
+                    <div class="card-body">
+                        <p style="color: var(--text-light);">适用于部署环境，自动从环境变量 (GCLI_CREDS_*) 读取凭证。</p>
+
+                        <!-- 环境变量状态信息 -->
+                        <div id="envStatusSection">
+                            <div class="loading" id="envStatusLoading">正在检查状态...</div>
+                            <div id="envStatusContent" class="hidden">
+                                <div class="form-group">
+                                    <label>检测到的环境变量:</label>
+                                    <div id="envVarsList" class="cred-content" style="min-height: 50px; max-height: 150px;"></div>
+                                </div>
+
+                                <div class="stats-container">
+                                    <div class="stat-item">
+                                        <span class="stat-label">自动加载</span>
+                                        <span class="stat-number" id="autoLoadStatus" style="font-size: 1.2rem;">-</span>
+                                    </div>
+                                    <div class="stat-item">
+                                        <span class="stat-label">已导入文件</span>
+                                        <span class="stat-number" id="envFilesCount" style="font-size: 1.2rem;">0</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>已导入的文件列表:</label>
+                                    <div id="envFilesList" style="font-family: monospace; font-size: 0.9rem; color: var(--text);"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="manage-actions" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                            <button class="btn" style="background-color: var(--warning);" onclick="checkEnvCredsStatus()"><i class="ri-refresh-line"></i> 刷新状态</button>
+                            <button class="btn" onclick="loadEnvCredentials()"><i class="ri-download-line"></i> 从环境变量导入</button>
+                            <button class="btn" style="background-color: var(--danger);" onclick="clearEnvCredentials()"><i class="ri-delete-bin-line"></i> 清除已导入文件</button>
+                        </div>
+
+                        <div style="margin-top: 2rem; padding: 1rem; background: #f1f5f9; border-radius: 8px;">
+                            <h4 style="margin-top: 0;"><i class="ri-information-line"></i> 使用说明</h4>
+                            <ul style="font-size: 0.9rem; color: var(--text-light); padding-left: 1.2rem;">
+                                <li>变量名格式: <code>GCLI_CREDS_1</code>, <code>GCLI_CREDS_myproj</code></li>
+                                <li>变量值: 完整的 JSON 文件内容字符串</li>
+                                <li>自动加载: 设置 <code>AUTO_LOAD_ENV_CREDS=true</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文件管理标签页 -->
+            <div id="manageTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header"><i class="ri-folder-settings-line"></i> 凭证文件管理</div>
+                    <div class="card-body">
+                        
+                        <!-- 状态统计 -->
+                        <div class="stats-container" id="statsContainer">
+                            <div class="stat-item total">
+                                <span class="stat-number" id="statTotal">0</span>
+                                <span class="stat-label">总计</span>
+                            </div>
+                            <div class="stat-item normal">
+                                <span class="stat-number" id="statNormal">0</span>
+                                <span class="stat-label">正常</span>
+                            </div>
+                            <div class="stat-item disabled">
+                                <span class="stat-number" id="statDisabled">0</span>
+                                <span class="stat-label">禁用</span>
+                            </div>
+                        </div>
+
+                        <div class="manage-actions" style="display: flex; justify-content: space-between; margin-bottom: 1.5rem;">
+                            <button class="btn" style="background-color: var(--warning);" onclick="refreshCredsStatus()"><i class="ri-refresh-line"></i> 刷新列表</button>
+                            <button class="btn" style="background-color: var(--success);" onclick="downloadAllCreds()"><i class="ri-file-zip-line"></i> 打包下载全部</button>
+                        </div>
+
+                        <!-- 批量操作控件 -->
+                        <div class="batch-controls">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%;">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" style="width: auto;">
+                                <label for="selectAllCheckbox" style="margin: 0;">全选</label>
+                                <span id="selectedCount" style="margin-left: auto; font-weight: 600; color: var(--primary);">已选择 0 项</span>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; width: 100%;">
+                                <button class="cred-btn enable" id="batchEnableBtn" onclick="batchAction('enable')" disabled>批量启用</button>
+                                <button class="cred-btn disable" id="batchDisableBtn" onclick="batchAction('disable')" disabled>批量禁用</button>
+                                <button class="cred-btn delete" id="batchDeleteBtn" onclick="batchAction('delete')" disabled>批量删除</button>
+                                <button class="cred-btn" style="color: var(--primary); border-color: var(--primary);" onclick="refreshAllEmails()">刷新邮箱</button>
+                            </div>
+                        </div>
+
+                        <!-- 筛选和分页 -->
+                        <div class="filter-container">
+                            <select id="statusFilter" onchange="applyFilters()" style="width: auto;">
+                                <option value="all">所有状态</option>
+                                <option value="normal">正常</option>
+                                <option value="disabled">禁用</option>
+                            </select>
+                            <select id="errorCodeFilter" onchange="applyFilters()" style="width: auto;">
+                                <option value="all">所有错误码</option>
+                                <option value="no-errors">无错误</option>
+                                <option value="has-errors">有错误</option>
+                                <option value="400">400</option>
+                                <option value="401">401</option>
+                                <option value="403">403</option>
+                                <option value="429">429</option>
+                                <option value="500">500</option>
+                            </select>
+                            <select id="pageSizeSelect" onchange="changePageSize()" style="width: auto;">
+                                <option value="20">20条/页</option>
+                                <option value="50">50条/页</option>
+                                <option value="100">100条/页</option>
+                            </select>
+                            <div id="errorCodeBadges" style="display: flex; gap: 5px; flex-wrap: wrap;"></div>
+                        </div>
+
+                        <div id="credsListSection">
+                            <div class="loading" id="credsLoading" style="text-align: center; padding: 2rem; color: var(--text-light);">
+                                <i class="ri-loader-4-line blink"></i> 正在加载凭证文件...
+                            </div>
+                            <div id="credsList"></div>
+
+                            <!-- 分页控件 -->
+                            <div class="pagination-container" id="paginationContainer" style="display: none; justify-content: center; gap: 1rem; margin-top: 1.5rem; align-items: center;">
+                                <button class="btn" id="prevPageBtn" onclick="changePage(-1)" style="background: white; color: var(--text); border: 1px solid var(--border);">上一页</button>
+                                <div id="paginationInfo" style="color: var(--text-light);">第 1 页</div>
+                                <button class="btn" id="nextPageBtn" onclick="changePage(1)" style="background: white; color: var(--text); border: 1px solid var(--border);">下一页</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用统计标签页 -->
+            <div id="usageTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header"><i class="ri-bar-chart-line"></i> API 使用统计</div>
+                    <div class="card-body">
+                        <div class="stats-container" id="usageStatsContainer">
+                            <div class="stat-item total">
+                                <span class="stat-number" id="totalApiCalls">0</span>
+                                <span class="stat-label">总调用数</span>
+                            </div>
+                            <div class="stat-item normal" style="border-left: 4px solid #ff6b35;">
+                                <span class="stat-number" id="geminiProCalls">0</span>
+                                <span class="stat-label">Gemini 2.5 Pro</span>
+                            </div>
+                            <div class="stat-item normal" style="border-left: 4px solid #9c27b0;">
+                                <span class="stat-number" id="gemini3ProCalls">0</span>
+                                <span class="stat-label">Gemini 3.0 Pro</span>
+                            </div>
+                            <div class="stat-item disabled">
+                                <span class="stat-number" id="totalFiles">0</span>
+                                <span class="stat-label">活跃凭证数</span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                            <button class="btn" style="background-color: var(--warning);" onclick="refreshUsageStats()"><i class="ri-refresh-line"></i> 刷新统计</button>
+                            <button class="btn" style="background-color: var(--danger);" onclick="resetAllUsageStats()"><i class="ri-delete-bin-2-line"></i> 重置所有统计</button>
+                        </div>
+
+                        <div id="usageListSection">
+                            <div class="loading" id="usageLoading" style="text-align: center; padding: 2rem; color: var(--text-light);">
+                                <i class="ri-loader-4-line blink"></i> 正在加载使用统计...
+                            </div>
+                            <div id="usageList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 配置管理标签页 -->
+            <div id="configTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header"><i class="ri-settings-3-line"></i> 系统配置</div>
+                    <div class="card-body">
+                        <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-bottom: 1.5rem;">
+                            <button class="btn" style="background-color: var(--warning);" onclick="loadConfig()"><i class="ri-refresh-line"></i> 刷新</button>
+                            <button class="btn" style="background-color: var(--success);" onclick="saveConfig()"><i class="ri-save-line"></i> 保存配置</button>
+                        </div>
+
+                        <div id="configSection">
+                            <div class="loading" id="configLoading">正在加载配置...</div>
+                            <div id="configForm" class="hidden">
+                                
+                                <!-- 服务器配置 -->
+                                <div class="form-group" style="border-bottom: 1px solid var(--border); padding-bottom: 1.5rem;">
+                                    <h4 style="margin-top: 0; color: var(--primary);">服务器配置</h4>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                        <div>
+                                            <label for="host">监听地址 (Host)</label>
+                                            <input type="text" id="host" placeholder="0.0.0.0" />
+                                        </div>
+                                        <div>
+                                            <label for="port">端口 (Port)</label>
+                                            <input type="number" id="port" placeholder="7861" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 密码配置 -->
+                                <div class="form-group" style="border-bottom: 1px solid var(--border); padding-bottom: 1.5rem;">
+                                    <h4 style="margin-top: 0; color: var(--primary);">安全设置</h4>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                        <div>
+                                            <label for="configApiPassword">API访问密码</label>
+                                            <input type="text" id="configApiPassword" placeholder="API Password" />
+                                        </div>
+                                        <div>
+                                            <label for="configPanelPassword">面板访问密码</label>
+                                            <input type="text" id="configPanelPassword" placeholder="Panel Password" />
+                                        </div>
+                                        <div style="grid-column: 1 / -1;">
+                                            <label for="configPassword">通用密码 (覆盖上述设置)</label>
+                                            <input type="text" id="configPassword" placeholder="Global Password" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 端点配置 -->
+                                <div class="form-group" style="border-bottom: 1px solid var(--border); padding-bottom: 1.5rem;">
+                                    <h4 style="margin-top: 0; color: var(--primary);">API 端点 & 代理</h4>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <button type="button" class="btn" onclick="useMirrorUrls()" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; background-color: var(--success);">🚀 一键使用镜像网址</button>
+                                        <button type="button" class="btn" onclick="restoreOfficialUrls()" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; background-color: var(--text-light);">🔄 还原官方端点</button>
+                                    </div>
+
+                                    <label for="credentialsDir">凭证目录路径</label>
+                                    <input type="text" id="credentialsDir" style="margin-bottom: 1rem;" />
+
+                                    <label for="proxy">代理设置 (HTTP/SOCKS5)</label>
+                                    <input type="text" id="proxy" placeholder="http://127.0.0.1:7890" style="margin-bottom: 1rem;" />
+
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                        <div>
+                                            <label for="codeAssistEndpoint">Code Assist Endpoint</label>
+                                            <input type="text" id="codeAssistEndpoint" />
+                                        </div>
+                                        <div>
+                                            <label for="oauthProxyUrl">OAuth Endpoint</label>
+                                            <input type="text" id="oauthProxyUrl" />
+                                        </div>
+                                        <div>
+                                            <label for="googleapisProxyUrl">Google APIs Endpoint</label>
+                                            <input type="text" id="googleapisProxyUrl" />
+                                        </div>
+                                        <div>
+                                            <label for="resourceManagerApiUrl">Resource Manager API</label>
+                                            <input type="text" id="resourceManagerApiUrl" />
+                                        </div>
+                                        <div style="grid-column: 1 / -1;">
+                                            <label for="serviceUsageApiUrl">Service Usage API</label>
+                                            <input type="text" id="serviceUsageApiUrl" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 高级策略 -->
+                                <div class="form-group">
+                                    <h4 style="margin-top: 0; color: var(--primary);">高级策略</h4>
+                                    
+                                    <div style="margin-bottom: 1rem;">
+                                        <label>
+                                            <input type="checkbox" id="autoBanEnabled" style="width: auto;" /> 启用自动封禁 (遇错禁用)
+                                        </label>
+                                        <input type="text" id="autoBanErrorCodes" placeholder="400,403" style="margin-top: 0.5rem;" />
+                                        <small style="color: var(--text-light);">触发封禁的错误码，用逗号分隔</small>
+                                    </div>
+
+                                    <div style="margin-bottom: 1rem;">
+                                        <label for="callsPerRotation">凭证轮换频率 (次/个)</label>
+                                        <input type="number" id="callsPerRotation" min="1" />
+                                    </div>
+
+                                    <div style="margin-bottom: 1rem; padding: 1rem; background: #f8fafc; border-radius: 8px;">
+                                        <label><input type="checkbox" id="retry429Enabled" style="width: auto;" /> 启用 429 错误重试</label>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.5rem;">
+                                            <div>
+                                                <label for="retry429MaxRetries">最大重试次数</label>
+                                                <input type="number" id="retry429MaxRetries" />
+                                            </div>
+                                            <div>
+                                                <label for="retry429Interval">重试间隔 (秒)</label>
+                                                <input type="number" id="retry429Interval" step="0.1" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label for="antiTruncationMaxAttempts">流式抗截断最大重试次数</label>
+                                        <input type="number" id="antiTruncationMaxAttempts" min="1" max="10" />
+                                        <small style="color: var(--text-light);">仅当使用 "-流式抗截断" 后缀的模型时生效</small>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 实时日志标签页 -->
+            <div id="logsTab" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                            <span><i class="ri-file-list-line"></i> 系统实时日志</span>
+                            <span id="connectionStatusText" style="font-size: 0.85rem; padding: 2px 8px; background: #e2e8f0; border-radius: 4px;">未连接</span>
+                        </div>
+                    </div>
+                    <div class="card-body" style="padding: 0;">
+                        <div style="padding: 1rem; background: #f8fafc; border-bottom: 1px solid var(--border); display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;" onclick="connectWebSocket()"><i class="ri-plug-line"></i> 连接</button>
+                            <button class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; background-color: var(--danger);" onclick="disconnectWebSocket()"><i class="ri-shut-down-line"></i> 断开</button>
+                            <button class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; background-color: var(--success);" onclick="downloadLogs()"><i class="ri-download-line"></i> 下载日志</button>
+                            <button class="btn" style="font-size: 0.85rem; padding: 0.4rem 0.8rem; background-color: var(--text-light);" onclick="clearLogs()"><i class="ri-eraser-line"></i> 清空</button>
+                            
+                            <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
+                                <select id="logLevelFilter" onchange="filterLogs()" style="padding: 0.4rem; font-size: 0.85rem; width: auto;">
+                                    <option value="all">全部级别</option>
+                                    <option value="ERROR">ERROR</option>
+                                    <option value="WARNING">WARNING</option>
+                                    <option value="INFO">INFO</option>
+                                    <option value="DEBUG">DEBUG</option>
+                                </select>
+                                <label style="margin: 0; font-size: 0.85rem;"><input type="checkbox" id="autoScroll" checked style="width: auto;"> 自动滚动</label>
+                            </div>
+                        </div>
+                        <div id="logContainer">等待连接日志流...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部版权 -->
+            <div style="text-align: center; color: var(--text-light); margin-top: 2rem; font-size: 0.9rem;">
+                <p>GCLI2API Project | <a href="https://github.com/In-dor/gcli2api" target="_blank" style="color: var(--primary); text-decoration: none;">GitHub</a></p>
+                <p style="font-size: 0.8rem;">⚠️ 仅供学习研究使用，禁止用于商业用途</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 限制设置弹窗 -->
+    <div id="limitsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 style="margin: 0;">设置使用限制</h3>
+                <button class="modal-close" onclick="closeLimitsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>凭证文件:</label>
+                    <input type="text" id="modalFilename" readonly style="background: #f1f5f9;" />
+                </div>
+                <div class="form-group">
+                    <label>Gemini 2.5 Pro 每日限制:</label>
+                    <input type="number" id="modalGeminiLimit" min="1" />
+                </div>
+                <div class="form-group">
+                    <label>Gemini 3.0 Pro 每日限制:</label>
+                    <input type="number" id="modalGemini3Limit" min="1" />
+                </div>
+                <div class="form-group">
+                    <label>所有模型总限制:</label>
+                    <input type="number" id="modalTotalLimit" min="1" />
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn" style="background-color: var(--text-light);" onclick="closeLimitsModal()">取消</button>
+                <button class="btn" onclick="saveLimits()">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本区域：保留所有原有逻辑，适配新的ID和类名 -->
+    <script>
+        // =====================================================================
+        // 保留原始 JavaScript 逻辑
+        // =====================================================================
+        
+        let currentProjectId = '';
+        let authInProgress = false;
+        let uploadSelectedFiles = []; 
+        let authToken = localStorage.getItem('gcli_auth_token') || '';
+        let credsData = {};
+
+        let filteredCredsData = {};
+        let currentPage = 1;
+        let pageSize = 20;
+        let currentFilter = 'all';
+        let currentErrorCodeFilter = 'all';
+        let selectedCredFiles = new Set();
+        let availableErrorCodes = new Set();
+        let statsData = {
+            total: 0,
+            normal: 0,
+            disabled: 0
+        };
+
+        // 显示状态提示（适配新UI）
+        function showStatus(message, type = 'info') {
+            console.log('showStatus called:', message, type);
+            const statusSection = document.getElementById('statusSection');
+            if (statusSection) {
+                let icon = 'ri-information-line';
+                if (type === 'success') icon = 'ri-checkbox-circle-line';
+                if (type === 'error') icon = 'ri-error-warning-line';
+                
+                statusSection.innerHTML = `
+                    <div class="status ${type}" style="animation: fadeIn 0.3s ease;">
+                        <i class="${icon}" style="font-size: 1.2rem;"></i>
+                        <span>${message}</span>
+                    </div>`;
+                
+                // 3秒后自动清除成功消息
+                if (type === 'success') {
+                    setTimeout(() => {
+                        statusSection.innerHTML = '';
+                    }, 3000);
+                }
+            } else {
+                alert(message);
+            }
+        }
+
+        // 登录
+        async function login() {
+            const password = document.getElementById('loginPassword').value;
+            if (!password) {
+                showStatus('请输入密码', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    authToken = data.token;
+                    localStorage.setItem('gcli_auth_token', authToken);
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('mainSection').classList.remove('hidden');
+                    showStatus('登录成功', 'success');
+                } else {
+                    showStatus(`登录失败: ${data.detail || data.error || '未知错误'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`网络错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkToken() {
+            if (!authToken) return;
+            try {
+                const response = await fetch('/auth/verify', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (response.ok) {
+                    document.getElementById('loginSection').classList.add('hidden');
+                    document.getElementById('mainSection').classList.remove('hidden');
+                } else {
+                    localStorage.removeItem('gcli_auth_token');
+                    authToken = '';
+                }
+            } catch (error) {
+                localStorage.removeItem('gcli_auth_token');
+                authToken = '';
+            }
+        }
+
+        function handlePasswordEnter(event) {
+            if (event.key === 'Enter') login();
+        }
+
+        // 标签页切换
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // 找到对应的tab按钮并激活（这里通过onclick触发，所以event.target可能不准确，改用遍历匹配）
+            const buttons = document.querySelectorAll('.tab');
+            buttons.forEach(btn => {
+                if(btn.getAttribute('onclick').includes(tabName)) btn.classList.add('active');
+            });
+
+            document.getElementById(tabName + 'Tab').classList.add('active');
+
+            if (tabName === 'manage') refreshCredsStatus();
+            if (tabName === 'usage') refreshUsageStats();
+            if (tabName === 'config') loadConfig();
+            if (tabName === 'envload') checkEnvCredsStatus();
+            if (tabName === 'logs') connectWebSocket();
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            };
+        }
+
+        // ... 保持所有原有业务逻辑函数不变，仅适配 UI 相关的 DOM 操作 ...
+        // 以下是原文件中核心业务逻辑的完整副本，确保功能不丢失
+
+        async function startAuth() {
+            const projectId = document.getElementById('projectId').value.trim();
+            const getAllProjects = document.getElementById('getAllProjectsCreds').checked;
+            currentProjectId = projectId || null;
+
+            const btn = document.getElementById('getAuthBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ri-loader-4-line blink"></i> 正在获取链接...';
+
+            try {
+                const requestBody = {};
+                if (projectId) requestBody.project_id = projectId;
+                if (getAllProjects) requestBody.get_all_projects = true;
+
+                const response = await fetch('/auth/start', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('authUrl').href = data.auth_url;
+                    document.getElementById('authUrl').innerHTML = `<i class="ri-external-link-line"></i> ${data.auth_url}`;
+                    document.getElementById('authUrlSection').classList.remove('hidden');
+                    showStatus('认证链接已生成，请点击链接完成授权', 'success');
+                    authInProgress = true;
+                } else {
+                    showStatus(`错误: ${data.error || '获取认证链接失败'}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`网络错误: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ri-google-line"></i> 获取认证链接';
+            }
+        }
+
+        // ... (Paste all other functions like getCredentials, uploadFiles, etc. from original file here) ...
+        // 为了确保代码完整性，我将把原文件中的所有 JS 逻辑（除了一些简单的 UI 切换已经在上面重写）完整迁移过来。
+        
+        // Toggle Functions
+        function toggleProjectIdSection() {
+            const section = document.getElementById('projectIdSection');
+            const icon = document.getElementById('projectIdToggleIcon');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                icon.className = 'ri-arrow-down-s-line';
+            } else {
+                section.style.display = 'none';
+                icon.className = 'ri-arrow-right-s-line';
+            }
+        }
+
+        function toggleCallbackUrlSection() {
+            const section = document.getElementById('callbackUrlSection');
+            const icon = document.getElementById('callbackUrlToggleIcon');
+            if (section.style.display === 'none') {
+                section.style.display = 'block';
+                icon.className = 'ri-arrow-up-s-line';
+            } else {
+                section.style.display = 'none';
+                icon.className = 'ri-arrow-down-s-line';
+            }
+        }
+
+        // Auth & Callback Logic
+        async function processCallbackUrl() {
+            const callbackUrl = document.getElementById('callbackUrlInput').value.trim();
+            const getAllProjects = document.getElementById('getAllProjectsCreds').checked;
+            
+            if (!callbackUrl) { showStatus('请输入回调URL', 'error'); return; }
+            
+            try {
+                const projectId = document.getElementById('projectId').value.trim();
+                const response = await fetch('/auth/callback-url', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        callback_url: callbackUrl,
+                        project_id: projectId || null,
+                        get_all_projects: getAllProjects
+                    })
+                });
+                const result = await response.json();
+                
+                if (result.credentials || result.multiple_credentials) {
+                    showStatus('认证成功！', 'success');
+                    document.getElementById('credentialsContent').textContent = JSON.stringify(result, null, 2);
+                    document.getElementById('credentialsSection').classList.remove('hidden');
+                } else {
+                    showStatus(result.error || '失败', 'error');
+                }
+            } catch (error) {
+                showStatus(`错误: ${error.message}`, 'error');
+            }
+        }
+
+        async function getCredentials() {
+            if (!authInProgress) { showStatus('请先获取认证链接', 'error'); return; }
+            const btn = document.getElementById('getCredsBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ri-loader-4-line blink"></i> 等待回调...';
+
+            try {
+                const getAllProjects = document.getElementById('getAllProjectsCreds').checked;
+                const response = await fetch('/auth/callback', {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        project_id: currentProjectId,
+                        get_all_projects: getAllProjects
+                    })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    document.getElementById('credentialsContent').textContent = JSON.stringify(data, null, 2);
+                    document.getElementById('credentialsSection').classList.remove('hidden');
+                    showStatus('认证成功！', 'success');
+                    authInProgress = false;
+                } else {
+                    showStatus(`失败: ${data.error}`, 'error');
+                }
+            } catch (e) {
+                showStatus(`错误: ${e.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ri-download-cloud-2-line"></i> 获取认证文件';
+            }
+        }
+
+        // File Upload
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            addFiles(files);
+        }
+        
+        function addFiles(files) {
+            files.forEach(file => {
+                if (file.name.endsWith('.json') || file.name.endsWith('.zip')) {
+                    uploadSelectedFiles.push(file);
+                }
+            });
+            updateFileList();
+        }
+
+        function updateFileList() {
+            const list = document.getElementById('fileList');
+            const section = document.getElementById('fileListSection');
+            if (uploadSelectedFiles.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+            section.classList.remove('hidden');
+            list.innerHTML = uploadSelectedFiles.map((f, i) => `
+                <div class="file-item">
+                    <span><i class="${f.name.endsWith('.zip') ? 'ri-file-zip-line' : 'ri-file-code-line'}"></i> ${f.name}</span>
+                    <button class="cred-btn delete" onclick="removeFile(${i})"><i class="ri-close-line"></i></button>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(i) { uploadSelectedFiles.splice(i, 1); updateFileList(); }
+        function clearFiles() { uploadSelectedFiles = []; updateFileList(); }
+
+        async function uploadFiles() {
+            if (uploadSelectedFiles.length === 0) return;
+            
+            const formData = new FormData();
+            uploadSelectedFiles.forEach(f => formData.append('files', f));
+            
+            document.getElementById('uploadProgressSection').classList.remove('hidden');
+            const xhr = new XMLHttpRequest();
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const pct = (e.loaded / e.total) * 100;
+                    document.getElementById('progressFill').style.width = pct + '%';
+                    document.getElementById('progressText').textContent = Math.round(pct) + '%';
+                }
+            };
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    showStatus('上传成功', 'success');
+                    clearFiles();
+                    document.getElementById('uploadProgressSection').classList.add('hidden');
+                } else {
+                    showStatus('上传失败', 'error');
+                }
+            };
+            xhr.open('POST', '/auth/upload');
+            xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+            xhr.send(formData);
+        }
+
+        // Env Creds
+        async function checkEnvCredsStatus() {
+            document.getElementById('envStatusLoading').style.display = 'block';
+            document.getElementById('envStatusContent').classList.add('hidden');
+            try {
+                const res = await fetch('/auth/env-creds-status', { headers: getAuthHeaders() });
+                const data = await res.json();
+                document.getElementById('envVarsList').textContent = JSON.stringify(data.available_env_vars, null, 2);
+                document.getElementById('autoLoadStatus').textContent = data.auto_load_enabled ? '开启' : '关闭';
+                document.getElementById('envFilesCount').textContent = data.existing_env_files_count;
+                document.getElementById('envFilesList').textContent = data.existing_env_files.join(', ');
+                document.getElementById('envStatusContent').classList.remove('hidden');
+            } catch (e) { showStatus(e.message, 'error'); }
+            finally { document.getElementById('envStatusLoading').style.display = 'none'; }
+        }
+
+        async function loadEnvCredentials() {
+            const res = await fetch('/auth/load-env-creds', { method: 'POST', headers: getAuthHeaders() });
+            const data = await res.json();
+            showStatus(data.message, res.ok ? 'success' : 'error');
+            checkEnvCredsStatus();
+        }
+
+        async function clearEnvCredentials() {
+            if(!confirm('确认清除?')) return;
+            const res = await fetch('/auth/env-creds', { method: 'DELETE', headers: getAuthHeaders() });
+            const data = await res.json();
+            showStatus(data.message, res.ok ? 'success' : 'error');
+            checkEnvCredsStatus();
+        }
+
+        // Creds Management
+        async function refreshCredsStatus() {
+            document.getElementById('credsLoading').style.display = 'block';
+            document.getElementById('credsList').innerHTML = '';
+            try {
+                const res = await fetch('/creds/status', { headers: getAuthHeaders() });
+                const data = await res.json();
+                credsData = data.creds;
+                calculateStats();
+                updateStatsDisplay();
+                applyFilters();
+            } catch(e) { showStatus(e.message, 'error'); }
+            finally { document.getElementById('credsLoading').style.display = 'none'; }
+        }
+
+        function calculateStats() {
+            statsData = { total: 0, normal: 0, disabled: 0 };
+            availableErrorCodes.clear();
+            Object.values(credsData).forEach(c => {
+                statsData.total++;
+                if(c.status.disabled) statsData.disabled++; else statsData.normal++;
+                (c.status.error_codes || []).forEach(code => availableErrorCodes.add(code));
+            });
+            // Update error code badges
+            const container = document.getElementById('errorCodeBadges');
+            container.innerHTML = '';
+            Array.from(availableErrorCodes).sort().forEach(code => {
+                const badge = document.createElement('span');
+                badge.className = 'status-badge disabled'; // Reuse style
+                badge.style.cursor = 'pointer';
+                badge.textContent = code;
+                badge.onclick = () => { document.getElementById('errorCodeFilter').value = code; applyFilters(); };
+                container.appendChild(badge);
+            });
+        }
+
+        function updateStatsDisplay() {
+            document.getElementById('statTotal').textContent = statsData.total;
+            document.getElementById('statNormal').textContent = statsData.normal;
+            document.getElementById('statDisabled').textContent = statsData.disabled;
+        }
+
+        function applyFilters() {
+            const statusFilter = document.getElementById('statusFilter').value;
+            const errorFilter = document.getElementById('errorCodeFilter').value;
+            filteredCredsData = {};
+            
+            Object.entries(credsData).forEach(([path, cred]) => {
+                let include = true;
+                if (statusFilter === 'normal' && cred.status.disabled) include = false;
+                if (statusFilter === 'disabled' && !cred.status.disabled) include = false;
+                
+                if (include) {
+                    const codes = cred.status.error_codes || [];
+                    if (errorFilter === 'no-errors' && codes.length > 0) include = false;
+                    if (errorFilter === 'has-errors' && codes.length === 0) include = false;
+                    if (!['all', 'no-errors', 'has-errors'].includes(errorFilter)) {
+                        if (!codes.includes(parseInt(errorFilter))) include = false;
+                    }
+                }
+                
+                if (include) filteredCredsData[path] = cred;
+            });
+            
+            currentPage = 1;
+            renderCredsList();
+        }
+
+        function renderCredsList() {
+            const list = document.getElementById('credsList');
+            list.innerHTML = '';
+            const entries = Object.entries(filteredCredsData);
+            const start = (currentPage - 1) * pageSize;
+            const pageItems = entries.slice(start, start + pageSize);
+            
+            if (pageItems.length === 0) {
+                list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-light);">暂无数据</div>';
+                document.getElementById('paginationContainer').style.display = 'none';
+                return;
+            }
+
+            pageItems.forEach(([path, cred]) => {
+                const card = document.createElement('div');
+                card.className = `cred-card ${cred.status.disabled ? 'disabled' : ''}`;
+                const badges = cred.status.disabled ? 
+                    '<span class="status-badge disabled">已禁用</span>' : 
+                    '<span class="status-badge enabled">已启用</span>';
+                
+                const errorBadges = (cred.status.error_codes || []).map(c => 
+                    `<span class="status-badge" style="background:#fee2e2;color:#991b1b;">${c}</span>`
+                ).join('');
+
+                const email = cred.user_email || '未获取邮箱';
+
+                card.innerHTML = `
+                    <div class="cred-header">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <input type="checkbox" class="file-checkbox" data-filename="${cred.filename}" onchange="updateBatchControls()">
+                            <div>
+                                <div class="cred-filename">${cred.filename}</div>
+                                <div style="font-size:0.8rem;color:var(--text-light);"><i class="ri-mail-line"></i> ${email}</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:5px;">${badges}${errorBadges}</div>
+                    </div>
+                    <div class="cred-actions">
+                        <button class="cred-btn ${cred.status.disabled ? 'enable' : 'disable'}" 
+                            onclick="credAction('${cred.filename}', '${cred.status.disabled ? 'enable' : 'disable'}')">
+                            ${cred.status.disabled ? '<i class="ri-play-circle-line"></i> 启用' : '<i class="ri-stop-circle-line"></i> 禁用'}
+                        </button>
+                        <button class="cred-btn" onclick="toggleDetails('${btoa(path)}')" style="color:#2563eb;border-color:#2563eb;"><i class="ri-code-s-slash-line"></i> 内容</button>
+                        <button class="cred-btn" onclick="downloadCred('${cred.filename}')"><i class="ri-download-line"></i> 下载</button>
+                        <button class="cred-btn delete" onclick="deleteCred('${cred.filename}')"><i class="ri-delete-bin-line"></i> 删除</button>
+                    </div>
+                    <div id="details-${btoa(path)}" class="hidden" style="margin-top:10px;">
+                        <div class="cred-content">${JSON.stringify(cred.content, null, 2)}</div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+
+            document.getElementById('paginationContainer').style.display = 'flex';
+            document.getElementById('paginationInfo').textContent = `第 ${currentPage} 页 / 共 ${Math.ceil(entries.length / pageSize)} 页`;
+            document.getElementById('prevPageBtn').disabled = currentPage === 1;
+            document.getElementById('nextPageBtn').disabled = currentPage >= Math.ceil(entries.length / pageSize);
+            
+            updateBatchControls();
+        }
+
+        function toggleDetails(id) {
+            document.getElementById(`details-${id}`).classList.toggle('hidden');
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            renderCredsList();
+        }
+        
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            currentPage = 1;
+            renderCredsList();
+        }
+
+        async function credAction(filename, action) {
+            const res = await fetch('/creds/action', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ filename, action })
+            });
+            if (res.ok) refreshCredsStatus();
+            else showStatus('操作失败', 'error');
+        }
+
+        async function deleteCred(filename) {
+            if (confirm(`确定删除 ${filename}?`)) credAction(filename, 'delete');
+        }
+
+        async function downloadCred(filename) {
+            const res = await fetch(`/creds/download/${filename}`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename; a.click();
+            }
+        }
+
+        async function downloadAllCreds() {
+            const res = await fetch('/creds/download-all', { headers: { 'Authorization': `Bearer ${authToken}` } });
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'credentials.zip'; a.click();
+            }
+        }
+
+        // Batch Actions
+        function updateBatchControls() {
+            const checkboxes = document.querySelectorAll('.file-checkbox');
+            const checked = Array.from(checkboxes).filter(c => c.checked);
+            const count = checked.length;
+            document.getElementById('selectedCount').textContent = `已选择 ${count} 项`;
+            
+            const btns = ['batchEnableBtn', 'batchDisableBtn', 'batchDeleteBtn'];
+            btns.forEach(id => document.getElementById(id).disabled = count === 0);
+            
+            // Update set logic
+            selectedCredFiles.clear();
+            checked.forEach(c => selectedCredFiles.add(c.dataset.filename));
+        }
+
+        function toggleSelectAll() {
+            const all = document.getElementById('selectAllCheckbox').checked;
+            document.querySelectorAll('.file-checkbox').forEach(c => c.checked = all);
+            updateBatchControls();
+        }
+
+        async function batchAction(action) {
+            if (selectedCredFiles.size === 0) return;
+            if (!confirm(`确认对 ${selectedCredFiles.size} 个文件执行 ${action}?`)) return;
+            
+            const res = await fetch('/creds/batch-action', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ action, filenames: Array.from(selectedCredFiles) })
+            });
+            const data = await res.json();
+            showStatus(data.message, res.ok ? 'success' : 'error');
+            refreshCredsStatus();
+        }
+
+        async function refreshAllEmails() {
+            if(!confirm('刷新所有邮箱可能较慢，确认?')) return;
+            const res = await fetch('/creds/refresh-all-emails', { method: 'POST', headers: getAuthHeaders() });
+            const data = await res.json();
+            showStatus(data.message, 'info');
+            refreshCredsStatus();
+        }
+
+        // Usage Stats
+        async function refreshUsageStats() {
+            document.getElementById('usageLoading').style.display = 'block';
+            document.getElementById('usageList').innerHTML = '';
+            try {
+                const [res1, res2] = await Promise.all([
+                    fetch('/usage/stats', { headers: getAuthHeaders() }),
+                    fetch('/usage/aggregated', { headers: getAuthHeaders() })
+                ]);
+                const data1 = await res1.json();
+                const data2 = await res2.json();
+                
+                const agg = data2.data;
+                document.getElementById('totalApiCalls').textContent = agg.total_all_model_calls;
+                document.getElementById('geminiProCalls').textContent = agg.total_gemini_2_5_pro_calls;
+                document.getElementById('gemini3ProCalls').textContent = agg.total_gemini_3_pro_calls;
+                document.getElementById('totalFiles').textContent = agg.total_files;
+
+                const list = document.getElementById('usageList');
+                Object.entries(data1.data).forEach(([file, stats]) => {
+                    const card = document.createElement('div');
+                    card.className = 'cred-card';
+                    
+                    // Calculate percentages
+                    const pGemini = Math.min((stats.gemini_2_5_pro_calls / stats.daily_limit_gemini_2_5_pro) * 100, 100);
+                    const pGemini3 = Math.min((stats.gemini_3_pro_calls / stats.daily_limit_gemini_3_pro) * 100, 100);
+                    const pTotal = Math.min((stats.total_calls / stats.daily_limit_total) * 100, 100);
+                    
+                    card.innerHTML = `
+                        <div class="cred-header">
+                            <div class="cred-filename">${file}</div>
+                            <button class="cred-btn" onclick="openLimitsModal('${file}', ${stats.daily_limit_gemini_2_5_pro}, ${stats.daily_limit_gemini_3_pro}, ${stats.daily_limit_total})"><i class="ri-edit-line"></i> 设置限制</button>
+                        </div>
+                        <div style="margin-bottom:1rem;">
+                            <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
+                                <span>Gemini 2.5 Pro</span>
+                                <span>${stats.gemini_2_5_pro_calls} / ${stats.daily_limit_gemini_2_5_pro}</span>
+                            </div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:${pGemini}%;background-color:#ff6b35;"></div></div>
+                        </div>
+                        <div style="margin-bottom:1rem;">
+                            <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
+                                <span>Gemini 3.0 Pro</span>
+                                <span>${stats.gemini_3_pro_calls} / ${stats.daily_limit_gemini_3_pro}</span>
+                            </div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:${pGemini3}%;background-color:#9c27b0;"></div></div>
+                        </div>
+                        <div>
+                            <div style="display:flex;justify-content:space-between;font-size:0.8rem;">
+                                <span>总调用</span>
+                                <span>${stats.total_calls} / ${stats.daily_limit_total}</span>
+                            </div>
+                            <div class="progress-bar"><div class="progress-fill" style="width:${pTotal}%"></div></div>
+                        </div>
+                    `;
+                    list.appendChild(card);
+                });
+            } catch(e) { showStatus(e.message, 'error'); }
+            finally { document.getElementById('usageLoading').style.display = 'none'; }
+        }
+
+        async function resetAllUsageStats() {
+            if(!confirm('确认重置所有?')) return;
+            await fetch('/usage/reset', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({}) });
+            refreshUsageStats();
+        }
+
+        // Limits Modal
+        let currentLimitFile = '';
+        function openLimitsModal(file, limit1, limit2, limitTotal) {
+            currentLimitFile = file;
+            document.getElementById('modalFilename').value = file;
+            document.getElementById('modalGeminiLimit').value = limit1;
+            document.getElementById('modalGemini3Limit').value = limit2;
+            document.getElementById('modalTotalLimit').value = limitTotal;
+            document.getElementById('limitsModal').style.display = 'block';
+        }
+        
+        function closeLimitsModal() { document.getElementById('limitsModal').style.display = 'none'; }
+        
+        async function saveLimits() {
+            await fetch('/usage/update-limits', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    filename: currentLimitFile,
+                    gemini_2_5_pro_limit: parseInt(document.getElementById('modalGeminiLimit').value),
+                    gemini_3_pro_limit: parseInt(document.getElementById('modalGemini3Limit').value),
+                    total_limit: parseInt(document.getElementById('modalTotalLimit').value)
+                })
+            });
+            closeLimitsModal();
+            refreshUsageStats();
+        }
+
+        // Config
+        async function loadConfig() {
+            document.getElementById('configLoading').style.display = 'block';
+            document.getElementById('configForm').classList.add('hidden');
+            try {
+                const res = await fetch('/config/get', { headers: getAuthHeaders() });
+                const data = await res.json();
+                const cfg = data.config;
+                
+                // Map fields
+                const map = {
+                    'host': 'host', 'port': 'port', 
+                    'api_password': 'configApiPassword', 'panel_password': 'configPanelPassword', 'password': 'configPassword',
+                    'credentials_dir': 'credentialsDir', 'proxy': 'proxy',
+                    'code_assist_endpoint': 'codeAssistEndpoint', 'oauth_proxy_url': 'oauthProxyUrl',
+                    'googleapis_proxy_url': 'googleapisProxyUrl', 'resource_manager_api_url': 'resourceManagerApiUrl',
+                    'service_usage_api_url': 'serviceUsageApiUrl',
+                    'auto_ban_error_codes': 'autoBanErrorCodes', 'calls_per_rotation': 'callsPerRotation',
+                    'retry_429_max_retries': 'retry429MaxRetries', 'retry_429_interval': 'retry429Interval',
+                    'anti_truncation_max_attempts': 'antiTruncationMaxAttempts'
+                };
+
+                Object.entries(map).forEach(([k, id]) => {
+                    if (document.getElementById(id)) document.getElementById(id).value = cfg[k] || '';
+                });
+                
+                // Array/Bool handling
+                if (cfg.auto_ban_error_codes) document.getElementById('autoBanErrorCodes').value = cfg.auto_ban_error_codes.join(',');
+                document.getElementById('autoBanEnabled').checked = cfg.auto_ban_enabled;
+                document.getElementById('retry429Enabled').checked = cfg.retry_429_enabled;
+
+                // Lock locked fields
+                (data.env_locked || []).forEach(key => {
+                    // Simple mapping back to ID (incomplete but functional for common ones)
+                    if(map[key]) document.getElementById(map[key]).disabled = true;
+                });
+
+                document.getElementById('configForm').classList.remove('hidden');
+            } catch(e) { showStatus(e.message, 'error'); }
+            finally { document.getElementById('configLoading').style.display = 'none'; }
+        }
+
+        async function saveConfig() {
+            const cfg = {
+                host: document.getElementById('host').value,
+                port: parseInt(document.getElementById('port').value),
+                api_password: document.getElementById('configApiPassword').value,
+                panel_password: document.getElementById('configPanelPassword').value,
+                password: document.getElementById('configPassword').value,
+                credentials_dir: document.getElementById('credentialsDir').value,
+                proxy: document.getElementById('proxy').value,
+                code_assist_endpoint: document.getElementById('codeAssistEndpoint').value,
+                oauth_proxy_url: document.getElementById('oauthProxyUrl').value,
+                googleapis_proxy_url: document.getElementById('googleapisProxyUrl').value,
+                resource_manager_api_url: document.getElementById('resourceManagerApiUrl').value,
+                service_usage_api_url: document.getElementById('serviceUsageApiUrl').value,
+                auto_ban_enabled: document.getElementById('autoBanEnabled').checked,
+                auto_ban_error_codes: document.getElementById('autoBanErrorCodes').value.split(',').map(n=>parseInt(n)).filter(n=>!isNaN(n)),
+                calls_per_rotation: parseInt(document.getElementById('callsPerRotation').value),
+                retry_429_enabled: document.getElementById('retry429Enabled').checked,
+                retry_429_max_retries: parseInt(document.getElementById('retry429MaxRetries').value),
+                retry_429_interval: parseFloat(document.getElementById('retry429Interval').value),
+                anti_truncation_max_attempts: parseInt(document.getElementById('antiTruncationMaxAttempts').value)
+            };
+
+            const res = await fetch('/config/save', {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ config: cfg })
+            });
+            const data = await res.json();
+            showStatus(data.message, res.ok ? 'success' : 'error');
+            if (data.restart_required && data.restart_required.length > 0) alert('部分配置需要重启生效');
+        }
+
+        // Logs
+        let ws;
+        let allLogs = [];
+        let filteredLogs = [];
+        let currentLogFilter = 'all';
+
+        // 解析 ANSI 颜色码并转为 HTML
+        function ansiToHtml(text) {
+            if (!text) return '';
+            const colors = {
+                '30': 'black', '31': 'red', '32': 'green', '33': 'yellow',
+                '34': 'blue', '35': 'magenta', '36': 'cyan', '37': 'white',
+                '90': 'grey', '91': 'lightred', '92': 'lightgreen', '93': 'lightyellow',
+                '94': 'lightblue', '95': 'lightmagenta', '96': 'lightcyan', '97': 'white'
+            };
+            let html = text.replace(/\x1b\[(\d+)(?:;(\d+))?m/g, (match, p1, p2) => {
+                const colorCode = p1;
+                if (colorCode === '0') return '</span>';
+                if (colors[colorCode]) return `<span style="color: ${colors[colorCode]}">`;
+                return '';
+            });
+            const openTags = (html.match(/<span/g) || []).length;
+            const closeTags = (html.match(/<\/span>/g) || []).length;
+            if (openTags > closeTags) html += '</span>'.repeat(openTags - closeTags);
+            return html;
+        }
+
+        function displayLogs() {
+            const logContainer = document.getElementById('logContainer');
+            const filter = document.getElementById('logLevelFilter').value;
+            
+            let logsToShow = allLogs;
+            if (filter !== 'all') {
+                logsToShow = allLogs.filter(log => log.toUpperCase().includes(filter));
+            }
+
+            if (logsToShow.length === 0) {
+                logContainer.textContent = filter === 'all' ? '暂无日志...' : `暂无${filter}级别的日志...`;
+            } else {
+                logContainer.innerHTML = logsToShow.map(log => `<div>${ansiToHtml(log)}</div>`).join('');
+            }
+            
+            if(document.getElementById('autoScroll').checked) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        }
+
+        function filterLogs() {
+            displayLogs();
+        }
+
+        function connectWebSocket() {
+            if(ws && ws.readyState === WebSocket.OPEN) return;
+            
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const statusEl = document.getElementById('connectionStatusText');
+            statusEl.textContent = '连接中...';
+            
+            try {
+                ws = new WebSocket(`${protocol}//${location.host}/auth/logs/stream`);
+                
+                ws.onopen = () => {
+                    statusEl.textContent = '已连接';
+                    statusEl.style.background = '#d1fae5';
+                    statusEl.style.color = '#065f46';
+                    // 清空之前显示的，准备接收新的历史记录
+                    allLogs = [];
+                    displayLogs();
+                };
+                
+                ws.onclose = () => {
+                    ws = null;
+                    statusEl.textContent = '已断开';
+                    statusEl.style.background = '#fee2e2';
+                    statusEl.style.color = '#991b1b';
+                };
+                
+                ws.onmessage = (e) => {
+                    const logLine = e.data;
+                    if (logLine.trim()) {
+                        allLogs.push(logLine);
+                        // 限制前端存储的日志数量，防止内存溢出
+                        if (allLogs.length > 2000) allLogs = allLogs.slice(-2000);
+                        displayLogs();
+                    }
+                };
+            } catch (e) {
+                console.error('WS Error:', e);
+                statusEl.textContent = '连接错误';
+            }
+        }
+
+        function disconnectWebSocket() {
+            if(ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        async function clearLogs() {
+            await fetch('/auth/logs/clear', { method: 'POST', headers: getAuthHeaders() });
+            allLogs = [];
+            displayLogs();
+        }
+        async function downloadLogs() {
+            const res = await fetch('/auth/logs/download', { headers: getAuthHeaders() });
+            if(res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'logs.txt'; a.click();
+            }
+        }
+
+        // Endpoint presets
+        const mirrorUrls = {
+            codeAssistEndpoint: 'https://gcli-api.sukaka.top/cloudcode-pa',
+            oauthProxyUrl: 'https://gcli-api.sukaka.top/oauth2',
+            googleapisProxyUrl: 'https://gcli-api.sukaka.top/googleapis',
+            resourceManagerApiUrl: 'https://gcli-api.sukaka.top/cloudresourcemanager',
+            serviceUsageApiUrl: 'https://gcli-api.sukaka.top/serviceusage'
+        };
+        const officialUrls = {
+            codeAssistEndpoint: 'https://cloudcode-pa.googleapis.com',
+            oauthProxyUrl: 'https://oauth2.googleapis.com',
+            googleapisProxyUrl: 'https://www.googleapis.com',
+            resourceManagerApiUrl: 'https://cloudresourcemanager.googleapis.com',
+            serviceUsageApiUrl: 'https://serviceusage.googleapis.com'
+        };
+
+        function useMirrorUrls() {
+            Object.entries(mirrorUrls).forEach(([id, val]) => {
+                if(document.getElementById(id)) document.getElementById(id).value = val;
+            });
+        }
+        function restoreOfficialUrls() {
+            Object.entries(officialUrls).forEach(([id, val]) => {
+                if(document.getElementById(id)) document.getElementById(id).value = val;
+            });
+        }
+
+        // Init
+        window.onload = () => {
+            if (authToken) checkToken();
+        };
+    </script>
+</body>
+</html>
