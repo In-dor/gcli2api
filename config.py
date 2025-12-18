@@ -35,7 +35,8 @@ async def init_config():
         storage_adapter = await get_storage_adapter()
         _config_cache = await storage_adapter.get_all_config()
         _config_initialized = True
-    except Exception:
+    except Exception as e:
+        print(f"Config initialization failed: {e}")
         # 初始化失败时使用空缓存
         _config_cache = {}
         _config_initialized = True
@@ -57,8 +58,8 @@ async def reload_config():
         # 重新加载配置缓存
         _config_cache = await storage_adapter.get_all_config()
         _config_initialized = True
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Config reload failed: {e}")
 
 
 def _get_cached_config(key: str, default: Any = None) -> Any:
@@ -187,7 +188,12 @@ async def get_show_variant_models() -> bool:
     if env_value:
         return env_value.lower() in ("true", "1", "yes", "on")
 
-    return bool(await get_config_value("show_variant_models", True))
+    val = await get_config_value("show_variant_models", True)
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return val.lower() in ("true", "1", "yes", "on")
+    return bool(val)
 
 
 # Server Configuration

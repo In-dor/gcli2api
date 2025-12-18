@@ -1237,6 +1237,11 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
         log.debug(f"收到的配置数据: {list(new_config.keys())}")
         log.debug(f"收到的password值: {new_config.get('password', 'NOT_FOUND')}")
 
+        if "show_variant_models" in new_config:
+            log.debug(f"收到 show_variant_models: {new_config['show_variant_models']}")
+        else:
+            log.debug("未收到 show_variant_models")
+
         # 验证配置项
         if "retry_429_max_retries" in new_config:
             if (
@@ -1311,14 +1316,17 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
 
         # 获取环境变量锁定的配置键
         env_locked_keys = get_env_locked_keys()
+        log.debug(f"环境变量锁定键: {env_locked_keys}")
 
         # 直接使用存储适配器保存配置
         storage_adapter = await get_storage_adapter()
         for key, value in new_config.items():
             if key not in env_locked_keys:
                 await storage_adapter.set_config(key, value)
-                if key in ("password", "api_password", "panel_password"):
+                if key in ("password", "api_password", "panel_password", "show_variant_models"):
                     log.debug(f"设置{key}字段为: {value}")
+            elif key == "show_variant_models":
+                log.warning(f"show_variant_models 被环境变量锁定，跳过保存")
 
         # 重新加载配置缓存（关键！）
         await config.reload_config()
