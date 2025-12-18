@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from config import (
     get_anti_truncation_max_attempts,
+    get_show_variant_models,
 )
 from src.utils import (
     get_available_models,
@@ -50,18 +51,25 @@ async def get_credential_manager():
         await credential_manager.initialize()
     return credential_manager
 
+
 @router.get("/v1/models", response_model=ModelList)
 async def list_models():
     """返回OpenAI格式的模型列表"""
-    models = get_available_models("openai")
+    show_variants = await get_show_variant_models()
+    models = get_available_models("openai", show_variants=show_variants)
+    return ModelList(data=[Model(id=m) for m in models])
+
+
+@router.get("/v1beta/openai/models", response_model=ModelList)
+async def list_models_v1beta():
+    """返回OpenAI格式的模型列表 (v1beta/openai兼容别名)"""
+    show_variants = await get_show_variant_models()
+    models = get_available_models("openai", show_variants=show_variants)
     return ModelList(data=[Model(id=m) for m in models])
 
 
 @router.post("/v1/chat/completions")
-async def chat_completions(
-    request: Request,
-    token: str = Depends(authenticate_bearer)
-):
+async def chat_completions(request: Request, token: str = Depends(authenticate_bearer)):
     """处理OpenAI格式的聊天完成请求"""
 
     # 获取原始请求数据

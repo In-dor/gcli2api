@@ -1,1105 +1,2115 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>GCLI2API 控制面板</title>
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link
+      href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css"
+      rel="stylesheet"
+    />
     <style>
-        :root {
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --text-light: #64748b;
-            --border: #e2e8f0;
-            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
+      :root {
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --bg: #f8fafc;
+        --card-bg: #ffffff;
+        --text: #1e293b;
+        --text-light: #64748b;
+        --border: #e2e8f0;
+        --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 0;
-            line-height: 1.5;
-            -webkit-tap-highlight-color: transparent;
-        }
+      body {
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, "Helvetica Neue", Arial, sans-serif;
+        background-color: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 0;
+        line-height: 1.5;
+        -webkit-tap-highlight-color: transparent;
+      }
 
+      .navbar {
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border);
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      }
+
+      .brand {
+        font-weight: 700;
+        font-size: 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--primary);
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 1.5rem auto;
+        padding: 0 1rem;
+      }
+
+      .card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s;
+        margin-bottom: 1.5rem;
+      }
+
+      .card-header {
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        background-color: #f8fafc;
+        flex-wrap: wrap;
+      }
+
+      .card-body {
+        padding: 1.5rem;
+      }
+
+      /* Form Elements */
+      input[type="text"],
+      input[type="password"],
+      input[type="number"],
+      input[type="url"],
+      select,
+      textarea {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+        background-color: #fff;
+        outline: none;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--primary);
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-light);
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.6rem 1.2rem;
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        gap: 0.5rem;
+        white-space: nowrap;
+      }
+
+      .btn:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+      }
+
+      .btn:disabled {
+        background-color: var(--border);
+        color: var(--text-light);
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .btn-sm {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+      }
+
+      .btn-danger {
+        background-color: var(--danger);
+      }
+      .btn-danger:hover {
+        background-color: #dc2626;
+      }
+
+      .btn-success {
+        background-color: var(--success);
+      }
+      .btn-success:hover {
+        background-color: #059669;
+      }
+
+      .btn-secondary {
+        background-color: #64748b;
+      }
+      .btn-secondary:hover {
+        background-color: #475569;
+      }
+
+      /* Login Form */
+      .login-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: var(--bg-gradient);
+        padding: 1rem;
+      }
+
+      .login-card {
+        width: 100%;
+        max-width: 400px;
+        background: white;
+        padding: 2.5rem;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        text-align: center;
+      }
+
+      /* Tabs */
+      .tabs {
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+        scrollbar-width: none; /* Firefox */
+      }
+      .tabs::-webkit-scrollbar {
+        display: none;
+      } /* Chrome/Safari */
+
+      .tab {
+        padding: 0.6rem 1rem;
+        cursor: pointer;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-light);
+        background: transparent;
+        transition: all 0.2s;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .tab:hover {
+        color: var(--primary);
+        background-color: #eff6ff;
+      }
+
+      .tab.active {
+        background-color: var(--primary);
+        color: white;
+      }
+
+      .tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Status Badges */
+      .status {
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        word-break: break-all;
+      }
+
+      .status.success {
+        background-color: #d1fae5;
+        color: #065f46;
+        border-left: 4px solid var(--success);
+      }
+
+      .status.error {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border-left: 4px solid var(--danger);
+      }
+
+      .status.info {
+        background-color: #eff6ff;
+        color: #1e40af;
+        border-left: 4px solid var(--primary);
+      }
+
+      /* Specific Components */
+      .auth-url {
+        background-color: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        margin: 1rem 0;
+        word-break: break-all;
+      }
+
+      .auth-url a {
+        color: var(--primary);
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .credentials,
+      .cred-content {
+        background-color: #1e293b;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 1rem;
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 0.8rem;
+        white-space: pre-wrap;
+        word-break: break-all;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .upload-area {
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        background-color: #f8fafc;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .upload-area:hover,
+      .upload-area.dragover {
+        border-color: var(--primary);
+        background-color: #eff6ff;
+      }
+
+      .file-item {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.8rem;
+        margin: 0.5rem 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      /* Stats Grid */
+      .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .stat-item {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      }
+
+      .stat-number {
+        font-size: 1.5rem;
+        font-weight: 700;
+        display: block;
+        margin-bottom: 0.25rem;
+      }
+
+      .stat-label {
+        color: var(--text-light);
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .stat-item.total .stat-number {
+        color: var(--primary);
+      }
+      .stat-item.normal .stat-number {
+        color: var(--success);
+      }
+      .stat-item.disabled .stat-number {
+        color: var(--text-light);
+      }
+
+      /* Credential Cards */
+      .cred-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s;
+      }
+
+      .cred-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .cred-card.disabled {
+        background-color: #f1f5f9;
+        opacity: 0.9;
+      }
+
+      .cred-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.8rem;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .cred-filename {
+        font-family: monospace;
+        font-weight: 600;
+        color: var(--text);
+        word-break: break-all;
+        font-size: 0.9rem;
+      }
+
+      .status-badge {
+        padding: 0.2rem 0.6rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        white-space: nowrap;
+        display: inline-block;
+        margin-right: 0.25rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .status-badge.enabled {
+        background-color: #d1fae5;
+        color: #065f46;
+      }
+      .status-badge.disabled {
+        background-color: #f1f5f9;
+        color: #64748b;
+      }
+      .error-codes {
+        background-color: #fee2e2;
+        color: #991b1b;
+      }
+      .cooldown-badge {
+        background-color: #ffc107;
+        color: #856404;
+      }
+
+      .cred-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.8rem;
+      }
+
+      .cred-btn {
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background: white;
+        transition: all 0.2s;
+        flex: 1 0 auto; /* Mobile friendly buttons */
+        text-align: center;
+        min-width: 60px;
+      }
+
+      .cred-btn:hover {
+        background: #f8fafc;
+        border-color: var(--primary);
+        color: var(--primary);
+      }
+
+      .cred-btn.enable {
+        color: var(--success);
+        border-color: var(--success);
+      }
+      .cred-btn.enable:hover {
+        background-color: var(--success);
+        color: white;
+      }
+
+      .cred-btn.disable {
+        color: var(--text-light);
+        border-color: var(--text-light);
+      }
+      .cred-btn.disable:hover {
+        background-color: var(--text-light);
+        color: white;
+      }
+
+      .cred-btn.delete {
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+      .cred-btn.delete:hover {
+        background-color: var(--danger);
+        color: white;
+      }
+
+      /* Filters and Batch Actions */
+      .batch-controls,
+      .filter-container {
+        background: #f8fafc;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--border);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8rem;
+        align-items: center;
+      }
+
+      /* Logs */
+      #logContainer {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.8rem;
+        height: 60vh;
+        overflow-y: auto;
+        border-radius: 8px;
+        padding: 1rem;
+        white-space: pre-wrap;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+      .loading {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-light);
+      }
+
+      /* Progress Bar */
+      .progress-bar {
+        width: 100%;
+        height: 0.75rem;
+        background-color: #e2e8f0;
+        border-radius: 9999px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background-color: var(--primary);
+        transition: width 0.3s ease;
+      }
+
+      /* Mobile Adjustments */
+      @media (max-width: 768px) {
         .navbar {
-            background: var(--card-bg);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+          padding: 0.8rem 1rem;
         }
-
-        .brand {
-            font-weight: 700;
-            font-size: 1.25rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--primary);
-        }
-
         .container {
-            max-width: 1200px;
-            margin: 1.5rem auto;
-            padding: 0 1rem;
+          margin: 1rem auto;
+          padding: 0 0.8rem;
         }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s;
-            margin-bottom: 1.5rem;
-        }
-
         .card-header {
-            padding: 1rem 1.5rem;
-            border-bottom: 1px solid var(--border);
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            background-color: #f8fafc;
-            flex-wrap: wrap;
+          padding: 0.8rem 1rem;
+          flex-direction: column;
+          align-items: flex-start;
         }
-
         .card-body {
-            padding: 1.5rem;
+          padding: 1rem;
         }
-
-        /* Form Elements */
-        input[type="text"],
-        input[type="password"],
-        input[type="number"],
-        input[type="url"],
-        select,
-        textarea {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.95rem;
-            box-sizing: border-box;
-            transition: border-color 0.2s;
-            background-color: #fff;
-            outline: none;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus {
-            border-color: var(--primary);
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-light);
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.6rem 1.2rem;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-            gap: 0.5rem;
-            white-space: nowrap;
-        }
-
-        .btn:hover {
-            background-color: var(--primary-hover);
-            transform: translateY(-1px);
-        }
-
-        .btn:disabled {
-            background-color: var(--border);
-            color: var(--text-light);
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-sm {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.85rem;
-        }
-
-        .btn-danger { background-color: var(--danger); }
-        .btn-danger:hover { background-color: #dc2626; }
-
-        .btn-success { background-color: var(--success); }
-        .btn-success:hover { background-color: #059669; }
-
-        .btn-secondary { background-color: #64748b; }
-        .btn-secondary:hover { background-color: #475569; }
-
-        /* Login Form */
-        .login-wrapper {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: var(--bg-gradient);
-            padding: 1rem;
-        }
-
-        .login-card {
-            width: 100%;
-            max-width: 400px;
-            background: white;
-            padding: 2.5rem;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            text-align: center;
-        }
-
-        /* Tabs */
         .tabs {
-            display: flex;
-            gap: 0.5rem;
-            overflow-x: auto;
-            padding-bottom: 0.5rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            scrollbar-width: none; /* Firefox */
+          margin: 0 -0.8rem 1rem -0.8rem;
+          padding: 0 0.8rem 0.5rem 0.8rem;
         }
-        .tabs::-webkit-scrollbar { display: none; } /* Chrome/Safari */
-
-        .tab {
-            padding: 0.6rem 1rem;
-            cursor: pointer;
-            border: 1px solid transparent;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--text-light);
-            background: transparent;
-            transition: all 0.2s;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .tab:hover {
-            color: var(--primary);
-            background-color: #eff6ff;
-        }
-
-        .tab.active {
-            background-color: var(--primary);
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Status Badges */
-        .status {
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            font-size: 0.9rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            word-break: break-all;
-        }
-
-        .status.success {
-            background-color: #d1fae5;
-            color: #065f46;
-            border-left: 4px solid var(--success);
-        }
-
-        .status.error {
-            background-color: #fee2e2;
-            color: #991b1b;
-            border-left: 4px solid var(--danger);
-        }
-
-        .status.info {
-            background-color: #eff6ff;
-            color: #1e40af;
-            border-left: 4px solid var(--primary);
-        }
-
-        /* Specific Components */
-        .auth-url {
-            background-color: #eff6ff;
-            border: 1px solid #bfdbfe;
-            border-radius: 8px;
-            padding: 1rem;
-            text-align: center;
-            margin: 1rem 0;
-            word-break: break-all;
-        }
-
-        .auth-url a {
-            color: var(--primary);
-            font-weight: 600;
-            text-decoration: none;
-        }
-
-        .credentials, .cred-content {
-            background-color: #1e293b;
-            color: #e2e8f0;
-            border-radius: 8px;
-            padding: 1rem;
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
-            font-size: 0.8rem;
-            white-space: pre-wrap;
-            word-break: break-all;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .upload-area {
-            border: 2px dashed var(--border);
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            background-color: #f8fafc;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .upload-area:hover, .upload-area.dragover {
-            border-color: var(--primary);
-            background-color: #eff6ff;
-        }
-
-        .file-item {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.8rem;
-            margin: 0.5rem 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* Stats Grid */
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .stat-item {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem;
-            text-align: center;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-
         .stat-number {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: block;
-            margin-bottom: 0.25rem;
+          font-size: 1.25rem;
         }
-
-        .stat-label {
-            color: var(--text-light);
-            font-size: 0.8rem;
-            font-weight: 500;
-            text-transform: uppercase;
+        .cred-actions .cred-btn {
+          padding: 0.5rem;
         }
-
-        .stat-item.total .stat-number { color: var(--primary); }
-        .stat-item.normal .stat-number { color: var(--success); }
-        .stat-item.disabled .stat-number { color: var(--text-light); }
-
-        /* Credential Cards */
-        .cred-card {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
+        .batch-controls,
+        .filter-container {
+          flex-direction: column;
+          align-items: stretch;
         }
-
-        .cred-card:hover {
-            border-color: var(--primary);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        .batch-controls > div,
+        .filter-container > div {
+          width: 100%;
         }
-
-        .cred-card.disabled {
-            background-color: #f1f5f9;
-            opacity: 0.9;
+        .login-card {
+          padding: 1.5rem;
         }
-
-        .cred-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 0.8rem;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .cred-filename {
-            font-family: monospace;
-            font-weight: 600;
-            color: var(--text);
-            word-break: break-all;
-            font-size: 0.9rem;
-        }
-
-        .status-badge {
-            padding: 0.2rem 0.6rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            white-space: nowrap;
-            display: inline-block;
-            margin-right: 0.25rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .status-badge.enabled { background-color: #d1fae5; color: #065f46; }
-        .status-badge.disabled { background-color: #f1f5f9; color: #64748b; }
-        .error-codes { background-color: #fee2e2; color: #991b1b; }
-        .cooldown-badge { background-color: #ffc107; color: #856404; }
-
-        .cred-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            margin-top: 0.8rem;
-        }
-
-        .cred-btn {
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            background: white;
-            transition: all 0.2s;
-            flex: 1 0 auto; /* Mobile friendly buttons */
-            text-align: center;
-            min-width: 60px;
-        }
-
-        .cred-btn:hover {
-            background: #f8fafc;
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        .cred-btn.enable { color: var(--success); border-color: var(--success); }
-        .cred-btn.enable:hover { background-color: var(--success); color: white; }
-
-        .cred-btn.disable { color: var(--text-light); border-color: var(--text-light); }
-        .cred-btn.disable:hover { background-color: var(--text-light); color: white; }
-
-        .cred-btn.delete { color: var(--danger); border-color: var(--danger); }
-        .cred-btn.delete:hover { background-color: var(--danger); color: white; }
-
-        /* Filters and Batch Actions */
-        .batch-controls, .filter-container {
-            background: #f8fafc;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.8rem;
-            align-items: center;
-        }
-
-        /* Logs */
-        #logContainer {
-            background-color: #1e1e1e;
-            color: #e0e0e0;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            height: 60vh;
-            overflow-y: auto;
-            border-radius: 8px;
-            padding: 1rem;
-            white-space: pre-wrap;
-        }
-
-        .hidden { display: none !important; }
-        .loading { text-align: center; padding: 2rem; color: var(--text-light); }
-
-        /* Progress Bar */
-        .progress-bar {
-            width: 100%;
-            height: 0.75rem;
-            background-color: #e2e8f0;
-            border-radius: 9999px;
-            overflow: hidden;
-            margin-top: 0.5rem;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background-color: var(--primary);
-            transition: width 0.3s ease;
-        }
-
-        /* Mobile Adjustments */
-        @media (max-width: 768px) {
-            .navbar { padding: 0.8rem 1rem; }
-            .container { margin: 1rem auto; padding: 0 0.8rem; }
-            .card-header { padding: 0.8rem 1rem; flex-direction: column; align-items: flex-start; }
-            .card-body { padding: 1rem; }
-            .tabs { margin: 0 -0.8rem 1rem -0.8rem; padding: 0 0.8rem 0.5rem 0.8rem; }
-            .stat-number { font-size: 1.25rem; }
-            .cred-actions .cred-btn { padding: 0.5rem; }
-            .batch-controls, .filter-container { flex-direction: column; align-items: stretch; }
-            .batch-controls > div, .filter-container > div { width: 100%; }
-            .login-card { padding: 1.5rem; }
-        }
+      }
     </style>
-</head>
+  </head>
 
-<body>
+  <body>
     <!-- 登录界面 -->
     <div id="loginSection" class="login-wrapper">
-        <div class="login-card">
-            <div style="margin-bottom: 2rem; color: var(--primary);">
-                <i class="ri-shield-keyhole-line" style="font-size: 3rem;"></i>
-            </div>
-            <h2 style="margin-bottom: 1.5rem; color: var(--text);">GCLI2API 管理面板</h2>
-            <p style="margin-bottom: 2rem; color: var(--text-light);">请输入访问密码以继续</p>
-            <div class="form-group">
-                <input type="password" id="loginPassword" placeholder="输入密码" onkeypress="handlePasswordEnter(event)" />
-            </div>
-            <button class="btn" onclick="login()" style="width: 100%;">
-                <i class="ri-login-circle-line"></i> 登录
-            </button>
+      <div class="login-card">
+        <div style="margin-bottom: 2rem; color: var(--primary)">
+          <i class="ri-shield-keyhole-line" style="font-size: 3rem"></i>
         </div>
+        <h2 style="margin-bottom: 1.5rem; color: var(--text)">
+          GCLI2API 管理面板
+        </h2>
+        <p style="margin-bottom: 2rem; color: var(--text-light)">
+          请输入访问密码以继续
+        </p>
+        <div class="form-group">
+          <input
+            type="password"
+            id="loginPassword"
+            placeholder="输入密码"
+            onkeypress="handlePasswordEnter(event)"
+          />
+        </div>
+        <button class="btn" onclick="login()" style="width: 100%">
+          <i class="ri-login-circle-line"></i> 登录
+        </button>
+      </div>
     </div>
 
     <!-- 主界面 -->
     <div id="mainSection" class="hidden">
-        <nav class="navbar">
-            <div class="brand">
-                <i class="ri-cloud-settings-line"></i> GCLI2API
-            </div>
-            <button class="btn btn-sm btn-danger" onclick="logout()">
-                <i class="ri-logout-box-r-line"></i> 退出
-            </button>
-        </nav>
+      <nav class="navbar">
+        <div class="brand"><i class="ri-cloud-settings-line"></i> GCLI2API</div>
+        <button class="btn btn-sm btn-danger" onclick="logout()">
+          <i class="ri-logout-box-r-line"></i> 退出
+        </button>
+      </nav>
 
-        <div class="container">
-            <!-- 标签页导航 -->
-            <div class="tabs">
-                <button class="tab active" onclick="switchTab('oauth')"><i class="ri-google-fill"></i> OAuth</button>
-                <button class="tab" onclick="switchTab('antigravity')"><i class="ri-rocket-line"></i> Antigravity</button>
-                <button class="tab" onclick="switchTab('upload')"><i class="ri-upload-cloud-2-line"></i> 上传</button>
-                <button class="tab" onclick="switchTab('manage')"><i class="ri-folder-settings-line"></i> GCLI管理</button>
-                <button class="tab" onclick="switchTab('antigravity-manage')"><i class="ri-folder-shield-line"></i> AG管理</button>
-                <button class="tab" onclick="switchTab('config')"><i class="ri-settings-4-line"></i> 配置</button>
-                <button class="tab" onclick="switchTab('logs')"><i class="ri-file-list-3-line"></i> 日志</button>
-                <button class="tab" onclick="switchTab('about')"><i class="ri-information-line"></i> 关于</button>
-            </div>
-
-            <!-- 全局状态提示区 -->
-            <div id="statusSection"></div>
-
-            <!-- OAuth认证标签页 -->
-            <div id="oauthTab" class="tab-content active">
-                <div class="card">
-                    <div class="card-header"><i class="ri-key-2-line"></i> Google OAuth 认证</div>
-                    <div class="card-body">
-                        <div class="status success">
-                            <div><strong><i class="ri-magic-line"></i> 自动化优化：</strong> 认证成功后将自动启用必需的API服务</div>
-                        </div>
-
-                        <!-- Project ID 输入框 -->
-                        <div class="form-group">
-                            <div style="cursor: pointer; padding: 0.8rem; border: 1px solid var(--border); border-radius: 8px; background: #f8fafc; display: flex; justify-content: space-between; align-items: center;"
-                                onclick="toggleProjectIdSection()">
-                                <span style="font-weight: 600; color: var(--text); font-size: 0.9rem;">
-                                    <i class="ri-folder-line"></i> 高级选项：Google Cloud Project ID
-                                </span>
-                                <i id="projectIdToggleIcon" class="ri-arrow-right-s-line"></i>
-                            </div>
-                            <div id="projectIdSection" style="display: none; margin-top: 10px; padding: 1rem; border: 1px solid var(--border); border-radius: 8px;">
-                                <label for="projectId">手动输入项目ID (可选):</label>
-                                <input type="text" id="projectId" placeholder="留空将尝试自动检测" />
-                            </div>
-                        </div>
-
-                        <button class="btn" id="getAuthBtn" onclick="startAuth()" style="width: 100%; padding: 1rem;">
-                            <i class="ri-google-line"></i> 获取认证链接
-                        </button>
-
-                        <div id="authUrlSection" class="hidden" style="margin-top: 1.5rem;">
-                            <h4 style="margin-bottom: 0.5rem;">认证链接：</h4>
-                            <div class="auth-url">
-                                <a id="authUrl" href="#" target="_blank">点击此链接进行认证</a>
-                            </div>
-
-                            <div class="status info" style="font-size: 0.85rem;">
-                                <strong><i class="ri-information-line"></i> 认证步骤说明：</strong>
-                                <ol style="margin: 5px 0; padding-left: 20px;">
-                                    <li>点击上方认证链接，在弹出的新窗口中完成 Google 账号登录和授权。</li>
-                                    <li>授权成功后，页面会跳转到 localhost 并显示成功信息。</li>
-                                    <li>关闭 OAuth 窗口，返回本页面。</li>
-                                    <li>点击下方的 <strong>"获取认证文件"</strong> 按钮完成流程。</li>
-                                </ol>
-                            </div>
-
-                            <!-- 回调URL输入 -->
-                            <div class="form-group" style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <div style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;" onclick="toggleCallbackUrlSection()">
-                                    <span style="font-weight: 600; color: var(--primary); font-size: 0.9rem;"><i class="ri-rocket-line"></i> 无法回源？使用回调URL手动完成</span>
-                                    <i id="callbackUrlToggleIcon" class="ri-arrow-down-s-line"></i>
-                                </div>
-                                <div id="callbackUrlSection" style="display: none;">
-                                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 10px; margin-bottom: 10px; font-size: 0.85rem; color: #856404;">
-                                        <strong>📚 适用场景：</strong> 云服务器、VPS、Docker 容器环境，或本地无法访问 localhost:8080 时使用。
-                                    </div>
-
-                                    <div style="font-size: 0.85rem; color: var(--text); margin-bottom: 10px;">
-                                        <strong>📋 使用步骤：</strong>
-                                        <ol style="margin: 5px 0; padding-left: 20px; color: var(--text-light);">
-                                            <li>点击上方认证链接进行授权。</li>
-                                            <li>授权成功跳转后，复制浏览器地址栏的 <strong>完整 URL</strong>（包含 <code>?state=...&code=...</code>）。</li>
-                                            <li>将 URL 粘贴到下方输入框，点击提交。</li>
-                                        </ol>
-                                    </div>
-
-                                    <input type="url" id="callbackUrlInput" placeholder="http://localhost:8080/?state=...&code=..." />
-                                    <button class="btn btn-success" style="margin-top: 10px; width: 100%;" onclick="processCallbackUrl()">
-                                        <i class="ri-check-double-line"></i> 提交回调URL获取凭证
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button class="btn" id="getCredsBtn" onclick="getCredentials()" style="width: 100%;">
-                                <i class="ri-download-cloud-2-line"></i> 获取认证文件
-                            </button>
-                        </div>
-
-                        <div id="credentialsSection" class="hidden" style="margin-top: 1.5rem;">
-                            <h4>认证结果：</h4>
-                            <div class="credentials" id="credentialsContent"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Antigravity 认证标签页 -->
-            <div id="antigravityTab" class="tab-content">
-                <div class="card">
-                    <div class="card-header"><i class="ri-rocket-line"></i> Antigravity 认证</div>
-                    <div class="card-body">
-                        <div class="status info">
-                            <div><strong>🚀 Antigravity 模式：</strong> 获取谷歌 Antigravity 凭证</div>
-                        </div>
-
-                        <button class="btn" id="getAntigravityAuthBtn" style="width: 100%; padding: 1rem;">
-                            <i class="ri-links-line"></i> 获取认证链接
-                        </button>
-
-                        <div id="antigravityAuthUrlSection" class="hidden" style="margin-top: 1.5rem;">
-                            <h4 style="margin-bottom: 0.5rem;">认证链接：</h4>
-                            <div class="auth-url">
-                                <a id="antigravityAuthUrl" href="#" target="_blank">点击此链接进行认证</a>
-                            </div>
-
-                            <div class="status info" style="font-size: 0.85rem;">
-                                <strong><i class="ri-information-line"></i> 使用说明：</strong>
-                                <ol style="margin: 5px 0; padding-left: 20px;">
-                                    <li>点击上方认证链接，在新窗口中完成 Google 授权。</li>
-                                    <li>授权成功后页面会跳转到 localhost。</li>
-                                    <li>关闭 OAuth 窗口，返回本页面。</li>
-                                    <li>点击下方的 <strong>"获取凭证"</strong> 按钮。</li>
-                                </ol>
-                            </div>
-
-                            <!-- 回调URL输入 -->
-                            <div class="form-group" style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <div style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;" onclick="toggleAntigravityCallbackUrlSection()">
-                                    <span style="font-weight: 600; color: var(--primary); font-size: 0.9rem;"><i class="ri-rocket-line"></i> 无法回源？使用回调URL手动完成</span>
-                                    <i id="antigravityCallbackUrlToggleIcon" class="ri-arrow-down-s-line"></i>
-                                </div>
-                                <div id="antigravityCallbackUrlSection" style="display: none;">
-                                    <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 10px; margin-bottom: 10px; font-size: 0.85rem; color: #856404;">
-                                        <strong>📚 适用场景：</strong> 云服务器、VPS、Docker 容器环境，或本地无法访问 localhost:8080 时使用。
-                                    </div>
-                                    <div style="font-size: 0.85rem; color: var(--text); margin-bottom: 10px;">
-                                        <strong>📋 使用步骤：</strong>
-                                        <ol style="margin: 5px 0; padding-left: 20px; color: var(--text-light);">
-                                            <li>授权成功跳转后，复制地址栏完整 URL。</li>
-                                            <li>粘贴到下方输入框并提交。</li>
-                                        </ol>
-                                    </div>
-                                    <input type="url" id="antigravityCallbackUrlInput" placeholder="http://localhost:8080/?state=...&code=..." />
-                                    <button class="btn btn-success" style="margin-top: 10px; width: 100%;" onclick="processAntigravityCallbackUrl()">
-                                        <i class="ri-check-double-line"></i> 提交回调URL获取凭证
-                                    </button>
-                                </div>
-                            </div>
-
-                            <button class="btn" id="getAntigravityCredsBtn" onclick="getAntigravityCredentials()" style="width: 100%;">
-                                <i class="ri-download-cloud-2-line"></i> 获取凭证
-                            </button>
-                        </div>
-
-                        <div id="antigravityCredsSection" class="hidden" style="margin-top: 1.5rem;">
-                            <h4>凭证内容：</h4>
-                            <div class="credentials" id="antigravityCredsContent"></div>
-                            <button class="btn" onclick="downloadAntigravityCredentials()" style="width: 100%; margin-top: 1rem;">
-                                <i class="ri-file-download-line"></i> 下载文件
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 批量上传标签页 -->
-            <div id="uploadTab" class="tab-content">
-                <!-- GCLI 上传 -->
-                <div class="card">
-                    <div class="card-header"><i class="ri-upload-cloud-2-line"></i> GCLI 凭证批量上传</div>
-                    <div class="card-body">
-                        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
-                            <i class="ri-upload-2-line" style="font-size: 2rem; color: var(--text-light); margin-bottom: 0.5rem; display: block;"></i>
-                            <p>点击或拖拽上传 (.json/.zip)</p>
-                        </div>
-                        <input type="file" id="fileInput" multiple accept=".json,.zip" style="display: none;" onchange="handleFileSelect(event)" />
-
-                        <div id="fileListSection" class="hidden" style="margin-top: 1rem;">
-                            <div id="fileList"></div>
-                            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                                <button class="btn" onclick="uploadFiles()" style="flex: 1;">上传</button>
-                                <button class="btn btn-secondary" onclick="clearFiles()" style="flex: 1;">清空</button>
-                            </div>
-                        </div>
-
-                        <div id="uploadProgressSection" class="hidden" style="margin-top: 1rem;">
-                            <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 0%"></div></div>
-                            <p id="progressText" style="text-align: right; font-size: 0.8rem; color: var(--text-light);">0%</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Antigravity 上传 -->
-                <div class="card">
-                    <div class="card-header" style="color: var(--success);"><i class="ri-rocket-line"></i> Antigravity 凭证批量上传</div>
-                    <div class="card-body">
-                        <div class="upload-area" style="border-color: var(--success);" onclick="document.getElementById('antigravityFileInput').click()"
-                             ondragover="event.preventDefault(); this.style.backgroundColor='#f0fdf4';"
-                             ondragleave="this.style.backgroundColor='#f8fafc';"
-                             ondrop="handleAntigravityFileDrop(event)">
-                            <i class="ri-upload-2-line" style="font-size: 2rem; color: var(--success); margin-bottom: 0.5rem; display: block;"></i>
-                            <p>点击或拖拽 Antigravity 凭证</p>
-                        </div>
-                        <input type="file" id="antigravityFileInput" multiple accept=".json,.zip" style="display: none;" onchange="handleAntigravityFileSelect(event)" />
-
-                        <div id="antigravityFileListSection" class="hidden" style="margin-top: 1rem;">
-                            <div id="antigravityFileList"></div>
-                            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-                                <button class="btn btn-success" onclick="uploadAntigravityFiles()" style="flex: 1;">上传</button>
-                                <button class="btn btn-secondary" onclick="clearAntigravityFiles()" style="flex: 1;">清空</button>
-                            </div>
-                        </div>
-
-                        <div id="antigravityUploadProgressSection" class="hidden" style="margin-top: 1rem;">
-                            <div class="progress-bar"><div class="progress-fill" id="antigravityProgressFill" style="width: 0%; background-color: var(--success);"></div></div>
-                            <p id="antigravityProgressText" style="text-align: right; font-size: 0.8rem; color: var(--text-light);">0%</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- GCLI 凭证管理标签页 -->
-            <div id="manageTab" class="tab-content">
-                <div class="card">
-                    <div class="card-header">
-                        <span><i class="ri-folder-settings-line"></i> GCLI 凭证管理</span>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-sm" onclick="refreshCredsStatus()"><i class="ri-refresh-line"></i></button>
-                            <button class="btn btn-sm btn-success" onclick="downloadAllCreds()"><i class="ri-file-zip-line"></i></button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <!-- 统计 -->
-                        <div class="stats-container" id="statsContainer">
-                            <div class="stat-item total">
-                                <span class="stat-number" id="statTotal">0</span>
-                                <span class="stat-label">总计</span>
-                            </div>
-                            <div class="stat-item normal">
-                                <span class="stat-number" id="statNormal">0</span>
-                                <span class="stat-label">正常</span>
-                            </div>
-                            <div class="stat-item disabled">
-                                <span class="stat-number" id="statDisabled">0</span>
-                                <span class="stat-label">禁用</span>
-                            </div>
-                        </div>
-
-                        <!-- 批量操作 -->
-                        <div class="batch-controls">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%;">
-                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" style="width: auto;">
-                                <label for="selectAllCheckbox" style="margin: 0;">全选</label>
-                                <span id="selectedCount" style="margin-left: auto; font-weight: 600; color: var(--primary);">已选 0</span>
-                            </div>
-                            <div style="display: flex; gap: 0.5rem; width: 100%; flex-wrap: wrap;">
-                                <button class="cred-btn enable" id="batchEnableBtn" onclick="batchAction('enable')" disabled>启用</button>
-                                <button class="cred-btn disable" id="batchDisableBtn" onclick="batchAction('disable')" disabled>禁用</button>
-                                <button class="cred-btn delete" id="batchDeleteBtn" onclick="batchAction('delete')" disabled>删除</button>
-                                <button class="cred-btn" onclick="refreshAllEmails()" style="color:var(--primary); border-color:var(--primary);">刷新邮箱</button>
-                            </div>
-                        </div>
-
-                        <!-- 筛选 -->
-                        <div class="filter-container">
-                            <select id="statusFilter" onchange="applyStatusFilter()" style="width: auto; flex: 1;">
-                                <option value="all">全部状态</option>
-                                <option value="enabled">仅启用</option>
-                                <option value="disabled">仅禁用</option>
-                            </select>
-                            <select id="pageSizeSelect" onchange="changePageSize()" style="width: auto; flex: 1;">
-                                <option value="20">20条/页</option>
-                                <option value="50">50条/页</option>
-                                <option value="100">100条/页</option>
-                            </select>
-                        </div>
-
-                        <div id="credsListSection">
-                            <div class="loading" id="credsLoading">正在加载...</div>
-                            <div id="credsList"></div>
-
-                            <!-- 分页 -->
-                            <div id="paginationContainer" style="display: none; justify-content: center; gap: 1rem; margin-top: 1.5rem; align-items: center;">
-                                <button class="btn btn-secondary btn-sm" id="prevPageBtn" onclick="changePage(-1)">上一页</button>
-                                <div id="paginationInfo" style="font-size: 0.9rem; color: var(--text-light);">1 / 1</div>
-                                <button class="btn btn-secondary btn-sm" id="nextPageBtn" onclick="changePage(1)">下一页</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Antigravity 凭证管理标签页 -->
-            <div id="antigravity-manageTab" class="tab-content">
-                <div class="card">
-                    <div class="card-header">
-                        <span><i class="ri-folder-shield-line"></i> AG 凭证管理</span>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-sm" onclick="refreshAntigravityCredsList()"><i class="ri-refresh-line"></i></button>
-                            <button class="btn btn-sm btn-success" onclick="downloadAllAntigravityCreds()"><i class="ri-file-zip-line"></i></button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <!-- 统计 -->
-                        <div class="stats-container" id="antigravityStatsContainer">
-                            <div class="stat-item total">
-                                <span class="stat-number" id="antigravityStatTotal">0</span>
-                                <span class="stat-label">总计</span>
-                            </div>
-                            <div class="stat-item normal">
-                                <span class="stat-number" id="antigravityStatNormal">0</span>
-                                <span class="stat-label">正常</span>
-                            </div>
-                            <div class="stat-item disabled">
-                                <span class="stat-number" id="antigravityStatDisabled">0</span>
-                                <span class="stat-label">禁用</span>
-                            </div>
-                        </div>
-
-                        <!-- 批量操作 -->
-                        <div class="batch-controls">
-                            <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%;">
-                                <input type="checkbox" id="selectAllAntigravityCheckbox" onchange="toggleSelectAllAntigravity()" style="width: auto;">
-                                <label for="selectAllAntigravityCheckbox" style="margin: 0;">全选</label>
-                                <span id="antigravitySelectedCount" style="margin-left: auto; font-weight: 600; color: var(--primary);">已选 0</span>
-                            </div>
-                            <div style="display: flex; gap: 0.5rem; width: 100%; flex-wrap: wrap;">
-                                <button class="cred-btn enable" id="antigravityBatchEnableBtn" onclick="batchAntigravityAction('enable')" disabled>启用</button>
-                                <button class="cred-btn disable" id="antigravityBatchDisableBtn" onclick="batchAntigravityAction('disable')" disabled>禁用</button>
-                                <button class="cred-btn delete" id="antigravityBatchDeleteBtn" onclick="batchAntigravityAction('delete')" disabled>删除</button>
-                                <button class="cred-btn" onclick="refreshAllAntigravityEmails()" style="color:var(--primary); border-color:var(--primary);">刷新邮箱</button>
-                            </div>
-                        </div>
-
-                        <!-- 筛选 -->
-                        <div class="filter-container">
-                            <select id="antigravityStatusFilter" onchange="applyAntigravityStatusFilter()" style="width: auto; flex: 1;">
-                                <option value="all">全部状态</option>
-                                <option value="enabled">仅启用</option>
-                                <option value="disabled">仅禁用</option>
-                            </select>
-                            <select id="antigravityPageSizeSelect" onchange="changeAntigravityPageSize()" style="width: auto; flex: 1;">
-                                <option value="20">20条/页</option>
-                                <option value="50">50条/页</option>
-                                <option value="100">100条/页</option>
-                            </select>
-                        </div>
-
-                        <div id="antigravityCredsListSection">
-                            <div class="loading" id="antigravityCredsLoading">正在加载...</div>
-                            <div id="antigravityCredsList"></div>
-
-                            <!-- 分页 -->
-                            <div id="antigravityPaginationContainer" style="display: none; justify-content: center; gap: 1rem; margin-top: 1.5rem; align-items: center;">
-                                <button class="btn btn-secondary btn-sm" id="antigravityPrevPageBtn" onclick="changeAntigravityPage(-1)">上一页</button>
-                                <div id="antigravityPaginationInfo" style="font-size: 0.9rem; color: var(--text-light);">1 / 1</div>
-                                <button class="btn btn-secondary btn-sm" id="antigravityNextPageBtn" onclick="changeAntigravityPage(1)">下一页</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 配置管理标签页 -->
-            <div id="configTab" class="tab-content">
-                <div class="card">
-                    <div class="card-header">
-                        <span><i class="ri-settings-3-line"></i> 系统配置</span>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button class="btn btn-sm" onclick="loadConfig()"><i class="ri-refresh-line"></i></button>
-                            <button class="btn btn-sm btn-success" onclick="saveConfig()"><i class="ri-save-line"></i> 保存</button>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="configSection">
-                            <div class="loading" id="configLoading">正在加载配置...</div>
-                            <div id="configForm" class="hidden">
-
-                                <div class="form-group" style="border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
-                                    <h4 style="color: var(--primary); margin-top: 0;">基础服务</h4>
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                                        <div>
-                                            <label for="host">Host</label>
-                                            <input type="text" id="host" />
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-top: 2px;">0.0.0.0 监听所有接口</small>
-                                        </div>
-                                        <div>
-                                            <label for="port">Port</label>
-                                            <input type="number" id="port" />
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-top: 2px;">修改需重启服务</small>
-                                        </div>
-                                        <div>
-                                            <label for="configApiPassword">API 密码</label>
-                                            <input type="text" id="configApiPassword" />
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-top: 2px;">API 访问认证</small>
-                                        </div>
-                                        <div>
-                                            <label for="configPanelPassword">面板密码</label>
-                                            <input type="text" id="configPanelPassword" />
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-top: 2px;">Web 面板登录</small>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="form-group" style="border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
-                                    <h4 style="color: var(--primary);">端点 & 代理</h4>
-                                    <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                        <button class="btn btn-sm btn-success" onclick="useMirrorUrls()">🚀 镜像端点</button>
-                                        <button class="btn btn-sm btn-secondary" onclick="restoreOfficialUrls()">🔄 官方端点</button>
-                                    </div>
-                                    <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-bottom: 10px;">镜像端点解决国内连接问题，官方端点需代理。</small>
-
-                                    <label for="proxy">代理 (Proxy)</label>
-                                    <input type="text" id="proxy" placeholder="http://127.0.0.1:7890" style="margin-bottom: 0.5rem;" />
-                                    <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-bottom: 1rem;">HTTP/SOCKS5，留空禁用</small>
-
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-                                        <div><label>Code Assist</label><input type="text" id="codeAssistEndpoint" /></div>
-                                        <div><label>OAuth</label><input type="text" id="oauthProxyUrl" /></div>
-                                        <div><label>Google APIs</label><input type="text" id="googleapisProxyUrl" /></div>
-                                        <div><label>Antigravity</label><input type="text" id="antigravityApiUrl" /></div>
-                                    </div>
-                                    <!-- 隐藏字段但保留ID以防JS报错 -->
-                                    <input type="hidden" id="resourceManagerApiUrl" />
-                                    <input type="hidden" id="serviceUsageApiUrl" />
-                                    <input type="hidden" id="configPassword" />
-                                    <input type="hidden" id="credentialsDir" />
-                                </div>
-
-                                <div class="form-group">
-                                    <h4 style="color: var(--primary);">高级策略</h4>
-
-                                    <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                            <input type="checkbox" id="autoBanEnabled" style="width: auto;"> 启用自动封禁
-                                        </label>
-                                        <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-top: 2px;">遇以下错误码时自动禁用凭证</small>
-                                        <input type="text" id="autoBanErrorCodes" placeholder="400,403" style="margin-top: 0.5rem;" />
-                                    </div>
-
-                                    <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                            <input type="checkbox" id="retry429Enabled" style="width: auto;"> 启用 429 重试
-                                        </label>
-                                        <div style="display: flex; gap: 1rem; margin-top: 0.5rem;">
-                                            <div style="flex:1;">
-                                                <label>最大次数</label>
-                                                <input type="number" id="retry429MaxRetries" />
-                                            </div>
-                                            <div style="flex:1;">
-                                                <label>间隔(秒)</label>
-                                                <input type="number" id="retry429Interval" step="0.1" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                                        <div>
-                                            <label>轮换频率 (次/个)</label>
-                                            <input type="number" id="callsPerRotation" />
-                                        </div>
-                                        <div>
-                                            <label>抗截断重试次数</label>
-                                            <input type="number" id="antiTruncationMaxAttempts" />
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; margin-top: 2px;">仅流式抗截断模型生效</small>
-                                        </div>
-                                    </div>
-
-                                    <div style="margin-top: 1rem; padding: 1rem; background: #f0f9ff; border-radius: 8px;">
-                                        <div style="margin-bottom: 0.8rem;">
-                                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.2rem;">
-                                                <input type="checkbox" id="compatibilityModeEnabled" style="width: auto;"> 兼容性模式
-                                            </label>
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; padding-left: 1.5rem;">将 System 消息转换为 User 消息，避免流式空回</small>
-                                        </div>
-                                        <div>
-                                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.2rem;">
-                                                <input type="checkbox" id="returnThoughtsToFrontend" style="width: auto;"> 返回思维链 (Thinking)
-                                            </label>
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; padding-left: 1.5rem;">启用后返回模型的思考过程 (如 Gemini 3.0 Pro)</small>
-                                        </div>
-                                        <div style="margin-top: 0.8rem;">
-                                            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.2rem;">
-                                                <input type="checkbox" id="requestThoughtsFromModel" style="width: auto;"> 向模型请求思维链
-                                            </label>
-                                            <small style="display: block; color: var(--text-light); font-size: 0.75rem; padding-left: 1.5rem;">强制向模型发送 includeThoughts=True。若关闭，则仅在用户显式请求时发送。</small>
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 实时日志标签页 -->
-            <div id="logsTab" class="tab-content">
-                <div class="card">
-                    <div class="card-header">
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="ri-file-list-line"></i> 系统日志
-                            <span id="connectionStatusText" class="status-badge disabled" style="margin: 0;">未连接</span>
-                        </div>
-                        <!-- 隐藏的 logConnectionStatus div 供 common.js 操作 class -->
-                        <div id="logConnectionStatus" class="hidden"></div>
-                    </div>
-                    <div class="card-body" style="padding: 0;">
-                        <div style="padding: 1rem; background: #f8fafc; border-bottom: 1px solid var(--border); display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            <button class="btn btn-sm" onclick="connectWebSocket()">连接</button>
-                            <button class="btn btn-sm btn-danger" onclick="disconnectWebSocket()">断开</button>
-                            <button class="btn btn-sm btn-success" onclick="downloadLogs()"><i class="ri-download-line"></i></button>
-                            <button class="btn btn-sm btn-secondary" onclick="clearLogs()"><i class="ri-delete-bin-line"></i></button>
-
-                            <select id="logLevelFilter" onchange="filterLogs()" style="width: auto; padding: 0.3rem;">
-                                <option value="all">全部</option>
-                                <option value="ERROR">ERROR</option>
-                                <option value="WARNING">WARN</option>
-                                <option value="INFO">INFO</option>
-                            </select>
-                            <label style="display: flex; align-items: center; margin: 0; font-size: 0.8rem;">
-                                <input type="checkbox" id="autoScroll" checked style="width: auto; margin-right: 0.25rem;"> 滚动
-                            </label>
-                        </div>
-                        <div id="logContainer"><pre id="logContent" style="margin: 0;">等待连接日志流...</pre></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 关于页面 -->
-            <div id="aboutTab" class="tab-content">
-                <div class="card">
-                    <div class="card-header"><i class="ri-information-line"></i> 关于 GCLI2API</div>
-                    <div class="card-body" style="text-align: center;">
-                        <h3 style="color: var(--primary);">GCLI2API</h3>
-                        <p style="color: var(--text-light);">Google Gemini API to OpenAI Compatible Proxy</p>
-
-                        <div style="margin: 2rem 0; display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); text-align: left;">
-                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <h4 style="margin-top: 0;"><i class="ri-github-fill"></i> 开源项目</h4>
-                                <p style="font-size: 0.9rem;">本项目仅供学习研究使用，禁止用于商业用途。</p>
-                                <a href="https://github.com/su-kaka/gcli2api" target="_blank" class="btn btn-sm" style="text-decoration: none;">访问 GitHub</a>
-                            </div>
-                            <div style="background: #f8fafc; padding: 1rem; border-radius: 8px; border: 1px solid var(--border);">
-                                <h4 style="margin-top: 0;"><i class="ri-group-line"></i> 社区支持</h4>
-                                <p style="font-size: 0.9rem;">QQ群: 937681997</p>
-                                <p style="font-size: 0.9rem;">欢迎提交 Issue 或 Pull Request。</p>
-                            </div>
-                        </div>
-
-                        <div style="margin-top: 2rem;">
-                            <p style="font-size: 0.8rem; color: var(--text-light);">Made with ❤️ by su-kaka & Contributors</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+      <div class="container">
+        <!-- 标签页导航 -->
+        <div class="tabs">
+          <button class="tab active" onclick="switchTab('oauth')">
+            <i class="ri-google-fill"></i> OAuth
+          </button>
+          <button class="tab" onclick="switchTab('antigravity')">
+            <i class="ri-rocket-line"></i> Antigravity
+          </button>
+          <button class="tab" onclick="switchTab('upload')">
+            <i class="ri-upload-cloud-2-line"></i> 上传
+          </button>
+          <button class="tab" onclick="switchTab('manage')">
+            <i class="ri-folder-settings-line"></i> GCLI管理
+          </button>
+          <button class="tab" onclick="switchTab('antigravity-manage')">
+            <i class="ri-folder-shield-line"></i> AG管理
+          </button>
+          <button class="tab" onclick="switchTab('config')">
+            <i class="ri-settings-4-line"></i> 配置
+          </button>
+          <button class="tab" onclick="switchTab('logs')">
+            <i class="ri-file-list-3-line"></i> 日志
+          </button>
+          <button class="tab" onclick="switchTab('about')">
+            <i class="ri-information-line"></i> 关于
+          </button>
         </div>
+
+        <!-- 全局状态提示区 -->
+        <div id="statusSection"></div>
+
+        <!-- OAuth认证标签页 -->
+        <div id="oauthTab" class="tab-content active">
+          <div class="card">
+            <div class="card-header">
+              <i class="ri-key-2-line"></i> Google OAuth 认证
+            </div>
+            <div class="card-body">
+              <div class="status success">
+                <div>
+                  <strong><i class="ri-magic-line"></i> 自动化优化：</strong>
+                  认证成功后将自动启用必需的API服务
+                </div>
+              </div>
+
+              <!-- Project ID 输入框 -->
+              <div class="form-group">
+                <div
+                  style="
+                    cursor: pointer;
+                    padding: 0.8rem;
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    background: #f8fafc;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                  "
+                  onclick="toggleProjectIdSection()"
+                >
+                  <span
+                    style="
+                      font-weight: 600;
+                      color: var(--text);
+                      font-size: 0.9rem;
+                    "
+                  >
+                    <i class="ri-folder-line"></i> 高级选项：Google Cloud
+                    Project ID
+                  </span>
+                  <i id="projectIdToggleIcon" class="ri-arrow-right-s-line"></i>
+                </div>
+                <div
+                  id="projectIdSection"
+                  style="
+                    display: none;
+                    margin-top: 10px;
+                    padding: 1rem;
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                  "
+                >
+                  <label for="projectId">手动输入项目ID (可选):</label>
+                  <input
+                    type="text"
+                    id="projectId"
+                    placeholder="留空将尝试自动检测"
+                  />
+                </div>
+              </div>
+
+              <button
+                class="btn"
+                id="getAuthBtn"
+                onclick="startAuth()"
+                style="width: 100%; padding: 1rem"
+              >
+                <i class="ri-google-line"></i> 获取认证链接
+              </button>
+
+              <div
+                id="authUrlSection"
+                class="hidden"
+                style="margin-top: 1.5rem"
+              >
+                <h4 style="margin-bottom: 0.5rem">认证链接：</h4>
+                <div class="auth-url">
+                  <a id="authUrl" href="#" target="_blank"
+                    >点击此链接进行认证</a
+                  >
+                </div>
+
+                <div class="status info" style="font-size: 0.85rem">
+                  <strong
+                    ><i class="ri-information-line"></i> 认证步骤说明：</strong
+                  >
+                  <ol style="margin: 5px 0; padding-left: 20px">
+                    <li>
+                      点击上方认证链接，在弹出的新窗口中完成 Google
+                      账号登录和授权。
+                    </li>
+                    <li>授权成功后，页面会跳转到 localhost 并显示成功信息。</li>
+                    <li>关闭 OAuth 窗口，返回本页面。</li>
+                    <li>
+                      点击下方的 <strong>"获取认证文件"</strong> 按钮完成流程。
+                    </li>
+                  </ol>
+                </div>
+
+                <!-- 回调URL输入 -->
+                <div
+                  class="form-group"
+                  style="
+                    background: #f8fafc;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    border: 1px solid var(--border);
+                  "
+                >
+                  <div
+                    style="
+                      cursor: pointer;
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                      margin-bottom: 10px;
+                    "
+                    onclick="toggleCallbackUrlSection()"
+                  >
+                    <span
+                      style="
+                        font-weight: 600;
+                        color: var(--primary);
+                        font-size: 0.9rem;
+                      "
+                      ><i class="ri-rocket-line"></i>
+                      无法回源？使用回调URL手动完成</span
+                    >
+                    <i
+                      id="callbackUrlToggleIcon"
+                      class="ri-arrow-down-s-line"
+                    ></i>
+                  </div>
+                  <div id="callbackUrlSection" style="display: none">
+                    <div
+                      style="
+                        background: #fff3cd;
+                        border: 1px solid #ffeaa7;
+                        border-radius: 6px;
+                        padding: 10px;
+                        margin-bottom: 10px;
+                        font-size: 0.85rem;
+                        color: #856404;
+                      "
+                    >
+                      <strong>📚 适用场景：</strong> 云服务器、VPS、Docker
+                      容器环境，或本地无法访问 localhost:8080 时使用。
+                    </div>
+
+                    <div
+                      style="
+                        font-size: 0.85rem;
+                        color: var(--text);
+                        margin-bottom: 10px;
+                      "
+                    >
+                      <strong>📋 使用步骤：</strong>
+                      <ol
+                        style="
+                          margin: 5px 0;
+                          padding-left: 20px;
+                          color: var(--text-light);
+                        "
+                      >
+                        <li>点击上方认证链接进行授权。</li>
+                        <li>
+                          授权成功跳转后，复制浏览器地址栏的
+                          <strong>完整 URL</strong>（包含
+                          <code>?state=...&code=...</code>）。
+                        </li>
+                        <li>将 URL 粘贴到下方输入框，点击提交。</li>
+                      </ol>
+                    </div>
+
+                    <input
+                      type="url"
+                      id="callbackUrlInput"
+                      placeholder="http://localhost:8080/?state=...&code=..."
+                    />
+                    <button
+                      class="btn btn-success"
+                      style="margin-top: 10px; width: 100%"
+                      onclick="processCallbackUrl()"
+                    >
+                      <i class="ri-check-double-line"></i> 提交回调URL获取凭证
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  class="btn"
+                  id="getCredsBtn"
+                  onclick="getCredentials()"
+                  style="width: 100%"
+                >
+                  <i class="ri-download-cloud-2-line"></i> 获取认证文件
+                </button>
+              </div>
+
+              <div
+                id="credentialsSection"
+                class="hidden"
+                style="margin-top: 1.5rem"
+              >
+                <h4>认证结果：</h4>
+                <div class="credentials" id="credentialsContent"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Antigravity 认证标签页 -->
+        <div id="antigravityTab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <i class="ri-rocket-line"></i> Antigravity 认证
+            </div>
+            <div class="card-body">
+              <div class="status info">
+                <div>
+                  <strong>🚀 Antigravity 模式：</strong> 获取谷歌 Antigravity
+                  凭证
+                </div>
+              </div>
+
+              <button
+                class="btn"
+                id="getAntigravityAuthBtn"
+                style="width: 100%; padding: 1rem"
+              >
+                <i class="ri-links-line"></i> 获取认证链接
+              </button>
+
+              <div
+                id="antigravityAuthUrlSection"
+                class="hidden"
+                style="margin-top: 1.5rem"
+              >
+                <h4 style="margin-bottom: 0.5rem">认证链接：</h4>
+                <div class="auth-url">
+                  <a id="antigravityAuthUrl" href="#" target="_blank"
+                    >点击此链接进行认证</a
+                  >
+                </div>
+
+                <div class="status info" style="font-size: 0.85rem">
+                  <strong
+                    ><i class="ri-information-line"></i> 使用说明：</strong
+                  >
+                  <ol style="margin: 5px 0; padding-left: 20px">
+                    <li>点击上方认证链接，在新窗口中完成 Google 授权。</li>
+                    <li>授权成功后页面会跳转到 localhost。</li>
+                    <li>关闭 OAuth 窗口，返回本页面。</li>
+                    <li>点击下方的 <strong>"获取凭证"</strong> 按钮。</li>
+                  </ol>
+                </div>
+
+                <!-- 回调URL输入 -->
+                <div
+                  class="form-group"
+                  style="
+                    background: #f8fafc;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    border: 1px solid var(--border);
+                  "
+                >
+                  <div
+                    style="
+                      cursor: pointer;
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: center;
+                      margin-bottom: 10px;
+                    "
+                    onclick="toggleAntigravityCallbackUrlSection()"
+                  >
+                    <span
+                      style="
+                        font-weight: 600;
+                        color: var(--primary);
+                        font-size: 0.9rem;
+                      "
+                      ><i class="ri-rocket-line"></i>
+                      无法回源？使用回调URL手动完成</span
+                    >
+                    <i
+                      id="antigravityCallbackUrlToggleIcon"
+                      class="ri-arrow-down-s-line"
+                    ></i>
+                  </div>
+                  <div id="antigravityCallbackUrlSection" style="display: none">
+                    <div
+                      style="
+                        background: #fff3cd;
+                        border: 1px solid #ffeaa7;
+                        border-radius: 6px;
+                        padding: 10px;
+                        margin-bottom: 10px;
+                        font-size: 0.85rem;
+                        color: #856404;
+                      "
+                    >
+                      <strong>📚 适用场景：</strong> 云服务器、VPS、Docker
+                      容器环境，或本地无法访问 localhost:8080 时使用。
+                    </div>
+                    <div
+                      style="
+                        font-size: 0.85rem;
+                        color: var(--text);
+                        margin-bottom: 10px;
+                      "
+                    >
+                      <strong>📋 使用步骤：</strong>
+                      <ol
+                        style="
+                          margin: 5px 0;
+                          padding-left: 20px;
+                          color: var(--text-light);
+                        "
+                      >
+                        <li>授权成功跳转后，复制地址栏完整 URL。</li>
+                        <li>粘贴到下方输入框并提交。</li>
+                      </ol>
+                    </div>
+                    <input
+                      type="url"
+                      id="antigravityCallbackUrlInput"
+                      placeholder="http://localhost:8080/?state=...&code=..."
+                    />
+                    <button
+                      class="btn btn-success"
+                      style="margin-top: 10px; width: 100%"
+                      onclick="processAntigravityCallbackUrl()"
+                    >
+                      <i class="ri-check-double-line"></i> 提交回调URL获取凭证
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  class="btn"
+                  id="getAntigravityCredsBtn"
+                  onclick="getAntigravityCredentials()"
+                  style="width: 100%"
+                >
+                  <i class="ri-download-cloud-2-line"></i> 获取凭证
+                </button>
+              </div>
+
+              <div
+                id="antigravityCredsSection"
+                class="hidden"
+                style="margin-top: 1.5rem"
+              >
+                <h4>凭证内容：</h4>
+                <div class="credentials" id="antigravityCredsContent"></div>
+                <button
+                  class="btn"
+                  onclick="downloadAntigravityCredentials()"
+                  style="width: 100%; margin-top: 1rem"
+                >
+                  <i class="ri-file-download-line"></i> 下载文件
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 批量上传标签页 -->
+        <div id="uploadTab" class="tab-content">
+          <!-- GCLI 上传 -->
+          <div class="card">
+            <div class="card-header">
+              <i class="ri-upload-cloud-2-line"></i> GCLI 凭证批量上传
+            </div>
+            <div class="card-body">
+              <div
+                class="upload-area"
+                id="uploadArea"
+                onclick="document.getElementById('fileInput').click()"
+              >
+                <i
+                  class="ri-upload-2-line"
+                  style="
+                    font-size: 2rem;
+                    color: var(--text-light);
+                    margin-bottom: 0.5rem;
+                    display: block;
+                  "
+                ></i>
+                <p>点击或拖拽上传 (.json/.zip)</p>
+              </div>
+              <input
+                type="file"
+                id="fileInput"
+                multiple
+                accept=".json,.zip"
+                style="display: none"
+                onchange="handleFileSelect(event)"
+              />
+
+              <div id="fileListSection" class="hidden" style="margin-top: 1rem">
+                <div id="fileList"></div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem">
+                  <button class="btn" onclick="uploadFiles()" style="flex: 1">
+                    上传
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    onclick="clearFiles()"
+                    style="flex: 1"
+                  >
+                    清空
+                  </button>
+                </div>
+              </div>
+
+              <div
+                id="uploadProgressSection"
+                class="hidden"
+                style="margin-top: 1rem"
+              >
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    id="progressFill"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <p
+                  id="progressText"
+                  style="
+                    text-align: right;
+                    font-size: 0.8rem;
+                    color: var(--text-light);
+                  "
+                >
+                  0%
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Antigravity 上传 -->
+          <div class="card">
+            <div class="card-header" style="color: var(--success)">
+              <i class="ri-rocket-line"></i> Antigravity 凭证批量上传
+            </div>
+            <div class="card-body">
+              <div
+                class="upload-area"
+                style="border-color: var(--success)"
+                onclick="document.getElementById('antigravityFileInput').click()"
+                ondragover="event.preventDefault(); this.style.backgroundColor='#f0fdf4';"
+                ondragleave="this.style.backgroundColor='#f8fafc';"
+                ondrop="handleAntigravityFileDrop(event)"
+              >
+                <i
+                  class="ri-upload-2-line"
+                  style="
+                    font-size: 2rem;
+                    color: var(--success);
+                    margin-bottom: 0.5rem;
+                    display: block;
+                  "
+                ></i>
+                <p>点击或拖拽 Antigravity 凭证</p>
+              </div>
+              <input
+                type="file"
+                id="antigravityFileInput"
+                multiple
+                accept=".json,.zip"
+                style="display: none"
+                onchange="handleAntigravityFileSelect(event)"
+              />
+
+              <div
+                id="antigravityFileListSection"
+                class="hidden"
+                style="margin-top: 1rem"
+              >
+                <div id="antigravityFileList"></div>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem">
+                  <button
+                    class="btn btn-success"
+                    onclick="uploadAntigravityFiles()"
+                    style="flex: 1"
+                  >
+                    上传
+                  </button>
+                  <button
+                    class="btn btn-secondary"
+                    onclick="clearAntigravityFiles()"
+                    style="flex: 1"
+                  >
+                    清空
+                  </button>
+                </div>
+              </div>
+
+              <div
+                id="antigravityUploadProgressSection"
+                class="hidden"
+                style="margin-top: 1rem"
+              >
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    id="antigravityProgressFill"
+                    style="width: 0%; background-color: var(--success)"
+                  ></div>
+                </div>
+                <p
+                  id="antigravityProgressText"
+                  style="
+                    text-align: right;
+                    font-size: 0.8rem;
+                    color: var(--text-light);
+                  "
+                >
+                  0%
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GCLI 凭证管理标签页 -->
+        <div id="manageTab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <span><i class="ri-folder-settings-line"></i> GCLI 凭证管理</span>
+              <div style="display: flex; gap: 0.5rem">
+                <button class="btn btn-sm" onclick="refreshCredsStatus()">
+                  <i class="ri-refresh-line"></i>
+                </button>
+                <button
+                  class="btn btn-sm btn-success"
+                  onclick="downloadAllCreds()"
+                >
+                  <i class="ri-file-zip-line"></i>
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- 统计 -->
+              <div class="stats-container" id="statsContainer">
+                <div class="stat-item total">
+                  <span class="stat-number" id="statTotal">0</span>
+                  <span class="stat-label">总计</span>
+                </div>
+                <div class="stat-item normal">
+                  <span class="stat-number" id="statNormal">0</span>
+                  <span class="stat-label">正常</span>
+                </div>
+                <div class="stat-item disabled">
+                  <span class="stat-number" id="statDisabled">0</span>
+                  <span class="stat-label">禁用</span>
+                </div>
+              </div>
+
+              <!-- 批量操作 -->
+              <div class="batch-controls">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    width: 100%;
+                  "
+                >
+                  <input
+                    type="checkbox"
+                    id="selectAllCheckbox"
+                    onchange="toggleSelectAll()"
+                    style="width: auto"
+                  />
+                  <label for="selectAllCheckbox" style="margin: 0">全选</label>
+                  <span
+                    id="selectedCount"
+                    style="
+                      margin-left: auto;
+                      font-weight: 600;
+                      color: var(--primary);
+                    "
+                    >已选 0</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 0.5rem;
+                    width: 100%;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <button
+                    class="cred-btn enable"
+                    id="batchEnableBtn"
+                    onclick="batchAction('enable')"
+                    disabled
+                  >
+                    启用
+                  </button>
+                  <button
+                    class="cred-btn disable"
+                    id="batchDisableBtn"
+                    onclick="batchAction('disable')"
+                    disabled
+                  >
+                    禁用
+                  </button>
+                  <button
+                    class="cred-btn delete"
+                    id="batchDeleteBtn"
+                    onclick="batchAction('delete')"
+                    disabled
+                  >
+                    删除
+                  </button>
+                  <button
+                    class="cred-btn"
+                    onclick="refreshAllEmails()"
+                    style="color: var(--primary); border-color: var(--primary)"
+                  >
+                    刷新邮箱
+                  </button>
+                </div>
+              </div>
+
+              <!-- 筛选 -->
+              <div class="filter-container">
+                <select
+                  id="statusFilter"
+                  onchange="applyStatusFilter()"
+                  style="width: auto; flex: 1"
+                >
+                  <option value="all">全部状态</option>
+                  <option value="enabled">仅启用</option>
+                  <option value="disabled">仅禁用</option>
+                </select>
+                <select
+                  id="pageSizeSelect"
+                  onchange="changePageSize()"
+                  style="width: auto; flex: 1"
+                >
+                  <option value="20">20条/页</option>
+                  <option value="50">50条/页</option>
+                  <option value="100">100条/页</option>
+                </select>
+              </div>
+
+              <div id="credsListSection">
+                <div class="loading" id="credsLoading">正在加载...</div>
+                <div id="credsList"></div>
+
+                <!-- 分页 -->
+                <div
+                  id="paginationContainer"
+                  style="
+                    display: none;
+                    justify-content: center;
+                    gap: 1rem;
+                    margin-top: 1.5rem;
+                    align-items: center;
+                  "
+                >
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    id="prevPageBtn"
+                    onclick="changePage(-1)"
+                  >
+                    上一页
+                  </button>
+                  <div
+                    id="paginationInfo"
+                    style="font-size: 0.9rem; color: var(--text-light)"
+                  >
+                    1 / 1
+                  </div>
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    id="nextPageBtn"
+                    onclick="changePage(1)"
+                  >
+                    下一页
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Antigravity 凭证管理标签页 -->
+        <div id="antigravity-manageTab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <span><i class="ri-folder-shield-line"></i> AG 凭证管理</span>
+              <div style="display: flex; gap: 0.5rem">
+                <button
+                  class="btn btn-sm"
+                  onclick="refreshAntigravityCredsList()"
+                >
+                  <i class="ri-refresh-line"></i>
+                </button>
+                <button
+                  class="btn btn-sm btn-success"
+                  onclick="downloadAllAntigravityCreds()"
+                >
+                  <i class="ri-file-zip-line"></i>
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- 统计 -->
+              <div class="stats-container" id="antigravityStatsContainer">
+                <div class="stat-item total">
+                  <span class="stat-number" id="antigravityStatTotal">0</span>
+                  <span class="stat-label">总计</span>
+                </div>
+                <div class="stat-item normal">
+                  <span class="stat-number" id="antigravityStatNormal">0</span>
+                  <span class="stat-label">正常</span>
+                </div>
+                <div class="stat-item disabled">
+                  <span class="stat-number" id="antigravityStatDisabled"
+                    >0</span
+                  >
+                  <span class="stat-label">禁用</span>
+                </div>
+              </div>
+
+              <!-- 批量操作 -->
+              <div class="batch-controls">
+                <div
+                  style="
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    width: 100%;
+                  "
+                >
+                  <input
+                    type="checkbox"
+                    id="selectAllAntigravityCheckbox"
+                    onchange="toggleSelectAllAntigravity()"
+                    style="width: auto"
+                  />
+                  <label for="selectAllAntigravityCheckbox" style="margin: 0"
+                    >全选</label
+                  >
+                  <span
+                    id="antigravitySelectedCount"
+                    style="
+                      margin-left: auto;
+                      font-weight: 600;
+                      color: var(--primary);
+                    "
+                    >已选 0</span
+                  >
+                </div>
+                <div
+                  style="
+                    display: flex;
+                    gap: 0.5rem;
+                    width: 100%;
+                    flex-wrap: wrap;
+                  "
+                >
+                  <button
+                    class="cred-btn enable"
+                    id="antigravityBatchEnableBtn"
+                    onclick="batchAntigravityAction('enable')"
+                    disabled
+                  >
+                    启用
+                  </button>
+                  <button
+                    class="cred-btn disable"
+                    id="antigravityBatchDisableBtn"
+                    onclick="batchAntigravityAction('disable')"
+                    disabled
+                  >
+                    禁用
+                  </button>
+                  <button
+                    class="cred-btn delete"
+                    id="antigravityBatchDeleteBtn"
+                    onclick="batchAntigravityAction('delete')"
+                    disabled
+                  >
+                    删除
+                  </button>
+                  <button
+                    class="cred-btn"
+                    onclick="refreshAllAntigravityEmails()"
+                    style="color: var(--primary); border-color: var(--primary)"
+                  >
+                    刷新邮箱
+                  </button>
+                </div>
+              </div>
+
+              <!-- 筛选 -->
+              <div class="filter-container">
+                <select
+                  id="antigravityStatusFilter"
+                  onchange="applyAntigravityStatusFilter()"
+                  style="width: auto; flex: 1"
+                >
+                  <option value="all">全部状态</option>
+                  <option value="enabled">仅启用</option>
+                  <option value="disabled">仅禁用</option>
+                </select>
+                <select
+                  id="antigravityPageSizeSelect"
+                  onchange="changeAntigravityPageSize()"
+                  style="width: auto; flex: 1"
+                >
+                  <option value="20">20条/页</option>
+                  <option value="50">50条/页</option>
+                  <option value="100">100条/页</option>
+                </select>
+              </div>
+
+              <div id="antigravityCredsListSection">
+                <div class="loading" id="antigravityCredsLoading">
+                  正在加载...
+                </div>
+                <div id="antigravityCredsList"></div>
+
+                <!-- 分页 -->
+                <div
+                  id="antigravityPaginationContainer"
+                  style="
+                    display: none;
+                    justify-content: center;
+                    gap: 1rem;
+                    margin-top: 1.5rem;
+                    align-items: center;
+                  "
+                >
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    id="antigravityPrevPageBtn"
+                    onclick="changeAntigravityPage(-1)"
+                  >
+                    上一页
+                  </button>
+                  <div
+                    id="antigravityPaginationInfo"
+                    style="font-size: 0.9rem; color: var(--text-light)"
+                  >
+                    1 / 1
+                  </div>
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    id="antigravityNextPageBtn"
+                    onclick="changeAntigravityPage(1)"
+                  >
+                    下一页
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 配置管理标签页 -->
+        <div id="configTab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <span><i class="ri-settings-3-line"></i> 系统配置</span>
+              <div style="display: flex; gap: 0.5rem">
+                <button class="btn btn-sm" onclick="loadConfig()">
+                  <i class="ri-refresh-line"></i>
+                </button>
+                <button class="btn btn-sm btn-success" onclick="saveConfig()">
+                  <i class="ri-save-line"></i> 保存
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="configSection">
+                <div class="loading" id="configLoading">正在加载配置...</div>
+                <div id="configForm" class="hidden">
+                  <div
+                    class="form-group"
+                    style="
+                      border-bottom: 1px solid var(--border);
+                      padding-bottom: 1rem;
+                    "
+                  >
+                    <h4 style="color: var(--primary); margin-top: 0">
+                      基础服务
+                    </h4>
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: repeat(
+                          auto-fit,
+                          minmax(200px, 1fr)
+                        );
+                        gap: 1rem;
+                      "
+                    >
+                      <div>
+                        <label for="host">Host</label>
+                        <input type="text" id="host" />
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            margin-top: 2px;
+                          "
+                          >0.0.0.0 监听所有接口</small
+                        >
+                      </div>
+                      <div>
+                        <label for="port">Port</label>
+                        <input type="number" id="port" />
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            margin-top: 2px;
+                          "
+                          >修改需重启服务</small
+                        >
+                      </div>
+                      <div>
+                        <label for="configApiPassword">API 密码</label>
+                        <input type="text" id="configApiPassword" />
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            margin-top: 2px;
+                          "
+                          >API 访问认证</small
+                        >
+                      </div>
+                      <div>
+                        <label for="configPanelPassword">面板密码</label>
+                        <input type="text" id="configPanelPassword" />
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            margin-top: 2px;
+                          "
+                          >Web 面板登录</small
+                        >
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="form-group"
+                    style="
+                      border-bottom: 1px solid var(--border);
+                      padding-bottom: 1rem;
+                    "
+                  >
+                    <h4 style="color: var(--primary)">端点 & 代理</h4>
+                    <div
+                      style="
+                        margin-bottom: 1rem;
+                        display: flex;
+                        gap: 0.5rem;
+                        flex-wrap: wrap;
+                      "
+                    >
+                      <button
+                        class="btn btn-sm btn-success"
+                        onclick="useMirrorUrls()"
+                      >
+                        🚀 镜像端点
+                      </button>
+                      <button
+                        class="btn btn-sm btn-secondary"
+                        onclick="restoreOfficialUrls()"
+                      >
+                        🔄 官方端点
+                      </button>
+                    </div>
+                    <small
+                      style="
+                        display: block;
+                        color: var(--text-light);
+                        font-size: 0.75rem;
+                        margin-bottom: 10px;
+                      "
+                      >镜像端点解决国内连接问题，官方端点需代理。</small
+                    >
+
+                    <label for="proxy">代理 (Proxy)</label>
+                    <input
+                      type="text"
+                      id="proxy"
+                      placeholder="http://127.0.0.1:7890"
+                      style="margin-bottom: 0.5rem"
+                    />
+                    <small
+                      style="
+                        display: block;
+                        color: var(--text-light);
+                        font-size: 0.75rem;
+                        margin-bottom: 1rem;
+                      "
+                      >HTTP/SOCKS5，留空禁用</small
+                    >
+
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: repeat(
+                          auto-fit,
+                          minmax(250px, 1fr)
+                        );
+                        gap: 1rem;
+                      "
+                    >
+                      <div>
+                        <label>Code Assist</label
+                        ><input type="text" id="codeAssistEndpoint" />
+                      </div>
+                      <div>
+                        <label>OAuth</label
+                        ><input type="text" id="oauthProxyUrl" />
+                      </div>
+                      <div>
+                        <label>Google APIs</label
+                        ><input type="text" id="googleapisProxyUrl" />
+                      </div>
+                      <div>
+                        <label>Antigravity</label
+                        ><input type="text" id="antigravityApiUrl" />
+                      </div>
+                    </div>
+                    <!-- 隐藏字段但保留ID以防JS报错 -->
+                    <input type="hidden" id="resourceManagerApiUrl" />
+                    <input type="hidden" id="serviceUsageApiUrl" />
+                    <input type="hidden" id="configPassword" />
+                    <input type="hidden" id="credentialsDir" />
+                  </div>
+
+                  <div class="form-group">
+                    <h4 style="color: var(--primary)">高级策略</h4>
+
+                    <div
+                      style="
+                        background: #f8fafc;
+                        padding: 1rem;
+                        border-radius: 8px;
+                        margin-bottom: 1rem;
+                      "
+                    >
+                      <label
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 0.5rem;
+                          cursor: pointer;
+                        "
+                      >
+                        <input
+                          type="checkbox"
+                          id="autoBanEnabled"
+                          style="width: auto"
+                        />
+                        启用自动封禁
+                      </label>
+                      <small
+                        style="
+                          display: block;
+                          color: var(--text-light);
+                          font-size: 0.75rem;
+                          margin-top: 2px;
+                        "
+                        >遇以下错误码时自动禁用凭证</small
+                      >
+                      <input
+                        type="text"
+                        id="autoBanErrorCodes"
+                        placeholder="400,403"
+                        style="margin-top: 0.5rem"
+                      />
+                    </div>
+
+                    <div
+                      style="
+                        background: #f8fafc;
+                        padding: 1rem;
+                        border-radius: 8px;
+                        margin-bottom: 1rem;
+                      "
+                    >
+                      <label
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 0.5rem;
+                          cursor: pointer;
+                        "
+                      >
+                        <input
+                          type="checkbox"
+                          id="retry429Enabled"
+                          style="width: auto"
+                        />
+                        启用 429 重试
+                      </label>
+                      <div style="display: flex; gap: 1rem; margin-top: 0.5rem">
+                        <div style="flex: 1">
+                          <label>最大次数</label>
+                          <input type="number" id="retry429MaxRetries" />
+                        </div>
+                        <div style="flex: 1">
+                          <label>间隔(秒)</label>
+                          <input
+                            type="number"
+                            id="retry429Interval"
+                            step="0.1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style="
+                        display: grid;
+                        grid-template-columns: repeat(
+                          auto-fit,
+                          minmax(200px, 1fr)
+                        );
+                        gap: 1rem;
+                      "
+                    >
+                      <div>
+                        <label>轮换频率 (次/个)</label>
+                        <input type="number" id="callsPerRotation" />
+                      </div>
+                      <div>
+                        <label>抗截断重试次数</label>
+                        <input type="number" id="antiTruncationMaxAttempts" />
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            margin-top: 2px;
+                          "
+                          >仅流式抗截断模型生效</small
+                        >
+                      </div>
+                    </div>
+
+                    <div
+                      style="
+                        margin-top: 1rem;
+                        padding: 1rem;
+                        background: #f0f9ff;
+                        border-radius: 8px;
+                      "
+                    >
+                      <div style="margin-bottom: 0.8rem">
+                        <label
+                          style="
+                            display: flex;
+                            align-items: center;
+                            gap: 0.5rem;
+                            cursor: pointer;
+                            margin-bottom: 0.2rem;
+                          "
+                        >
+                          <input
+                            type="checkbox"
+                            id="compatibilityModeEnabled"
+                            style="width: auto"
+                          />
+                          兼容性模式
+                        </label>
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            padding-left: 1.5rem;
+                          "
+                          >将 System 消息转换为 User 消息，避免流式空回</small
+                        >
+                      </div>
+                      <div>
+                        <label
+                          style="
+                            display: flex;
+                            align-items: center;
+                            gap: 0.5rem;
+                            cursor: pointer;
+                            margin-bottom: 0.2rem;
+                          "
+                        >
+                          <input
+                            type="checkbox"
+                            id="returnThoughtsToFrontend"
+                            style="width: auto"
+                          />
+                          返回思维链 (Thinking)
+                        </label>
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            padding-left: 1.5rem;
+                          "
+                          >启用后返回模型的思考过程 (如 Gemini 3.0 Pro)</small
+                        >
+                      </div>
+                      <div style="margin-top: 0.8rem">
+                        <label
+                          style="
+                            display: flex;
+                            align-items: center;
+                            gap: 0.5rem;
+                            cursor: pointer;
+                            margin-bottom: 0.2rem;
+                          "
+                        >
+                          <input
+                            type="checkbox"
+                            id="requestThoughtsFromModel"
+                            style="width: auto"
+                          />
+                          向模型请求思维链
+                        </label>
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            padding-left: 1.5rem;
+                          "
+                          >强制向模型发送
+                          includeThoughts=True。若关闭，则仅在用户显式请求时发送。</small
+                        >
+                      </div>
+                      <div style="margin-top: 0.8rem">
+                        <label
+                          style="
+                            display: flex;
+                            align-items: center;
+                            gap: 0.5rem;
+                            cursor: pointer;
+                            margin-bottom: 0.2rem;
+                          "
+                        >
+                          <input
+                            type="checkbox"
+                            id="showVariantModels"
+                            style="width: auto"
+                          />
+                          显示变体模型
+                        </label>
+                        <small
+                          style="
+                            display: block;
+                            color: var(--text-light);
+                            font-size: 0.75rem;
+                            padding-left: 1.5rem;
+                          "
+                          >在模型列表中显示 "假流式/"、"流式抗截断/"
+                          等前缀的模型。即使隐藏，仍可通过名称调用。</small
+                        >
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 实时日志标签页 -->
+        <div id="logsTab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <div style="display: flex; align-items: center; gap: 0.5rem">
+                <i class="ri-file-list-line"></i> 系统日志
+                <span
+                  id="connectionStatusText"
+                  class="status-badge disabled"
+                  style="margin: 0"
+                  >未连接</span
+                >
+              </div>
+              <!-- 隐藏的 logConnectionStatus div 供 common.js 操作 class -->
+              <div id="logConnectionStatus" class="hidden"></div>
+            </div>
+            <div class="card-body" style="padding: 0">
+              <div
+                style="
+                  padding: 1rem;
+                  background: #f8fafc;
+                  border-bottom: 1px solid var(--border);
+                  display: flex;
+                  gap: 0.5rem;
+                  flex-wrap: wrap;
+                "
+              >
+                <button class="btn btn-sm" onclick="connectWebSocket()">
+                  连接
+                </button>
+                <button
+                  class="btn btn-sm btn-danger"
+                  onclick="disconnectWebSocket()"
+                >
+                  断开
+                </button>
+                <button class="btn btn-sm btn-success" onclick="downloadLogs()">
+                  <i class="ri-download-line"></i>
+                </button>
+                <button class="btn btn-sm btn-secondary" onclick="clearLogs()">
+                  <i class="ri-delete-bin-line"></i>
+                </button>
+
+                <select
+                  id="logLevelFilter"
+                  onchange="filterLogs()"
+                  style="width: auto; padding: 0.3rem"
+                >
+                  <option value="all">全部</option>
+                  <option value="ERROR">ERROR</option>
+                  <option value="WARNING">WARN</option>
+                  <option value="INFO">INFO</option>
+                </select>
+                <label
+                  style="
+                    display: flex;
+                    align-items: center;
+                    margin: 0;
+                    font-size: 0.8rem;
+                  "
+                >
+                  <input
+                    type="checkbox"
+                    id="autoScroll"
+                    checked
+                    style="width: auto; margin-right: 0.25rem"
+                  />
+                  滚动
+                </label>
+              </div>
+              <div id="logContainer">
+                <pre id="logContent" style="margin: 0">等待连接日志流...</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 关于页面 -->
+        <div id="aboutTab" class="tab-content">
+          <div class="card">
+            <div class="card-header">
+              <i class="ri-information-line"></i> 关于 GCLI2API
+            </div>
+            <div class="card-body" style="text-align: center">
+              <h3 style="color: var(--primary)">GCLI2API</h3>
+              <p style="color: var(--text-light)">
+                Google Gemini API to OpenAI Compatible Proxy
+              </p>
+
+              <div
+                style="
+                  margin: 2rem 0;
+                  display: grid;
+                  gap: 1rem;
+                  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                  text-align: left;
+                "
+              >
+                <div
+                  style="
+                    background: #f8fafc;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    border: 1px solid var(--border);
+                  "
+                >
+                  <h4 style="margin-top: 0">
+                    <i class="ri-github-fill"></i> 开源项目
+                  </h4>
+                  <p style="font-size: 0.9rem">
+                    本项目仅供学习研究使用，禁止用于商业用途。
+                  </p>
+                  <a
+                    href="https://github.com/su-kaka/gcli2api"
+                    target="_blank"
+                    class="btn btn-sm"
+                    style="text-decoration: none"
+                    >访问 GitHub</a
+                  >
+                </div>
+                <div
+                  style="
+                    background: #f8fafc;
+                    padding: 1rem;
+                    border-radius: 8px;
+                    border: 1px solid var(--border);
+                  "
+                >
+                  <h4 style="margin-top: 0">
+                    <i class="ri-group-line"></i> 社区支持
+                  </h4>
+                  <p style="font-size: 0.9rem">QQ群: 937681997</p>
+                  <p style="font-size: 0.9rem">
+                    欢迎提交 Issue 或 Pull Request。
+                  </p>
+                </div>
+              </div>
+
+              <div style="margin-top: 2rem">
+                <p style="font-size: 0.8rem; color: var(--text-light)">
+                  Made with ❤️ by su-kaka & Contributors
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="./front/common.js"></script>
-</body>
+  </body>
 </html>
-

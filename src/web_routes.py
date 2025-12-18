@@ -397,6 +397,7 @@ def get_env_locked_keys() -> set:
         "API_PASSWORD": "api_password",
         "PANEL_PASSWORD": "panel_password",
         "PASSWORD": "password",
+        "SHOW_VARIANT_MODELS": "show_variant_models",
     }
 
     for env_key, config_key in env_mappings.items():
@@ -1197,6 +1198,9 @@ async def get_config(token: str = Depends(verify_panel_token)):
             await config.get_request_thoughts_from_model()
         )
 
+        # 变体模型显示配置
+        current_config["show_variant_models"] = await config.get_show_variant_models()
+
         # 服务器配置
         current_config["host"] = await config.get_server_host()
         current_config["port"] = await config.get_server_port()
@@ -1275,6 +1279,10 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
         if "request_thoughts_from_model" in new_config:
             if not isinstance(new_config["request_thoughts_from_model"], bool):
                 raise HTTPException(status_code=400, detail="请求思维链开关必须是布尔值")
+
+        if "show_variant_models" in new_config:
+            if not isinstance(new_config["show_variant_models"], bool):
+                raise HTTPException(status_code=400, detail="变体模型显示开关必须是布尔值")
 
         # 验证服务器配置
         if "host" in new_config:

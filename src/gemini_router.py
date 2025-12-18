@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from config import (
     get_anti_truncation_max_attempts,
+    get_show_variant_models,
 )
 from src.utils import (
     get_available_models,
@@ -36,7 +37,8 @@ router = APIRouter()
 @router.get("/v1/models")
 async def list_gemini_models():
     """返回Gemini格式的模型列表"""
-    models = get_available_models("gemini")
+    show_variants = await get_show_variant_models()
+    models = get_available_models("gemini", show_variants=show_variants)
 
     # 构建符合Gemini API格式的模型列表
     gemini_models = []

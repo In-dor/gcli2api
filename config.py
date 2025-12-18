@@ -172,6 +172,24 @@ async def get_anti_truncation_max_attempts() -> int:
     return int(await get_config_value("anti_truncation_max_attempts", 3))
 
 
+async def get_show_variant_models() -> bool:
+    """
+    Get show variant models setting.
+
+    Controls whether variant models (e.g., fake streaming, anti-truncation) are shown in the model list.
+    Even if hidden, they can still be used if requested by name.
+
+    Environment variable: SHOW_VARIANT_MODELS
+    Database config key: show_variant_models
+    Default: True
+    """
+    env_value = os.getenv("SHOW_VARIANT_MODELS")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(await get_config_value("show_variant_models", True))
+
+
 # Server Configuration
 async def get_server_host() -> str:
     """

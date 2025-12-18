@@ -68,7 +68,7 @@ BASE_MODELS = [
     "gemini-2.5-pro",
     "gemini-2.5-flash",
     "gemini-3-pro-preview",
-    "gemini-3-flash-preview"
+    "gemini-3-flash-preview",
 ]
 
 
@@ -160,12 +160,13 @@ def get_base_model_from_feature_model(model_name: str) -> str:
     return model_name
 
 
-def get_available_models(router_type: str = "openai") -> List[str]:
+def get_available_models(router_type: str = "openai", show_variants: bool = True) -> List[str]:
     """
     Get available models with feature prefixes.
 
     Args:
         router_type: "openai" or "gemini"
+        show_variants: Whether to include variant models (fake streaming, anti-truncation)
 
     Returns:
         List of model names with feature prefixes
@@ -176,11 +177,12 @@ def get_available_models(router_type: str = "openai") -> List[str]:
         # 基础模型
         models.append(base_model)
 
-        # 假流式模型 (前缀格式)
-        models.append(f"假流式/{base_model}")
+        if show_variants:
+            # 假流式模型 (前缀格式)
+            models.append(f"假流式/{base_model}")
 
-        # 流式抗截断模型 (仅在流式传输时有效，前缀格式)
-        models.append(f"流式抗截断/{base_model}")
+            # 流式抗截断模型 (仅在流式传输时有效，前缀格式)
+            models.append(f"流式抗截断/{base_model}")
 
         # 支持thinking模式后缀与功能前缀组合
         # 新增: 支持多后缀组合 (thinking + search)
@@ -190,20 +192,23 @@ def get_available_models(router_type: str = "openai") -> List[str]:
         # 1. 单独的 thinking 后缀
         for thinking_suffix in thinking_suffixes:
             models.append(f"{base_model}{thinking_suffix}")
-            models.append(f"假流式/{base_model}{thinking_suffix}")
-            models.append(f"流式抗截断/{base_model}{thinking_suffix}")
+            if show_variants:
+                models.append(f"假流式/{base_model}{thinking_suffix}")
+                models.append(f"流式抗截断/{base_model}{thinking_suffix}")
 
         # 2. 单独的 search 后缀
         models.append(f"{base_model}{search_suffix}")
-        models.append(f"假流式/{base_model}{search_suffix}")
-        models.append(f"流式抗截断/{base_model}{search_suffix}")
+        if show_variants:
+            models.append(f"假流式/{base_model}{search_suffix}")
+            models.append(f"流式抗截断/{base_model}{search_suffix}")
 
         # 3. thinking + search 组合后缀
         for thinking_suffix in thinking_suffixes:
             combined_suffix = f"{thinking_suffix}{search_suffix}"
             models.append(f"{base_model}{combined_suffix}")
-            models.append(f"假流式/{base_model}{combined_suffix}")
-            models.append(f"流式抗截断/{base_model}{combined_suffix}")
+            if show_variants:
+                models.append(f"假流式/{base_model}{combined_suffix}")
+                models.append(f"流式抗截断/{base_model}{combined_suffix}")
 
     return models
 
@@ -299,9 +304,8 @@ def parse_quota_reset_timestamp(error_response: dict) -> Optional[float]:
 
 # ====================== Authentication Functions ======================
 
-async def authenticate_bearer(
-    authorization: Optional[str] = Header(None)
-) -> str:
+
+async def authenticate_bearer(authorization: Optional[str] = Header(None)) -> str:
     """
     Bearer Token 认证
 
@@ -353,10 +357,7 @@ async def authenticate_bearer(
 
     # 验证 token
     if token != password:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="密码错误"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="密码错误")
 
     return token
 
@@ -364,7 +365,7 @@ async def authenticate_bearer(
 async def authenticate_gemini_flexible(
     request: Request,
     x_goog_api_key: Optional[str] = Header(None, alias="x-goog-api-key"),
-    key: Optional[str] = Query(None)
+    key: Optional[str] = Query(None),
 ) -> str:
     """
     Gemini 灵活认证：支持 x-goog-api-key 头部、URL 参数 key 或 Authorization Bearer
@@ -440,7 +441,6 @@ async def authenticate_sdwebui_flexible(request: Request) -> str:
             pass
     """
 
-
     password = await get_api_password()
 
     # 尝试从 Authorization 头获取
@@ -460,12 +460,12 @@ async def authenticate_sdwebui_flexible(request: Request) -> str:
                 # 解码 Base64
                 encoded_credentials = auth_header[6:]  # 移除 "Basic " 前缀
                 decoded_bytes = base64.b64decode(encoded_credentials)
-                decoded_str = decoded_bytes.decode('utf-8')
+                decoded_str = decoded_bytes.decode("utf-8")
 
                 # Basic 认证格式: username:password 或者只有 password
                 # SD-WebUI 可能只发送密码
-                if ':' in decoded_str:
-                    _, pwd = decoded_str.split(':', 1)
+                if ":" in decoded_str:
+                    _, pwd = decoded_str.split(":", 1)
                 else:
                     pwd = decoded_str
 
@@ -483,6 +483,7 @@ async def authenticate_sdwebui_flexible(request: Request) -> str:
 
 
 # ====================== Panel Authentication Functions ======================
+
 
 async def verify_panel_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
