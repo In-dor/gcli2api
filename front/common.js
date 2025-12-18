@@ -1669,9 +1669,18 @@ function setConfigField(fieldId, value) {
 async function saveConfig() {
     try {
         const getValue = (id, def = '') => document.getElementById(id)?.value.trim() || def;
-        const getInt = (id, def = 0) => parseInt(document.getElementById(id)?.value) || def;
-        const getFloat = (id, def = 0.0) => parseFloat(document.getElementById(id)?.value) || def;
-        const getChecked = (id, def = false) => document.getElementById(id)?.checked || def;
+        const getInt = (id, def = 0) => {
+            const val = parseInt(document.getElementById(id)?.value);
+            return isNaN(val) ? def : val;
+        };
+        const getFloat = (id, def = 0.0) => {
+            const val = parseFloat(document.getElementById(id)?.value);
+            return isNaN(val) ? def : val;
+        };
+        const getChecked = (id, def = false) => {
+            const el = document.getElementById(id);
+            return el ? el.checked : def;
+        };
 
         const config = {
             host: getValue('host', '0.0.0.0'),
