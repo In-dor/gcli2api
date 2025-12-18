@@ -105,7 +105,7 @@ async def get_auto_ban_error_codes() -> list:
     Get auto ban error codes.
 
     Environment variable: AUTO_BAN_ERROR_CODES (comma-separated, e.g., "400,403")
-    TOML config key: auto_ban_error_codes
+    Database config key: auto_ban_error_codes
     Default: [400, 403]
     """
     env_value = os.getenv("AUTO_BAN_ERROR_CODES")
@@ -159,7 +159,7 @@ async def get_anti_truncation_max_attempts() -> int:
     Get maximum attempts for anti-truncation continuation.
 
     Environment variable: ANTI_TRUNCATION_MAX_ATTEMPTS
-    TOML config key: anti_truncation_max_attempts
+    Database config key: anti_truncation_max_attempts
     Default: 3
     """
     env_value = os.getenv("ANTI_TRUNCATION_MAX_ATTEMPTS")
@@ -178,7 +178,7 @@ async def get_server_host() -> str:
     Get server host setting.
 
     Environment variable: HOST
-    TOML config key: host
+    Database config key: host
     Default: 0.0.0.0
     """
     return str(await get_config_value("host", "0.0.0.0", "HOST"))
@@ -189,7 +189,7 @@ async def get_server_port() -> int:
     Get server port setting.
 
     Environment variable: PORT
-    TOML config key: port
+    Database config key: port
     Default: 7861
     """
     env_value = os.getenv("PORT")
@@ -207,7 +207,7 @@ async def get_api_password() -> str:
     Get API password setting for chat endpoints.
 
     Environment variable: API_PASSWORD
-    TOML config key: api_password
+    Database config key: api_password
     Default: Uses PASSWORD env var for compatibility, otherwise 'pwd'
     """
     # 优先使用 API_PASSWORD，如果没有则使用通用 PASSWORD 保证兼容性
@@ -224,7 +224,7 @@ async def get_panel_password() -> str:
     Get panel password setting for web interface.
 
     Environment variable: PANEL_PASSWORD
-    TOML config key: panel_password
+    Database config key: panel_password
     Default: Uses PASSWORD env var for compatibility, otherwise 'pwd'
     """
     # 优先使用 PANEL_PASSWORD，如果没有则使用通用 PASSWORD 保证兼容性
@@ -241,7 +241,7 @@ async def get_server_password() -> str:
     Get server password setting (deprecated, use get_api_password or get_panel_password).
 
     Environment variable: PASSWORD
-    TOML config key: password
+    Database config key: password
     Default: pwd
     """
     return str(await get_config_value("password", "pwd", "PASSWORD"))
@@ -252,7 +252,7 @@ async def get_credentials_dir() -> str:
     Get credentials directory setting.
 
     Environment variable: CREDENTIALS_DIR
-    TOML config key: credentials_dir
+    Database config key: credentials_dir
     Default: ./creds
     """
     return str(await get_config_value("credentials_dir", "./creds", "CREDENTIALS_DIR"))
@@ -263,7 +263,7 @@ async def get_code_assist_endpoint() -> str:
     Get Code Assist endpoint setting.
 
     Environment variable: CODE_ASSIST_ENDPOINT
-    TOML config key: code_assist_endpoint
+    Database config key: code_assist_endpoint
     Default: https://cloudcode-pa.googleapis.com
     """
     return str(
@@ -281,7 +281,7 @@ async def get_compatibility_mode_enabled() -> bool:
     该选项可能会降低模型理解能力，但是能避免流式空回的情况。
 
     Environment variable: COMPATIBILITY_MODE
-    TOML config key: compatibility_mode_enabled
+    Database config key: compatibility_mode_enabled
     Default: True
     """
     env_value = os.getenv("COMPATIBILITY_MODE")
@@ -299,7 +299,7 @@ async def get_return_thoughts_to_frontend() -> bool:
     启用后，思维链会在响应中返回；禁用后，思维链会在响应中被过滤掉。
 
     Environment variable: RETURN_THOUGHTS_TO_FRONTEND
-    TOML config key: return_thoughts_to_frontend
+    Database config key: return_thoughts_to_frontend
     Default: True
     """
     env_value = os.getenv("RETURN_THOUGHTS_TO_FRONTEND")
@@ -335,7 +335,7 @@ async def get_oauth_proxy_url() -> str:
     用于Google OAuth2认证的代理URL。
 
     Environment variable: OAUTH_PROXY_URL
-    TOML config key: oauth_proxy_url
+    Database config key: oauth_proxy_url
     Default: https://oauth2.googleapis.com
     """
     return str(
@@ -352,7 +352,7 @@ async def get_googleapis_proxy_url() -> str:
     用于Google APIs调用的代理URL。
 
     Environment variable: GOOGLEAPIS_PROXY_URL
-    TOML config key: googleapis_proxy_url
+    Database config key: googleapis_proxy_url
     Default: https://www.googleapis.com
     """
     return str(
@@ -369,7 +369,7 @@ async def get_resource_manager_api_url() -> str:
     用于Google Cloud Resource Manager API的URL。
 
     Environment variable: RESOURCE_MANAGER_API_URL
-    TOML config key: resource_manager_api_url
+    Database config key: resource_manager_api_url
     Default: https://cloudresourcemanager.googleapis.com
     """
     return str(
@@ -388,7 +388,7 @@ async def get_service_usage_api_url() -> str:
     用于Google Cloud Service Usage API的URL。
 
     Environment variable: SERVICE_USAGE_API_URL
-    TOML config key: service_usage_api_url
+    Database config key: service_usage_api_url
     Default: https://serviceusage.googleapis.com
     """
     return str(
@@ -405,7 +405,7 @@ async def get_antigravity_api_url() -> str:
     用于Google Antigravity API的URL。
 
     Environment variable: ANTIGRAVITY_API_URL
-    TOML config key: antigravity_api_url
+    Database config key: antigravity_api_url
     Default: https://daily-cloudcode-pa.sandbox.googleapis.com
     """
     return str(

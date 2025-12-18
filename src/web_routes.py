@@ -11,7 +11,7 @@ import os
 import time
 import zipfile
 from collections import deque
-from typing import List, Optional
+from typing import List
 
 from fastapi import (
     APIRouter,
@@ -24,8 +24,6 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
 from starlette.websockets import WebSocketState
 
 import config
@@ -39,11 +37,20 @@ from .auth import (
     verify_password,
 )
 from .credential_manager import CredentialManager
+from .models import (
+    LoginRequest,
+    AuthStartRequest,
+    AuthCallbackRequest,
+    AuthCallbackUrlRequest,
+    CredFileActionRequest,
+    CredFileBatchActionRequest,
+    ConfigSaveRequest,
+)
 from .storage_adapter import get_storage_adapter
+from .utils import verify_panel_token
 
 # 创建路由器
 router = APIRouter()
-security = HTTPBearer()
 
 # 创建credential manager实例
 credential_manager = CredentialManager()
@@ -145,61 +152,6 @@ async def get_credential_manager():
     return credential_manager
 
 
-async def authenticate(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    """验证用户密码（控制面板使用）"""
-    from config import get_panel_password
-
-    password = await get_panel_password()
-    token = credentials.credentials
-    if token != password:
-        raise HTTPException(status_code=403, detail="密码错误")
-    return token
-
-
-class LoginRequest(BaseModel):
-    password: str
-
-
-class AuthStartRequest(BaseModel):
-    project_id: Optional[str] = None  # 现在是可选的
-    use_antigravity: Optional[bool] = False  # 是否使用antigravity模式
-
-
-class AuthCallbackRequest(BaseModel):
-    project_id: Optional[str] = None  # 现在是可选的
-    use_antigravity: Optional[bool] = False  # 是否使用antigravity模式
-
-
-class AuthCallbackUrlRequest(BaseModel):
-    callback_url: str  # OAuth回调完整URL
-    project_id: Optional[str] = None  # 可选的项目ID
-    use_antigravity: Optional[bool] = False  # 是否使用antigravity模式
-
-
-class CredFileActionRequest(BaseModel):
-    filename: str
-    action: str  # enable, disable, delete
-
-
-class CredFileBatchActionRequest(BaseModel):
-    action: str  # "enable", "disable", "delete"
-    filenames: List[str]  # 批量操作的文件名列表
-
-
-class ConfigSaveRequest(BaseModel):
-    config: dict
-
-
-async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """验证控制面板密码（直接验证，不使用token）"""
-    from config import get_panel_password
-
-    password = await get_panel_password()
-    if credentials.credentials != password:
-        raise HTTPException(status_code=401, detail="密码错误")
-    return credentials.credentials
-
-
 def is_mobile_user_agent(user_agent: str) -> bool:
     """检测是否为移动设备用户代理"""
     if not user_agent:
@@ -265,7 +217,7 @@ async def login(request: LoginRequest):
 
 
 @router.post("/auth/start")
-async def start_auth(request: AuthStartRequest, token: str = Depends(verify_token)):
+async def start_auth(request: AuthStartRequest, token: str = Depends(verify_panel_token)):
     """开始认证流程，支持自动检测项目ID"""
     try:
         # 如果没有提供项目ID，尝试自动检测
@@ -299,7 +251,7 @@ async def start_auth(request: AuthStartRequest, token: str = Depends(verify_toke
 
 
 @router.post("/auth/callback")
-async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verify_token)):
+async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verify_panel_token)):
     """处理认证回调，支持自动检测项目ID"""
     try:
         # 项目ID现在是可选的，在回调处理中进行自动检测
@@ -351,7 +303,9 @@ async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verif
 
 
 @router.post("/auth/callback-url")
-async def auth_callback_url(request: AuthCallbackUrlRequest, token: str = Depends(verify_token)):
+async def auth_callback_url(
+    request: AuthCallbackUrlRequest, token: str = Depends(verify_panel_token)
+):
     """从回调URL直接完成认证"""
     try:
         # 验证URL格式
@@ -400,7 +354,7 @@ async def auth_callback_url(request: AuthCallbackUrlRequest, token: str = Depend
 
 
 @router.get("/auth/status/{project_id}")
-async def check_auth_status(project_id: str, token: str = Depends(verify_token)):
+async def check_auth_status(project_id: str, token: str = Depends(verify_panel_token)):
     """检查认证状态"""
     try:
         if not project_id:
@@ -560,6 +514,8 @@ async def upload_credentials_common(
         async def process_single_file(file_data):
             try:
                 filename = file_data["filename"]
+                # 确保文件名只保存basename，避免路径问题
+                filename = os.path.basename(filename)
                 content_str = file_data["content"]
                 credential_data = json.loads(content_str)
 
@@ -873,7 +829,7 @@ async def refresh_all_user_emails_common(is_antigravity: bool = False) -> JSONRe
 
 @router.post("/auth/upload")
 async def upload_credentials(
-    files: List[UploadFile] = File(...), token: str = Depends(verify_token)
+    files: List[UploadFile] = File(...), token: str = Depends(verify_panel_token)
 ):
     """批量上传认证文件"""
     try:
@@ -887,7 +843,10 @@ async def upload_credentials(
 
 @router.get("/creds/status")
 async def get_creds_status(
-    token: str = Depends(verify_token), offset: int = 0, limit: int = 50, status_filter: str = "all"
+    token: str = Depends(verify_panel_token),
+    offset: int = 0,
+    limit: int = 50,
+    status_filter: str = "all",
 ):
     """
     获取凭证文件的状态（轻量级摘要，不包含完整凭证数据，支持分页和状态筛选）
@@ -910,7 +869,7 @@ async def get_creds_status(
 
 
 @router.get("/creds/detail/{filename}")
-async def get_cred_detail(filename: str, token: str = Depends(verify_token)):
+async def get_cred_detail(filename: str, token: str = Depends(verify_panel_token)):
     """
     按需获取单个凭证的详细数据（包含完整凭证内容）
     用于用户查看/编辑凭证详情
@@ -968,7 +927,7 @@ async def get_cred_detail(filename: str, token: str = Depends(verify_token)):
 
 
 @router.post("/creds/action")
-async def creds_action(request: CredFileActionRequest, token: str = Depends(verify_token)):
+async def creds_action(request: CredFileActionRequest, token: str = Depends(verify_panel_token)):
     """对凭证文件执行操作（启用/禁用/删除）"""
     try:
         await ensure_credential_manager_initialized()
@@ -1036,7 +995,7 @@ async def creds_action(request: CredFileActionRequest, token: str = Depends(veri
 
 @router.post("/creds/batch-action")
 async def creds_batch_action(
-    request: CredFileBatchActionRequest, token: str = Depends(verify_token)
+    request: CredFileBatchActionRequest, token: str = Depends(verify_panel_token)
 ):
     """批量对凭证文件执行操作（启用/禁用/删除）"""
     try:
@@ -1122,7 +1081,7 @@ async def creds_batch_action(
 
 
 @router.get("/creds/download/{filename}")
-async def download_cred_file(filename: str, token: str = Depends(verify_token)):
+async def download_cred_file(filename: str, token: str = Depends(verify_panel_token)):
     """下载单个凭证文件"""
     try:
         # 验证文件名安全性
@@ -1156,7 +1115,7 @@ async def download_cred_file(filename: str, token: str = Depends(verify_token)):
 
 
 @router.post("/creds/fetch-email/{filename}")
-async def fetch_user_email(filename: str, token: str = Depends(verify_token)):
+async def fetch_user_email(filename: str, token: str = Depends(verify_panel_token)):
     """获取指定凭证文件的用户邮箱地址"""
     try:
         return await fetch_user_email_common(filename, is_antigravity=False)
@@ -1168,7 +1127,7 @@ async def fetch_user_email(filename: str, token: str = Depends(verify_token)):
 
 
 @router.post("/creds/refresh-all-emails")
-async def refresh_all_user_emails(token: str = Depends(verify_token)):
+async def refresh_all_user_emails(token: str = Depends(verify_panel_token)):
     """刷新所有凭证文件的用户邮箱地址"""
     try:
         return await refresh_all_user_emails_common(is_antigravity=False)
@@ -1178,7 +1137,7 @@ async def refresh_all_user_emails(token: str = Depends(verify_token)):
 
 
 @router.get("/creds/download-all")
-async def download_all_creds(token: str = Depends(verify_token)):
+async def download_all_creds(token: str = Depends(verify_panel_token)):
     """
     打包下载所有凭证文件（流式处理，按需加载每个凭证数据）
     只在实际下载时才加载完整凭证内容，最大化性能
@@ -1193,7 +1152,7 @@ async def download_all_creds(token: str = Depends(verify_token)):
 
 
 @router.get("/config/get")
-async def get_config(token: str = Depends(verify_token)):
+async def get_config(token: str = Depends(verify_panel_token)):
     """获取当前配置"""
     try:
         await ensure_credential_manager_initialized()
@@ -1265,7 +1224,7 @@ async def get_config(token: str = Depends(verify_token)):
 
 
 @router.post("/config/save")
-async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_token)):
+async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_panel_token)):
     """保存配置到TOML文件"""
     try:
         await ensure_credential_manager_initialized()
@@ -1385,7 +1344,7 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_to
 
 
 @router.post("/auth/logs/clear")
-async def clear_logs(token: str = Depends(verify_token)):
+async def clear_logs(token: str = Depends(verify_panel_token)):
     """清空日志文件"""
     try:
         # 直接使用环境变量获取日志文件路径
@@ -1418,7 +1377,7 @@ async def clear_logs(token: str = Depends(verify_token)):
 
 
 @router.get("/auth/logs/download")
-async def download_logs(token: str = Depends(verify_token)):
+async def download_logs(token: str = Depends(verify_panel_token)):
     """下载日志文件"""
     try:
         # 直接使用环境变量获取日志文件路径
@@ -1575,7 +1534,7 @@ async def websocket_logs(websocket: WebSocket):
 
 @router.post("/antigravity/upload")
 async def upload_antigravity_credentials(
-    files: List[UploadFile] = File(...), token: str = Depends(verify_token)
+    files: List[UploadFile] = File(...), token: str = Depends(verify_panel_token)
 ):
     """批量上传Antigravity认证文件"""
     try:
@@ -1589,7 +1548,10 @@ async def upload_antigravity_credentials(
 
 @router.get("/antigravity/creds/status")
 async def get_antigravity_creds_status(
-    token: str = Depends(verify_token), offset: int = 0, limit: int = 50, status_filter: str = "all"
+    token: str = Depends(verify_panel_token),
+    offset: int = 0,
+    limit: int = 50,
+    status_filter: str = "all",
 ):
     """
     获取Antigravity凭证文件的状态（轻量级摘要，不包含完整凭证数据，支持分页和状态筛选）
@@ -1613,7 +1575,7 @@ async def get_antigravity_creds_status(
 
 @router.post("/antigravity/creds/action")
 async def antigravity_cred_action(
-    request: CredFileActionRequest, token: str = Depends(verify_token)
+    request: CredFileActionRequest, token: str = Depends(verify_panel_token)
 ):
     """对 antigravity 凭证执行操作（启用/禁用/删除）"""
     try:
@@ -1647,7 +1609,7 @@ async def antigravity_cred_action(
 
 
 @router.get("/antigravity/creds/download/{filename}")
-async def download_antigravity_cred(filename: str, token: str = Depends(verify_token)):
+async def download_antigravity_cred(filename: str, token: str = Depends(verify_panel_token)):
     """下载 antigravity 凭证文件"""
     try:
         storage_adapter = await get_storage_adapter()
@@ -1672,7 +1634,7 @@ async def download_antigravity_cred(filename: str, token: str = Depends(verify_t
 
 @router.post("/antigravity/creds/batch-action")
 async def antigravity_batch_action(
-    request: CredFileBatchActionRequest, token: str = Depends(verify_token)
+    request: CredFileBatchActionRequest, token: str = Depends(verify_panel_token)
 ):
     """批量操作 antigravity 凭证"""
     try:
@@ -1718,7 +1680,7 @@ async def antigravity_batch_action(
 
 
 @router.post("/antigravity/creds/fetch-email/{filename}")
-async def fetch_antigravity_user_email(filename: str, token: str = Depends(verify_token)):
+async def fetch_antigravity_user_email(filename: str, token: str = Depends(verify_panel_token)):
     """获取指定Antigravity凭证文件的用户邮箱地址"""
     try:
         return await fetch_user_email_common(filename, is_antigravity=True)
@@ -1730,7 +1692,7 @@ async def fetch_antigravity_user_email(filename: str, token: str = Depends(verif
 
 
 @router.post("/antigravity/creds/refresh-all-emails")
-async def refresh_all_antigravity_user_emails(token: str = Depends(verify_token)):
+async def refresh_all_antigravity_user_emails(token: str = Depends(verify_panel_token)):
     """刷新所有Antigravity凭证文件的用户邮箱地址"""
     try:
         return await refresh_all_user_emails_common(is_antigravity=True)
@@ -1740,7 +1702,7 @@ async def refresh_all_antigravity_user_emails(token: str = Depends(verify_token)
 
 
 @router.get("/antigravity/creds/download-all")
-async def download_all_antigravity_creds(token: str = Depends(verify_token)):
+async def download_all_antigravity_creds(token: str = Depends(verify_panel_token)):
     """
     打包下载所有Antigravity凭证文件（流式处理，按需加载每个凭证数据）
     只在实际下载时才加载完整凭证内容，最大化性能
