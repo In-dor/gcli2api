@@ -41,10 +41,10 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 # 回调服务器配置
 CALLBACK_HOST = "localhost"
 
-# ====================== Antigravity API Configuration ======================
+# ====================== API Configuration ======================
 
-# Antigravity API Host and User-Agent (shared by antigravity_api.py and google_oauth_api.py)
-ANTIGRAVITY_HOST = "daily-cloudcode-pa.sandbox.googleapis.com"
+STANDARD_USER_AGENT = "GeminiCLI/0.1.5 (Windows; AMD64)"
+
 ANTIGRAVITY_USER_AGENT = "antigravity/1.11.3 windows/amd64"
 
 # ====================== Model Configuration ======================

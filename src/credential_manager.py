@@ -12,7 +12,6 @@ from log import log
 from .google_oauth_api import Credentials, fetch_user_email_from_file
 from .storage_adapter import get_storage_adapter
 
-
 class CredentialManager:
     """
     统一凭证管理器
@@ -422,20 +421,6 @@ class CredentialManager:
 
             if creds.expires_at:
                 credential_data["expiry"] = creds.expires_at.isoformat()
-
-            # 如果是 Antigravity 凭证，重新获取 project_id
-            if is_antigravity and creds.access_token:
-                log.debug(f"Antigravity凭证刷新token后，重新获取project_id: {filename}")
-                try:
-                    from .google_oauth_api import fetch_project_id
-                    new_project_id = await fetch_project_id(creds.access_token)
-                    if new_project_id:
-                        credential_data["project_id"] = new_project_id
-                        log.info(f"成功刷新project_id: {new_project_id} for {filename}")
-                    else:
-                        log.warning(f"无法获取新的project_id for {filename}，保留原有project_id")
-                except Exception as pid_error:
-                    log.warning(f"获取project_id失败 for {filename}: {pid_error}，保留原有project_id")
 
             # 保存到存储
             await self._storage_adapter.store_credential(filename, credential_data, is_antigravity=is_antigravity)
