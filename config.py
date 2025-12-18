@@ -9,6 +9,10 @@ Centralizes all configuration to avoid duplication across modules.
 import os
 from typing import Any, Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file
+
 # 全局配置缓存
 _config_cache: dict[str, Any] = {}
 _config_initialized = False
