@@ -32,6 +32,7 @@ from .models import (
     GeminiGenerationConfig,
     Model,
     ModelList,
+    model_to_dict,
     OpenAIChatCompletionChoice,
     OpenAIChatCompletionResponse,
     OpenAIChatMessage,
@@ -279,10 +280,8 @@ def convert_openai_tools_to_antigravity(
                 func_params = function.get("parameters", {})
 
                 # 转换为字典（如果是 Pydantic 模型）
-                if hasattr(func_params, "dict"):
-                    func_params = func_params.dict()
-                elif hasattr(func_params, "model_dump"):
-                    func_params = func_params.model_dump()
+                if hasattr(func_params, "dict") or hasattr(func_params, "model_dump"):
+                    func_params = model_to_dict(func_params)
 
                 # 清理参数
                 cleaned_params = clean_parameters(func_params)
@@ -361,7 +360,7 @@ def convert_to_openai_tool_call(function_call: Dict[str, Any]) -> Dict[str, Any]
             name=function_call.get("name", ""), arguments=json.dumps(function_call.get("args", {}))
         ),
     )
-    return tool_call.model_dump()
+    return model_to_dict(tool_call)
 
 
 async def convert_antigravity_stream_to_openai(
@@ -653,7 +652,7 @@ def convert_antigravity_response_to_openai(
         usage=usage,
     )
 
-    return response.model_dump()
+    return model_to_dict(response)
 
 
 def convert_antigravity_response_to_gemini(response_data: Dict[str, Any]) -> Dict[str, Any]:
