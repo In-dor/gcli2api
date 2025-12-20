@@ -750,12 +750,23 @@
         }
       }
       /* Quota UI Styles */
+      .cred-details {
+        display: none;
+        margin-top: 1rem;
+      }
+      .cred-details.show {
+        display: block;
+      }
+      .cred-quota-details {
+        margin-top: 1rem;
+      }
+
       .quota-panel {
         background: var(--bg-gradient);
         color: white;
         padding: 1rem;
-        border-radius: 8px 8px 0 0;
-        margin: -10px -10px 1rem -10px;
+        border-radius: 8px;
+        margin-bottom: 1rem;
       }
 
       .quota-grid {
