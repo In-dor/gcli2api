@@ -575,18 +575,39 @@ function createCredCard(credInfo, manager) {
     const pathId = (isAntigravity ? 'ag_' : '') + btoa(encodeURIComponent(filename)).replace(/[+/=]/g, '_');
 
     // 操作按钮
-    const actionButtons = `
-        ${status.disabled
-            ? `<button class="cred-btn enable" data-filename="${filename}" data-action="enable"><i class="ri-play-circle-line"></i> 启用</button>`
-            : `<button class="cred-btn disable" data-filename="${filename}" data-action="disable"><i class="ri-stop-circle-line"></i> 禁用</button>`
-        }
-        <button class="cred-btn view" onclick="toggle${isAntigravity ? 'Antigravity' : ''}CredDetails('${pathId}')"><i class="ri-file-text-line"></i> 查看</button>
-        <button class="cred-btn download" onclick="download${isAntigravity ? 'Antigravity' : ''}Cred('${filename}')"><i class="ri-download-line"></i> 下载</button>
-        <button class="cred-btn email" onclick="fetch${isAntigravity ? 'Antigravity' : ''}UserEmail('${filename}')"><i class="ri-mail-line"></i> 邮箱</button>
-        ${isAntigravity ? `<button class="cred-btn" style="background-color: #17a2b8;" onclick="viewAntigravityQuota('${filename}')" title="查看当前各模型的额度"><i class="ri-pie-chart-line"></i> 额度</button>` : ''}
-        <button class="cred-btn" style="background-color: #ff9800;" onclick="verify${isAntigravity ? 'Antigravity' : ''}ProjectId('${filename}')" title="重新获取Project ID，可恢复403错误"><i class="ri-check-double-line"></i> 检验</button>
-        <button class="cred-btn delete" data-filename="${filename}" data-action="delete"><i class="ri-delete-bin-line"></i> 删除</button>
-    `;
+    let actionButtons = '';
+
+    // 1. 启用/禁用
+    if (status.disabled) {
+        actionButtons += `<button class="cred-btn enable" data-filename="${filename}" data-action="enable"><i class="ri-play-circle-line"></i> 启用</button>`;
+    } else {
+        actionButtons += `<button class="cred-btn disable" data-filename="${filename}" data-action="disable"><i class="ri-stop-circle-line"></i> 禁用</button>`;
+    }
+
+    // 2. 查看
+    const toggleDetailsFunc = isAntigravity ? 'toggleAntigravityCredDetails' : 'toggleCredDetails';
+    actionButtons += `\n<button class="cred-btn view" onclick="${toggleDetailsFunc}('${pathId}')"><i class="ri-file-text-line"></i> 查看</button>`;
+
+    // 3. 下载
+    const downloadFunc = isAntigravity ? 'downloadAntigravityCred' : 'downloadCred';
+    actionButtons += `\n<button class="cred-btn download" onclick="${downloadFunc}('${filename}')"><i class="ri-download-line"></i> 下载</button>`;
+
+    // 4. 邮箱
+    const emailFunc = isAntigravity ? 'fetchAntigravityUserEmail' : 'fetchUserEmail';
+    actionButtons += `\n<button class="cred-btn email" onclick="${emailFunc}('${filename}')"><i class="ri-mail-line"></i> 邮箱</button>`;
+
+    // 5. 额度 (Antigravity only)
+    if (isAntigravity) {
+        actionButtons += `\n<button class="cred-btn" style="background-color: #17a2b8;" onclick="viewAntigravityQuota('${filename}')" title="查看当前各模型的额度"><i class="ri-pie-chart-line"></i> 额度</button>`;
+    }
+
+    // 6. 检验 (明确添加)
+    const verifyFunc = isAntigravity ? 'verifyAntigravityProjectId' : 'verifyProjectId';
+    actionButtons += `\n<button class="cred-btn" style="background-color: #ff9800;" onclick="${verifyFunc}('${filename}')" title="重新获取Project ID，可恢复403错误"><i class="ri-check-double-line"></i> 检验</button>`;
+
+    // 7. 删除
+    actionButtons += `\n<button class="cred-btn delete" data-filename="${filename}" data-action="delete"><i class="ri-delete-bin-line"></i> 删除</button>`;
+
 
     // 邮箱信息
     const emailInfo = credInfo.user_email
