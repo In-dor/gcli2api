@@ -749,6 +749,117 @@
           padding: 1.5rem;
         }
       }
+      /* Quota UI Styles */
+      .quota-panel {
+        background: var(--bg-gradient);
+        color: white;
+        padding: 1rem;
+        border-radius: 8px 8px 0 0;
+        margin: -10px -10px 1rem -10px;
+      }
+
+      .quota-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.8rem;
+      }
+
+      .quota-card {
+        background: white;
+        border-radius: 8px;
+        padding: 0.8rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border);
+        border-left-width: 4px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .quota-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .quota-model-name {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-right: 0.5rem;
+      }
+
+      .quota-percentage {
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+
+      .quota-progress {
+        width: 100%;
+        height: 6px;
+        background-color: #f1f5f9;
+        border-radius: 999px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+      }
+
+      .quota-progress-bar {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.5s ease;
+      }
+
+      .quota-reset-time {
+        font-size: 0.75rem;
+        color: var(--text-light);
+        text-align: right;
+        margin-top: auto;
+      }
+
+      /* Status Variants */
+      .quota-card.status-good {
+        border-left-color: var(--success);
+      }
+      .quota-card.status-good .quota-percentage {
+        color: var(--success);
+      }
+      .quota-card.status-good .quota-progress-bar {
+        background-color: var(--success);
+      }
+
+      .quota-card.status-medium {
+        border-left-color: var(--primary);
+      }
+      .quota-card.status-medium .quota-percentage {
+        color: var(--primary);
+      }
+      .quota-card.status-medium .quota-progress-bar {
+        background-color: var(--primary);
+      }
+
+      .quota-card.status-warning {
+        border-left-color: var(--warning);
+      }
+      .quota-card.status-warning .quota-percentage {
+        color: var(--warning);
+      }
+      .quota-card.status-warning .quota-progress-bar {
+        background-color: var(--warning);
+      }
+
+      .quota-card.status-danger {
+        border-left-color: var(--danger);
+      }
+      .quota-card.status-danger .quota-percentage {
+        color: var(--danger);
+      }
+      .quota-card.status-danger .quota-progress-bar {
+        background-color: var(--danger);
+      }
+
     </style>
   </head>
 

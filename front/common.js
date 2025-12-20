@@ -1595,104 +1595,139 @@ async function toggleAntigravityQuotaDetails(pathId) {
 
         const contentDiv = quotaDetails.querySelector('.cred-quota-content');
         const filename = contentDiv.getAttribute('data-filename');
-        const loaded = contentDiv.getAttribute('data-loaded');
 
-        // 如果还没加载过，则加载数据
-        if (loaded === 'false' && filename) {
-            contentDiv.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">📊 正在加载额度信息...</div>';
+        // 即使已加载，每次展开也尝试刷新（或者只在未加载时刷新，根据需求，这里保留原有逻辑：未加载才请求）
+        // 修正：增加刷新功能后，可以允许重新加载
+        // 为了优化体验，如果已加载，先不清除内容，直接发起后台更新？
+        // 根据任务要求 "实现 refreshAntigravityQuota 函数"，我们在UI中添加刷新按钮
 
-            try {
-                const response = await fetch(`./antigravity/creds/quota/${encodeURIComponent(filename)}`, {
-                    method: 'GET',
-                    headers: getAuthHeaders()
-                });
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // 成功时渲染美化的额度信息
-                    const models = data.models || {};
-
-                    if (Object.keys(models).length === 0) {
-                        contentDiv.innerHTML = `
-                            <div style="text-align: center; padding: 20px; color: #999;">
-                                <div style="font-size: 48px; margin-bottom: 10px;">📊</div>
-                                <div>暂无额度信息</div>
-                            </div>
-                        `;
-                    } else {
-                        let quotaHTML = `
-                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; margin: -10px -10px 15px -10px;">
-                                <h4 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-size: 20px;">📊</span>
-                                    <span>额度信息详情</span>
-                                </h4>
-                                <div style="font-size: 12px; opacity: 0.9; margin-top: 5px;">文件: ${filename}</div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
-                        `;
-
-                        for (const [modelName, quotaData] of Object.entries(models)) {
-                            // 后端返回的是剩余比例 (0-1)，不是绝对数量
-                            const remainingFraction = quotaData.remaining || 0;
-                            const resetTime = quotaData.resetTime || 'N/A';
-
-                            // 计算已使用百分比（1 - 剩余比例）
-                            const usedPercentage = Math.round((1 - remainingFraction) * 100);
-                            const remainingPercentage = Math.round(remainingFraction * 100);
-
-                            // 根据使用情况选择颜色
-                            let percentageColor = '#28a745'; // 绿色：使用少
-                            if (usedPercentage >= 90) percentageColor = '#dc3545'; // 红色：使用多
-                            else if (usedPercentage >= 70) percentageColor = '#ffc107'; // 黄色：使用较多
-                            else if (usedPercentage >= 50) percentageColor = '#17a2b8'; // 蓝色：使用中等
-
-                            quotaHTML += `
-                                <div style="background: white; border-left: 4px solid ${percentageColor}; border-radius: 4px; padding: 8px 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                        <div style="font-weight: bold; color: #333; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; margin-right: 8px;" title="${modelName} - 剩余${remainingPercentage}% - ${resetTime}">
-                                            ${modelName}
-                                        </div>
-                                        <div style="font-size: 13px; font-weight: bold; color: ${percentageColor}; white-space: nowrap;">
-                                            ${remainingPercentage}%
-                                        </div>
-                                    </div>
-                                    <div style="width: 100%; height: 8px; background-color: #e9ecef; border-radius: 4px; overflow: hidden;">
-                                        <div style="width: ${usedPercentage}%; height: 100%; background-color: ${percentageColor}; transition: width 0.3s ease;"></div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-
-                        quotaHTML += '</div>';
-                        contentDiv.innerHTML = quotaHTML;
-                    }
-
-                    contentDiv.setAttribute('data-loaded', 'true');
-                    showStatus('✅ 成功加载额度信息', 'success');
-                } else {
-                    // 失败时显示错误
-                    const errorMsg = data.error || '获取额度信息失败';
-                    contentDiv.innerHTML = `
-                        <div style="text-align: center; padding: 20px; color: #dc3545;">
-                            <div style="font-size: 48px; margin-bottom: 10px;">❌</div>
-                            <div style="font-weight: bold; margin-bottom: 5px;">获取额度信息失败</div>
-                            <div style="font-size: 13px; color: #666;">${errorMsg}</div>
-                        </div>
-                    `;
-                    showStatus(`❌ ${errorMsg}`, 'error');
-                }
-            } catch (error) {
-                contentDiv.innerHTML = `
-                    <div style="text-align: center; padding: 20px; color: #dc3545;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">❌</div>
-                        <div style="font-weight: bold; margin-bottom: 5px;">网络错误</div>
-                        <div style="font-size: 13px; color: #666;">${error.message}</div>
-                    </div>
-                `;
-                showStatus(`❌ 获取额度信息失败: ${error.message}`, 'error');
-            }
+        // 初次加载
+        if (contentDiv.getAttribute('data-loaded') === 'false' && filename) {
+            await refreshAntigravityQuota(filename, contentDiv);
         }
     }
+}
+
+async function refreshAntigravityQuota(filename, containerElement = null) {
+    if (!containerElement) {
+        // 如果没有提供容器，尝试查找（用于手动刷新按钮）
+        const pathId = 'ag_' + btoa(encodeURIComponent(filename)).replace(/[+/=]/g, '_');
+        const quotaDetails = document.getElementById('quota-' + pathId);
+        if (quotaDetails) {
+            containerElement = quotaDetails.querySelector('.cred-quota-content');
+        }
+    }
+
+    if (!containerElement) return;
+
+    containerElement.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">📊 正在获取最新额度信息...</div>';
+
+    try {
+        const response = await fetch(`./antigravity/creds/quota/${encodeURIComponent(filename)}`, {
+            method: 'GET',
+            headers: getAuthHeaders()
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            renderQuotaUI(containerElement, filename, data.models);
+            containerElement.setAttribute('data-loaded', 'true');
+            showStatus('✅ 成功更新额度信息', 'success');
+        } else {
+            const errorMsg = data.error || '获取额度信息失败';
+            renderQuotaError(containerElement, errorMsg);
+            showStatus(`❌ ${errorMsg}`, 'error');
+        }
+    } catch (error) {
+        renderQuotaError(containerElement, error.message);
+        showStatus(`❌ 获取额度信息失败: ${error.message}`, 'error');
+    }
+}
+
+function renderQuotaUI(container, filename, models) {
+    if (!models || Object.keys(models).length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #999;">
+                <div style="font-size: 48px; margin-bottom: 10px;">📊</div>
+                <div>暂无额度信息</div>
+                <button class="btn btn-sm" onclick="refreshAntigravityQuota('${filename}')" style="margin-top: 10px;">
+                    <i class="ri-refresh-line"></i> 刷新
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    // 排序：剩余额度越少（remaining小）越靠前，方便关注紧缺资源
+    const sortedModels = Object.entries(models).sort(([, a], [, b]) => {
+        return (a.remaining || 0) - (b.remaining || 0);
+    });
+
+    let html = `
+        <div class="quota-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h4 style="margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 20px;">📊</span>
+                        <span>额度信息详情</span>
+                    </h4>
+                    <div style="font-size: 12px; opacity: 0.9; margin-top: 5px;">文件: ${filename}</div>
+                </div>
+                <button class="btn btn-sm" onclick="refreshAntigravityQuota('${filename}')" style="background: rgba(255,255,255,0.2); border: none; color: white;">
+                    <i class="ri-refresh-line"></i> 刷新
+                </button>
+            </div>
+        </div>
+        <div class="quota-grid">
+    `;
+
+    for (const [modelName, quotaData] of sortedModels) {
+        const remainingFraction = quotaData.remaining || 0;
+        const resetTime = quotaData.resetTime || 'N/A';
+
+        // 计算百分比
+        const remainingPercentage = Math.round(remainingFraction * 100);
+        // 使用率 = 100 - 剩余率
+        //const usedPercentage = 100 - remainingPercentage;
+
+        // 状态判定逻辑 (根据剩余额度)
+        // 剩余 > 50% : Good (Green)
+        // 剩余 30-50% : Medium (Blue)
+        // 剩余 10-30% : Warning (Yellow)
+        // 剩余 < 10% : Danger (Red)
+        let statusClass = 'status-good';
+        if (remainingPercentage < 10) statusClass = 'status-danger';
+        else if (remainingPercentage < 30) statusClass = 'status-warning';
+        else if (remainingPercentage < 50) statusClass = 'status-medium';
+
+        html += `
+            <div class="quota-card ${statusClass}">
+                <div class="quota-header">
+                    <div class="quota-model-name" title="${modelName}">${modelName}</div>
+                    <div class="quota-percentage">${remainingPercentage}%</div>
+                </div>
+                <div class="quota-progress">
+                    <div class="quota-progress-bar" style="width: ${remainingPercentage}%"></div>
+                </div>
+                <div class="quota-reset-time">
+                    <i class="ri-history-line"></i> 重置: ${resetTime}
+                </div>
+            </div>
+        `;
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function renderQuotaError(container, errorMsg) {
+    container.innerHTML = `
+        <div style="text-align: center; padding: 20px; color: #dc3545;">
+            <div style="font-size: 48px; margin-bottom: 10px;">❌</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">获取额度信息失败</div>
+            <div style="font-size: 13px; color: #666;">${errorMsg}</div>
+        </div>
+    `;
 }
 
 async function batchVerifyProjectIds() {
