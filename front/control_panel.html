@@ -1400,7 +1400,8 @@
                             disabled>批量禁用</button>
                         <button class="batch-btn batch-delete" id="batchDeleteBtn" onclick="batchAction('delete')"
                             disabled>批量删除</button>
-                        <button class="batch-btn" style="background-color: #ff9800;" id="batchVerifyBtn" onclick="batchVerifyProjectIds()" disabled>批量检验</button>
+                        <button class="batch-btn" style="background-color: #ff9800;" id="batchVerifyBtn"
+                            onclick="batchVerifyProjectIds()" disabled>批量检验</button>
                         <button class="batch-btn batch-email" onclick="refreshAllEmails()">刷新所有邮箱</button>
                     </div>
                 </div>
@@ -1526,13 +1527,14 @@
                             <label for="selectAllAntigravityCheckbox">全选</label>
                         </div>
                         <span class="selected-count" id="antigravitySelectedCount">已选择 0 项</span>
-                        <button class="batch-btn batch-enable" id="antigravityBatchEnableBtn" onclick="batchAntigravityAction('enable')"
-                            disabled>批量启用</button>
-                        <button class="batch-btn batch-disable" id="antigravityBatchDisableBtn" onclick="batchAntigravityAction('disable')"
-                            disabled>批量禁用</button>
-                        <button class="batch-btn batch-delete" id="antigravityBatchDeleteBtn" onclick="batchAntigravityAction('delete')"
-                            disabled>批量删除</button>
-                        <button class="batch-btn" style="background-color: #ff9800;" id="antigravityBatchVerifyBtn" onclick="batchVerifyAntigravityProjectIds()" disabled>批量检验</button>
+                        <button class="batch-btn batch-enable" id="antigravityBatchEnableBtn"
+                            onclick="batchAntigravityAction('enable')" disabled>批量启用</button>
+                        <button class="batch-btn batch-disable" id="antigravityBatchDisableBtn"
+                            onclick="batchAntigravityAction('disable')" disabled>批量禁用</button>
+                        <button class="batch-btn batch-delete" id="antigravityBatchDeleteBtn"
+                            onclick="batchAntigravityAction('delete')" disabled>批量删除</button>
+                        <button class="batch-btn" style="background-color: #ff9800;" id="antigravityBatchVerifyBtn"
+                            onclick="batchVerifyAntigravityProjectIds()" disabled>批量检验</button>
                         <button class="batch-btn batch-email" onclick="refreshAllAntigravityEmails()">刷新所有邮箱</button>
                     </div>
                 </div>
@@ -1540,14 +1542,16 @@
                 <!-- 筛选和分页控件 -->
                 <div class="filter-container">
                     <label for="antigravityStatusFilter">凭证状态：</label>
-                    <select id="antigravityStatusFilter" class="filter-select" onchange="applyAntigravityStatusFilter()">
+                    <select id="antigravityStatusFilter" class="filter-select"
+                        onchange="applyAntigravityStatusFilter()">
                         <option value="all">全部凭证</option>
                         <option value="enabled">仅启用</option>
                         <option value="disabled">仅禁用</option>
                     </select>
 
                     <label for="antigravityErrorCodeFilter" style="margin-left: 20px;">错误码：</label>
-                    <select id="antigravityErrorCodeFilter" class="filter-select" onchange="applyAntigravityStatusFilter()">
+                    <select id="antigravityErrorCodeFilter" class="filter-select"
+                        onchange="applyAntigravityStatusFilter()">
                         <option value="all">全部</option>
                         <option value="400">400</option>
                         <option value="403">403</option>
@@ -1556,14 +1560,16 @@
                     </select>
 
                     <label for="antigravityCooldownFilter" style="margin-left: 20px;">冷却状态：</label>
-                    <select id="antigravityCooldownFilter" class="filter-select" onchange="applyAntigravityStatusFilter()">
+                    <select id="antigravityCooldownFilter" class="filter-select"
+                        onchange="applyAntigravityStatusFilter()">
                         <option value="all">全部</option>
                         <option value="in_cooldown">CD中</option>
                         <option value="no_cooldown">未CD</option>
                     </select>
 
                     <label for="antigravityPageSizeSelect" style="margin-left: 20px;">每页显示：</label>
-                    <select id="antigravityPageSizeSelect" class="page-size-select" onchange="changeAntigravityPageSize()">
+                    <select id="antigravityPageSizeSelect" class="page-size-select"
+                        onchange="changeAntigravityPageSize()">
                         <option value="20">20</option>
                         <option value="50">50</option>
                         <option value="100">100</option>
