@@ -183,7 +183,7 @@ async def chat_completions(request: Request, token: str = Depends(authenticate_b
 
     # 发送请求（429重试已在google_api_client中处理）
     is_streaming = getattr(request_data, "stream", False)
-    log.info(f"Sending request: streaming={is_streaming}, model={real_model}")
+    log.info(f"发送请求：流式={is_streaming}，模型={real_model}")
     response = await send_gemini_request(api_payload, is_streaming, cred_mgr)
 
     # 如果是流式响应，直接返回
