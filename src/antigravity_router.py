@@ -992,7 +992,7 @@ async def gemini_generate_content(
     api_key: str = Depends(authenticate_gemini_flexible),
 ):
     """处理 Gemini 格式的非流式内容生成请求（通过 Antigravity API）"""
-    log.debug(f"[ANTIGRAVITY GEMINI] Non-streaming request for model: {model}")
+    log.info(f"[ANTIGRAVITY GEMINI] Non-streaming request for model: {model}")
 
     # 获取原始请求数据
     try:
@@ -1131,7 +1131,7 @@ async def gemini_stream_generate_content(
     api_key: str = Depends(authenticate_gemini_flexible),
 ):
     """处理 Gemini 格式的流式内容生成请求（通过 Antigravity API）"""
-    log.debug(f"[ANTIGRAVITY GEMINI] Streaming request for model: {model}")
+    log.info(f"[ANTIGRAVITY GEMINI] Streaming request for model: {model}")
 
     # 获取原始请求数据
     try:

@@ -183,7 +183,7 @@ async def chat_completions(request: Request, token: str = Depends(authenticate_b
 
     # 发送请求（429重试已在google_api_client中处理）
     is_streaming = getattr(request_data, "stream", False)
-    log.debug(f"Sending request: streaming={is_streaming}, model={real_model}")
+    log.info(f"Sending request: streaming={is_streaming}, model={real_model}")
     response = await send_gemini_request(api_payload, is_streaming, cred_mgr)
 
     # 如果是流式响应，直接返回
@@ -196,12 +196,16 @@ async def chat_completions(request: Request, token: str = Depends(authenticate_b
             response_data = json.loads(
                 response.body.decode() if isinstance(response.body, bytes) else response.body
             )
-        else:
+        elif hasattr(response, "content"):
             response_data = json.loads(
                 response.content.decode()
                 if isinstance(response.content, bytes)
                 else response.content
             )
+        elif hasattr(response, "text"):
+            response_data = json.loads(response.text)
+        else:
+            response_data = json.loads(str(response))
 
         openai_response = gemini_response_to_openai(response_data, model)
         return JSONResponse(content=openai_response)

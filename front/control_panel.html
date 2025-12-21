@@ -871,6 +871,41 @@
         background-color: var(--danger);
       }
 
+      /* Log Highlighting */
+      .log-line {
+        font-family: "JetBrains Mono", monospace;
+        margin: 0;
+        line-height: 1.4;
+        word-break: break-all; /* 防止长文本撑开容器 */
+      }
+      .log-timestamp {
+        color: #00ffff;
+        margin-right: 8px; /* 添加间距 */
+        display: inline-block; /* 防止被意外折行，虽一般不需要 */
+      }
+      .log-level-info {
+        color: #00ff00;
+        font-weight: bold;
+        margin-right: 8px;
+        display: inline-block;
+      }
+      .log-level-error {
+        color: #ff0000;
+        font-weight: bold;
+        margin-right: 8px;
+        display: inline-block;
+      }
+      .log-level-warning {
+        color: #ffff00;
+        font-weight: bold;
+        margin-right: 8px;
+        display: inline-block;
+      }
+      .log-message {
+        color: #cccccc;
+        display: inline; /* 确保消息紧接其后 */
+      }
+
     </style>
   </head>
 

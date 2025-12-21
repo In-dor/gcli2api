@@ -2051,8 +2051,53 @@ function displayLogs() {
         logContent.textContent = AppState.currentLogFilter === 'all' ?
             '暂无日志...' : `暂无${AppState.currentLogFilter}级别的日志...`;
     } else {
-        logContent.textContent = AppState.filteredLogs.join('\n');
+        // Clear previous content
+        logContent.innerHTML = '';
+
+        // Parse and style each log line
+        AppState.filteredLogs.forEach(logLine => {
+            const lineDiv = document.createElement('div');
+            lineDiv.className = 'log-line';
+
+            // Regex to match: [Timestamp] [Level] Message
+            // Example: [2025-12-21 12:00:05] [INFO] Some message
+            const match = logLine.match(/^(\[.*?\])\s+(\[.*?\])\s+(.*)$/);
+
+            if (match) {
+                const timestamp = match[1];
+                const level = match[2];
+                const message = match[3];
+
+                // Determine level class
+                let levelClass = 'log-message'; // default
+                const levelText = level.toUpperCase();
+                if (levelText.includes('INFO')) levelClass = 'log-level-info';
+                else if (levelText.includes('ERROR')) levelClass = 'log-level-error';
+                else if (levelText.includes('WARN')) levelClass = 'log-level-warning';
+
+                // 使用紧凑的 HTML 结构，避免 pre-wrap 导致多余换行
+                lineDiv.innerHTML = `<span class="log-timestamp">${escapeHtml(timestamp)}</span>` +
+                    `<span class="${levelClass}">${escapeHtml(level)}</span>` +
+                    `<span class="log-message">${escapeHtml(message)}</span>`;
+            } else {
+                // If regex doesn't match (e.g. stack trace), display as plain text
+                lineDiv.textContent = logLine;
+                lineDiv.className = 'log-line log-message'; // Use default message color
+            }
+
+            logContent.appendChild(lineDiv);
+        });
     }
+}
+
+function escapeHtml(text) {
+    if (!text) return text;
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // =====================================================================
@@ -2580,3 +2625,4 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
