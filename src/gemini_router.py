@@ -35,7 +35,7 @@ router = APIRouter()
 
 @router.get("/v1beta/models")
 @router.get("/v1/models")
-async def list_gemini_models():
+async def list_gemini_models(token: str = Depends(authenticate_gemini_flexible)):
     """返回Gemini格式的模型列表"""
     show_variants = await get_show_variant_models()
     models = get_available_models("gemini", show_variants=show_variants)
