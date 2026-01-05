@@ -248,9 +248,36 @@ def convert_openai_tools_to_antigravity(
     if not tools:
         return None
 
-    # 需要排除的字段
+    # 需要排除的字段 - 与 _clean_schema_for_gemini 保持一致
+    # Gemini/Antigravity API 不支持这些 JSON Schema 字段
+    # 参考: github.com/googleapis/python-genai/issues/699, #388, #460, #1122, #264, #4551
     EXCLUDED_KEYS = {
         "$schema",
+        "$id",
+        "$ref",
+        "$defs",
+        "definitions",
+        "example",
+        "examples",
+        "readOnly",
+        "writeOnly",
+        "default",
+        "exclusiveMaximum",
+        "exclusiveMinimum",
+        "oneOf",
+        "anyOf",
+        "allOf",
+        "const",
+        "additionalItems",
+        "contains",
+        "patternProperties",
+        "dependencies",
+        "propertyNames",
+        "if",
+        "then",
+        "else",
+        "contentEncoding",
+        "contentMediaType",
         "additionalProperties",
         "minLength",
         "maxLength",
@@ -353,6 +380,42 @@ def generate_generation_config(
     except Exception as e:
         log.warning(f"[ANTIGRAVITY] Failed to validate generation config: {e}, using dict directly")
         return config_dict
+
+
+def prepare_image_request(request_body: Dict[str, Any], model: str) -> Dict[str, Any]:
+    """图像生成模型请求体后处理"""
+    model_lower = model.lower()
+
+    # 解析分辨率
+    image_size = "4K" if "-4k" in model_lower else "2K" if "-2k" in model_lower else None
+
+    # 解析比例
+    aspect_ratio = None
+    for suffix, ratio in [
+        ("-21x9", "21:9"),
+        ("-16x9", "16:9"),
+        ("-9x16", "9:16"),
+        ("-4x3", "4:3"),
+        ("-3x4", "3:4"),
+        ("-1x1", "1:1"),
+    ]:
+        if suffix in model_lower:
+            aspect_ratio = ratio
+            break
+
+    # 构建 imageConfig
+    image_config = {}
+    if aspect_ratio:
+        image_config["aspectRatio"] = aspect_ratio
+    if image_size:
+        image_config["imageSize"] = image_size
+
+    request_body["requestType"] = "image_gen"
+    request_body["model"] = "gemini-3-pro-image"  # 统一使用基础模型名
+    request_body["request"]["generationConfig"] = {"candidateCount": 1, "imageConfig": image_config}
+    for key in ("systemInstruction", "tools", "toolConfig"):
+        request_body["request"].pop(key, None)
+    return request_body
 
 
 def convert_to_openai_tool_call(function_call: Dict[str, Any]) -> Dict[str, Any]:
@@ -870,6 +933,10 @@ async def chat_completions(request: Request, token: str = Depends(authenticate_b
         generation_config=generation_config,
     )
 
+    # 图像生成模型特殊处理
+    if "-image" in model:
+        request_body = prepare_image_request(request_body, model)
+
     # 生成请求 ID
     request_id = f"chatcmpl-{int(time.time() * 1000)}"
 
@@ -1116,6 +1183,10 @@ async def gemini_generate_content(
         generation_config=generation_config,
     )
 
+    # 图像生成模型特殊处理
+    if "-image" in model:
+        request_body = prepare_image_request(request_body, model)
+
     # 发送非流式请求
     try:
         response_data, cred_name, cred_data = await send_antigravity_request_no_stream(
@@ -1231,6 +1302,10 @@ async def gemini_stream_generate_content(
         tools=antigravity_tools,
         generation_config=generation_config,
     )
+
+    # 图像生成模型特殊处理
+    if "-image" in model:
+        request_body = prepare_image_request(request_body, model)
 
     # 发送流式请求
     try:
