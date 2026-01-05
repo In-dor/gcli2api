@@ -412,8 +412,41 @@ def prepare_image_request(request_body: Dict[str, Any], model: str) -> Dict[str,
 
     request_body["requestType"] = "image_gen"
     request_body["model"] = "gemini-3-pro-image"  # 统一使用基础模型名
-    request_body["request"]["generationConfig"] = {"candidateCount": 1, "imageConfig": image_config}
-    for key in ("systemInstruction", "tools", "toolConfig"):
+
+    # 获取原始 generationConfig 以保留 thinkingConfig 等参数
+    original_config = request_body["request"].get("generationConfig", {})
+
+    # 构建新的 generationConfig
+    new_config = {"candidateCount": 1, "imageConfig": image_config}
+
+    # 保留 thinkingConfig
+    if "thinkingConfig" in original_config:
+        new_config["thinkingConfig"] = original_config["thinkingConfig"]
+
+    # 保留 response_modalities
+    if "response_modalities" in original_config:
+        new_config["response_modalities"] = original_config["response_modalities"]
+
+    request_body["request"]["generationConfig"] = new_config
+
+    # 保留 google_search_retrieval 工具（如果存在）
+    original_tools = request_body["request"].get("tools", [])
+    if original_tools:
+        google_search_tool = None
+        for tool in original_tools:
+            if "google_search_retrieval" in str(tool) or "googleSearchRetrieval" in str(tool):
+                google_search_tool = tool
+                break
+
+        if google_search_tool:
+            request_body["request"]["tools"] = [google_search_tool]
+        else:
+            # 如果没有 google search，则移除 tools，避免影响图片生成
+            request_body["request"].pop("tools", None)
+    else:
+        request_body["request"].pop("tools", None)
+
+    for key in ("systemInstruction", "toolConfig"):
         request_body["request"].pop(key, None)
     return request_body
 
