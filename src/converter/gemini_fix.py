@@ -202,8 +202,13 @@ async def normalize_gemini_request(
 
         # 只有在没有用户明确控制的情况下才应用默认逻辑
         if (thinking_budget is not None or request_thoughts_from_model) and not has_user_controls:
+            # 特判：gemini-2.5-flash-lite 模型默认不支持思考
+            is_flash_lite = "gemini-2.5-flash-lite" in model.lower()
+
             # 如果强制向模型请求思维链，则无论 return_thoughts 设置如何都请求
-            if request_thoughts_from_model:
+            if is_flash_lite:
+                final_include_thoughts = False
+            elif request_thoughts_from_model:
                 final_include_thoughts = True
             else:
                 # 否则遵循 return_thoughts 配置
