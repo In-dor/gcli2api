@@ -16,11 +16,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 # 本地模块 - 工具和认证
-from src.utils import (
-    get_available_models,
-    get_base_model_from_feature_model,
-    authenticate_flexible
-)
+from src.utils import get_available_models, get_base_model_from_feature_model, authenticate_flexible
+from config import get_show_variant_models
 
 # 本地模块 - 基础路由工具
 from src.router.base_router import create_gemini_model_list, create_openai_model_list
@@ -35,6 +32,7 @@ router = APIRouter()
 
 # ==================== API 路由 ====================
 
+
 @router.get("/v1beta/models")
 async def list_gemini_models(token: str = Depends(authenticate_flexible)):
     """
@@ -42,12 +40,14 @@ async def list_gemini_models(token: str = Depends(authenticate_flexible)):
 
     使用 create_gemini_model_list 工具函数创建标准格式
     """
-    models = get_available_models("gemini")
-    log.info("[GEMINICLI MODEL LIST] 返回 Gemini 格式")
-    return JSONResponse(content=create_gemini_model_list(
-        models,
-        base_name_extractor=get_base_model_from_feature_model
-    ))
+    show_variants = await get_show_variant_models()
+    models = get_available_models("gemini", show_variants=show_variants)
+    log.debug(f"[GEMINICLI MODEL LIST] 返回 Gemini 格式 (show_variants={show_variants})")
+    return JSONResponse(
+        content=create_gemini_model_list(
+            models, base_name_extractor=get_base_model_from_feature_model
+        )
+    )
 
 
 @router.get("/v1/models")
@@ -57,10 +57,10 @@ async def list_openai_models(token: str = Depends(authenticate_flexible)):
 
     使用 create_openai_model_list 工具函数创建标准格式
     """
-    models = get_available_models("gemini")
-    log.info("[GEMINICLI MODEL LIST] 返回 OpenAI 格式")
+    show_variants = await get_show_variant_models()
+    models = get_available_models("gemini", show_variants=show_variants)
+    log.debug(f"[GEMINICLI MODEL LIST] 返回 OpenAI 格式 (show_variants={show_variants})")
     model_list = create_openai_model_list(models, owned_by="google")
-    return JSONResponse(content={
-        "object": "list",
-        "data": [model_to_dict(model) for model in model_list.data]
-    })
+    return JSONResponse(
+        content={"object": "list", "data": [model_to_dict(model) for model in model_list.data]}
+    )

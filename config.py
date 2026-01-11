@@ -43,6 +43,8 @@ ENV_MAPPINGS = {
     "COMPATIBILITY_MODE": "compatibility_mode_enabled",
     "RETURN_THOUGHTS_TO_FRONTEND": "return_thoughts_to_frontend",
     "ANTIGRAVITY_STREAM2NOSTREAM": "antigravity_stream2nostream",
+    "REQUEST_THOUGHTS_FROM_MODEL": "request_thoughts_from_model",
+    "SHOW_VARIANT_MODELS": "show_variant_models",
     "HOST": "host",
     "PORT": "port",
     "API_PASSWORD": "api_password",
@@ -83,9 +85,9 @@ async def reload_config():
 
         storage_adapter = await get_storage_adapter()
 
-        # 如果后端支持 reload_config_cache，调用它
-        if hasattr(storage_adapter._backend, "reload_config_cache"):
-            await storage_adapter._backend.reload_config_cache()
+        # 调用存储适配器的 reload_config_cache 方法
+        # 它会处理后端是否支持该方法以及初始化检查
+        await storage_adapter.reload_config_cache()
 
         # 重新加载配置缓存
         _config_cache = await storage_adapter.get_all_config()
@@ -381,6 +383,24 @@ async def get_antigravity_stream2nostream() -> bool:
         return env_value.lower() in ("true", "1", "yes", "on")
 
     return bool(await get_config_value("antigravity_stream2nostream", True))
+
+
+async def get_request_thoughts_from_model() -> bool:
+    """
+    Get request thoughts from model setting.
+
+    Controls whether to request thoughts from the model (includeThoughts=True).
+    If True, always request thoughts. If False, only request if user asked for it.
+
+    Environment variable: REQUEST_THOUGHTS_FROM_MODEL
+    Database config key: request_thoughts_from_model
+    Default: False
+    """
+    env_value = os.getenv("REQUEST_THOUGHTS_FROM_MODEL")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(await get_config_value("request_thoughts_from_model", False))
 
 
 async def get_oauth_proxy_url() -> str:

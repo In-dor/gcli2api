@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -208,6 +209,48 @@ def get_available_models(router_type: str = "openai", show_variants: bool = True
 
 
 # ====================== Authentication Functions ======================
+
+
+async def authenticate_bearer(
+    authorization: Optional[str] = Header(None),
+) -> str:
+    """
+    Standard Bearer Token Authentication
+
+    Validates that the Authorization header contains a valid Bearer token
+    matching the configured API password.
+
+    Args:
+        authorization: The Authorization header value
+
+    Returns:
+        The validated token string
+
+    Raises:
+        HTTPException: If authentication fails
+    """
+    password = await get_api_password()
+
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication scheme. Use 'Bearer <token>'",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = authorization[7:]  # Remove "Bearer " prefix
+
+    if token != password:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
+
+    return token
 
 
 async def authenticate_flexible(

@@ -2289,6 +2289,8 @@ function populateConfigForm() {
     document.getElementById('compatibilityModeEnabled').checked = Boolean(c.compatibility_mode_enabled);
     document.getElementById('returnThoughtsToFrontend').checked = Boolean(c.return_thoughts_to_frontend !== false);
     document.getElementById('antigravityStream2nostream').checked = Boolean(c.antigravity_stream2nostream !== false);
+    document.getElementById('requestThoughtsFromModel').checked = Boolean(c.request_thoughts_from_model !== false);
+    document.getElementById('showVariantModels').checked = Boolean(c.show_variant_models !== false);
 
     setConfigField('antiTruncationMaxAttempts', c.anti_truncation_max_attempts || 3);
 }
@@ -2348,6 +2350,8 @@ async function saveConfig() {
             compatibility_mode_enabled: getChecked('compatibilityModeEnabled'),
             return_thoughts_to_frontend: getChecked('returnThoughtsToFrontend'),
             antigravity_stream2nostream: getChecked('antigravityStream2nostream'),
+            request_thoughts_from_model: getChecked('requestThoughtsFromModel'),
+            show_variant_models: getChecked('showVariantModels'),
             anti_truncation_max_attempts: getInt('antiTruncationMaxAttempts', 3)
         };
 

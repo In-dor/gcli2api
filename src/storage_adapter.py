@@ -25,11 +25,15 @@ class StorageBackend(Protocol):
         ...
 
     # 凭证管理
-    async def store_credential(self, filename: str, credential_data: Dict[str, Any], mode: str = "geminicli") -> bool:
+    async def store_credential(
+        self, filename: str, credential_data: Dict[str, Any], mode: str = "geminicli"
+    ) -> bool:
         """存储凭证数据"""
         ...
 
-    async def get_credential(self, filename: str, mode: str = "geminicli") -> Optional[Dict[str, Any]]:
+    async def get_credential(
+        self, filename: str, mode: str = "geminicli"
+    ) -> Optional[Dict[str, Any]]:
         """获取凭证数据"""
         ...
 
@@ -42,7 +46,9 @@ class StorageBackend(Protocol):
         ...
 
     # 状态管理
-    async def update_credential_state(self, filename: str, state_updates: Dict[str, Any], mode: str = "geminicli") -> bool:
+    async def update_credential_state(
+        self, filename: str, state_updates: Dict[str, Any], mode: str = "geminicli"
+    ) -> bool:
         """更新凭证状态"""
         ...
 
@@ -65,6 +71,10 @@ class StorageBackend(Protocol):
 
     async def get_all_config(self) -> Dict[str, Any]:
         """获取所有配置"""
+        ...
+
+    async def reload_config_cache(self) -> None:
+        """重新加载配置缓存"""
         ...
 
     async def delete_config(self, key: str) -> bool:
@@ -138,12 +148,16 @@ class StorageAdapter:
 
     # ============ 凭证管理 ============
 
-    async def store_credential(self, filename: str, credential_data: Dict[str, Any], mode: str = "geminicli") -> bool:
+    async def store_credential(
+        self, filename: str, credential_data: Dict[str, Any], mode: str = "geminicli"
+    ) -> bool:
         """存储凭证数据"""
         self._ensure_initialized()
         return await self._backend.store_credential(filename, credential_data, mode)
 
-    async def get_credential(self, filename: str, mode: str = "geminicli") -> Optional[Dict[str, Any]]:
+    async def get_credential(
+        self, filename: str, mode: str = "geminicli"
+    ) -> Optional[Dict[str, Any]]:
         """获取凭证数据"""
         self._ensure_initialized()
         return await self._backend.get_credential(filename, mode)
@@ -160,7 +174,9 @@ class StorageAdapter:
 
     # ============ 状态管理 ============
 
-    async def update_credential_state(self, filename: str, state_updates: Dict[str, Any], mode: str = "geminicli") -> bool:
+    async def update_credential_state(
+        self, filename: str, state_updates: Dict[str, Any], mode: str = "geminicli"
+    ) -> bool:
         """更新凭证状态"""
         self._ensure_initialized()
         return await self._backend.update_credential_state(filename, state_updates, mode)
@@ -191,6 +207,12 @@ class StorageAdapter:
         """获取所有配置"""
         self._ensure_initialized()
         return await self._backend.get_all_config()
+
+    async def reload_config_cache(self):
+        """重新加载配置缓存"""
+        self._ensure_initialized()
+        if hasattr(self._backend, "reload_config_cache"):
+            await self._backend.reload_config_cache()
 
     async def delete_config(self, key: str) -> bool:
         """删除配置项"""
@@ -282,7 +304,11 @@ class StorageAdapter:
             elif backend_type == "mongodb":
                 info.update(
                     {
-                        "database_name": getattr(self._backend, "_db", {}).name if hasattr(self._backend, "_db") else None,
+                        "database_name": (
+                            getattr(self._backend, "_db", {}).name
+                            if hasattr(self._backend, "_db")
+                            else None
+                        ),
                     }
                 )
 
