@@ -22,6 +22,34 @@ _config_initialized = False
 # 需要自动封禁的错误码 (默认值，可通过环境变量或配置覆盖)
 AUTO_BAN_ERROR_CODES = [403]
 
+# ====================== 环境变量映射表 ======================
+# 统一维护环境变量名和配置键名的映射关系
+# 格式: "环境变量名": "配置键名"
+ENV_MAPPINGS = {
+    "CODE_ASSIST_ENDPOINT": "code_assist_endpoint",
+    "CREDENTIALS_DIR": "credentials_dir",
+    "PROXY": "proxy",
+    "OAUTH_PROXY_URL": "oauth_proxy_url",
+    "GOOGLEAPIS_PROXY_URL": "googleapis_proxy_url",
+    "RESOURCE_MANAGER_API_URL": "resource_manager_api_url",
+    "SERVICE_USAGE_API_URL": "service_usage_api_url",
+    "ANTIGRAVITY_API_URL": "antigravity_api_url",
+    "AUTO_BAN": "auto_ban_enabled",
+    "AUTO_BAN_ERROR_CODES": "auto_ban_error_codes",
+    "RETRY_429_MAX_RETRIES": "retry_429_max_retries",
+    "RETRY_429_ENABLED": "retry_429_enabled",
+    "RETRY_429_INTERVAL": "retry_429_interval",
+    "ANTI_TRUNCATION_MAX_ATTEMPTS": "anti_truncation_max_attempts",
+    "COMPATIBILITY_MODE": "compatibility_mode_enabled",
+    "RETURN_THOUGHTS_TO_FRONTEND": "return_thoughts_to_frontend",
+    "ANTIGRAVITY_STREAM2NOSTREAM": "antigravity_stream2nostream",
+    "HOST": "host",
+    "PORT": "port",
+    "API_PASSWORD": "api_password",
+    "PANEL_PASSWORD": "panel_password",
+    "PASSWORD": "password",
+}
+
 
 # ====================== 配置系统 ======================
 
@@ -310,13 +338,13 @@ async def get_compatibility_mode_enabled() -> bool:
 
     Environment variable: COMPATIBILITY_MODE
     Database config key: compatibility_mode_enabled
-    Default: True
+    Default: False
     """
     env_value = os.getenv("COMPATIBILITY_MODE")
     if env_value:
         return env_value.lower() in ("true", "1", "yes", "on")
 
-    return bool(await get_config_value("compatibility_mode_enabled", True))
+    return bool(await get_config_value("compatibility_mode_enabled", False))
 
 
 async def get_return_thoughts_to_frontend() -> bool:
@@ -337,23 +365,22 @@ async def get_return_thoughts_to_frontend() -> bool:
     return bool(await get_config_value("return_thoughts_to_frontend", True))
 
 
-async def get_request_thoughts_from_model() -> bool:
+async def get_antigravity_stream2nostream() -> bool:
     """
-    Get request thoughts from model setting.
+    Get use stream for non-stream setting.
 
-    控制是否向模型请求思维链。
-    启用后，会向模型发送 includeThoughts=True（如果支持）；
-    禁用后，不会强制发送 includeThoughts=True，除非用户请求中显式包含。
+    控制antigravity非流式请求是否使用流式API并收集为完整响应。
+    启用后，非流式请求将在后端使用流式API，然后收集所有块后再返回完整响应。
 
-    Environment variable: REQUEST_THOUGHTS_FROM_MODEL
-    TOML config key: request_thoughts_from_model
+    Environment variable: ANTIGRAVITY_STREAM2NOSTREAM
+    Database config key: antigravity_stream2nostream
     Default: True
     """
-    env_value = os.getenv("REQUEST_THOUGHTS_FROM_MODEL")
+    env_value = os.getenv("ANTIGRAVITY_STREAM2NOSTREAM")
     if env_value:
         return env_value.lower() in ("true", "1", "yes", "on")
 
-    return bool(await get_config_value("request_thoughts_from_model", True))
+    return bool(await get_config_value("antigravity_stream2nostream", True))
 
 
 async def get_oauth_proxy_url() -> str:

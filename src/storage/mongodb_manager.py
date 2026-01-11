@@ -126,18 +126,19 @@ class MongoDBManager:
         if not self._initialized:
             raise RuntimeError("MongoDB manager not initialized")
 
-    def _is_antigravity(self, filename: str) -> bool:
-        """判断是否为 antigravity 凭证"""
-        return filename.startswith("ag_")
-
-    def _get_collection_name(self, is_antigravity: bool) -> str:
-        """根据 is_antigravity 标志获取对应的集合名"""
-        return "antigravity_credentials" if is_antigravity else "credentials"
+    def _get_collection_name(self, mode: str) -> str:
+        """根据 mode 获取对应的集合名"""
+        if mode == "antigravity":
+            return "antigravity_credentials"
+        elif mode == "geminicli":
+            return "credentials"
+        else:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'geminicli' or 'antigravity'")
 
     # ============ SQL 方法 ============
 
     async def get_next_available_credential(
-        self, is_antigravity: bool = False, model_key: Optional[str] = None
+        self, mode: str = "geminicli", model_key: Optional[str] = None
     ) -> Optional[tuple[str, Dict[str, Any]]]:
         """
         随机获取一个可用凭证（负载均衡）
@@ -146,7 +147,7 @@ class MongoDBManager:
         - 随机选择
 
         Args:
-            is_antigravity: 是否获取 antigravity 凭证（默认 False）
+            mode: 凭证模式 ("geminicli" 或 "antigravity")
             model_key: 模型键（用于模型级冷却检查，antigravity 用模型名，gcli 用 pro/flash）
 
         Note:
@@ -157,7 +158,7 @@ class MongoDBManager:
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
             current_time = time.time()
 
@@ -209,10 +210,10 @@ class MongoDBManager:
             return None
 
         except Exception as e:
-            log.error(f"Error getting next available credential (antigravity={is_antigravity}, model_key={model_key}): {e}")
+            log.error(f"Error getting next available credential (mode={mode}, model_key={model_key}): {e}")
             return None
 
-    async def get_available_credentials_list(self, is_antigravity: bool = False) -> List[str]:
+    async def get_available_credentials_list(self, mode: str = "geminicli") -> List[str]:
         """
         获取所有可用凭证列表
         - 未禁用
@@ -221,7 +222,7 @@ class MongoDBManager:
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             pipeline = [
@@ -234,17 +235,17 @@ class MongoDBManager:
             return [doc["filename"] for doc in docs]
 
         except Exception as e:
-            log.error(f"Error getting available credentials list (antigravity={is_antigravity}): {e}")
+            log.error(f"Error getting available credentials list (mode={mode}): {e}")
             return []
 
     # ============ StorageBackend 协议方法 ============
 
-    async def store_credential(self, filename: str, credential_data: Dict[str, Any], is_antigravity: bool = False) -> bool:
+    async def store_credential(self, filename: str, credential_data: Dict[str, Any], mode: str = "geminicli") -> bool:
         """存储或更新凭证"""
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
             current_ts = time.time()
 
@@ -300,19 +301,19 @@ class MongoDBManager:
                     else:
                         raise
 
-            log.debug(f"Stored credential: {filename} (antigravity={is_antigravity})")
+            log.debug(f"Stored credential: {filename} (mode={mode})")
             return True
 
         except Exception as e:
             log.error(f"Error storing credential {filename}: {e}")
             return False
 
-    async def get_credential(self, filename: str, is_antigravity: bool = False) -> Optional[Dict[str, Any]]:
+    async def get_credential(self, filename: str, mode: str = "geminicli") -> Optional[Dict[str, Any]]:
         """获取凭证数据，支持basename匹配以兼容旧数据"""
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 首先尝试精确匹配，只投影需要的字段
@@ -340,12 +341,12 @@ class MongoDBManager:
             log.error(f"Error getting credential {filename}: {e}")
             return None
 
-    async def list_credentials(self, is_antigravity: bool = False) -> List[str]:
+    async def list_credentials(self, mode: str = "geminicli") -> List[str]:
         """列出所有凭证文件名"""
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 使用聚合管道
@@ -361,12 +362,12 @@ class MongoDBManager:
             log.error(f"Error listing credentials: {e}")
             return []
 
-    async def delete_credential(self, filename: str, is_antigravity: bool = False) -> bool:
+    async def delete_credential(self, filename: str, mode: str = "geminicli") -> bool:
         """删除凭证，支持basename匹配以兼容旧数据"""
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 首先尝试精确匹配删除
@@ -382,24 +383,109 @@ class MongoDBManager:
                 deleted_count = result.deleted_count
 
             if deleted_count > 0:
-                log.debug(f"Deleted {deleted_count} credential(s): {filename} (antigravity={is_antigravity})")
+                log.debug(f"Deleted {deleted_count} credential(s): {filename} (mode={mode})")
                 return True
             else:
-                log.warning(f"No credential found to delete: {filename} (antigravity={is_antigravity})")
+                log.warning(f"No credential found to delete: {filename} (mode={mode})")
                 return False
 
         except Exception as e:
             log.error(f"Error deleting credential {filename}: {e}")
             return False
 
+    async def get_duplicate_credentials_by_email(self, mode: str = "geminicli") -> Dict[str, Any]:
+        """
+        获取按邮箱分组的重复凭证信息（只查询邮箱和文件名，不加载完整凭证数据）
+        用于去重操作
+
+        Args:
+            mode: 凭证模式 ("geminicli" 或 "antigravity")
+
+        Returns:
+            包含 email_groups（邮箱分组）、duplicate_count（重复数量）、no_email_count（无邮箱数量）的字典
+        """
+        self._ensure_initialized()
+
+        try:
+            collection_name = self._get_collection_name(mode)
+            collection = self._db[collection_name]
+
+            # 使用聚合管道，只查询 filename 和 user_email 字段
+            pipeline = [
+                {
+                    "$project": {
+                        "filename": 1,
+                        "user_email": 1,
+                        "_id": 0
+                    }
+                },
+                {
+                    "$sort": {"filename": 1}
+                }
+            ]
+
+            docs = await collection.aggregate(pipeline).to_list(length=None)
+
+            # 按邮箱分组
+            email_to_files = {}
+            no_email_files = []
+
+            for doc in docs:
+                filename = doc.get("filename")
+                user_email = doc.get("user_email")
+
+                if user_email:
+                    if user_email not in email_to_files:
+                        email_to_files[user_email] = []
+                    email_to_files[user_email].append(filename)
+                else:
+                    no_email_files.append(filename)
+
+            # 找出重复的邮箱组
+            duplicate_groups = []
+            total_duplicate_count = 0
+
+            for email, files in email_to_files.items():
+                if len(files) > 1:
+                    # 保留第一个文件，其他为重复
+                    duplicate_groups.append({
+                        "email": email,
+                        "kept_file": files[0],
+                        "duplicate_files": files[1:],
+                        "duplicate_count": len(files) - 1,
+                    })
+                    total_duplicate_count += len(files) - 1
+
+            return {
+                "email_groups": email_to_files,
+                "duplicate_groups": duplicate_groups,
+                "duplicate_count": total_duplicate_count,
+                "no_email_files": no_email_files,
+                "no_email_count": len(no_email_files),
+                "unique_email_count": len(email_to_files),
+                "total_count": len(docs),
+            }
+
+        except Exception as e:
+            log.error(f"Error getting duplicate credentials by email: {e}")
+            return {
+                "email_groups": {},
+                "duplicate_groups": [],
+                "duplicate_count": 0,
+                "no_email_files": [],
+                "no_email_count": 0,
+                "unique_email_count": 0,
+                "total_count": 0,
+            }
+
     async def update_credential_state(
-        self, filename: str, state_updates: Dict[str, Any], is_antigravity: bool = False
+        self, filename: str, state_updates: Dict[str, Any], mode: str = "geminicli"
     ) -> bool:
         """更新凭证状态，支持basename匹配以兼容旧数据"""
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 过滤只更新状态字段
@@ -433,12 +519,12 @@ class MongoDBManager:
             log.error(f"Error updating credential state {filename}: {e}")
             return False
 
-    async def get_credential_state(self, filename: str, is_antigravity: bool = False) -> Dict[str, Any]:
+    async def get_credential_state(self, filename: str, mode: str = "geminicli") -> Dict[str, Any]:
         """获取凭证状态，支持basename匹配以兼容旧数据"""
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 首先尝试精确匹配
@@ -481,12 +567,12 @@ class MongoDBManager:
             log.error(f"Error getting credential state {filename}: {e}")
             return {}
 
-    async def get_all_credential_states(self, is_antigravity: bool = False) -> Dict[str, Dict[str, Any]]:
+    async def get_all_credential_states(self, mode: str = "geminicli") -> Dict[str, Dict[str, Any]]:
         """获取所有凭证状态"""
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 使用投影只获取需要的字段
@@ -536,7 +622,7 @@ class MongoDBManager:
         offset: int = 0,
         limit: Optional[int] = None,
         status_filter: str = "all",
-        is_antigravity: bool = False,
+        mode: str = "geminicli",
         error_code_filter: Optional[str] = None,
         cooldown_filter: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -547,7 +633,7 @@ class MongoDBManager:
             offset: 跳过的记录数（默认0）
             limit: 返回的最大记录数（None表示返回所有）
             status_filter: 状态筛选（all=全部, enabled=仅启用, disabled=仅禁用）
-            is_antigravity: 是否查询antigravity凭证集合（默认False）
+            mode: 凭证模式 ("geminicli" 或 "antigravity")
             error_code_filter: 错误码筛选（格式如"400"或"403"，筛选包含该错误码的凭证）
             cooldown_filter: 冷却状态筛选（"in_cooldown"=冷却中, "no_cooldown"=未冷却）
 
@@ -557,8 +643,8 @@ class MongoDBManager:
         self._ensure_initialized()
 
         try:
-            # 根据 is_antigravity 选择集合名
-            collection_name = self._get_collection_name(is_antigravity)
+            # 根据 mode 选择集合名
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 构建查询条件
@@ -737,7 +823,7 @@ class MongoDBManager:
         filename: str,
         model_key: str,
         cooldown_until: Optional[float],
-        is_antigravity: bool = False
+        mode: str = "geminicli"
     ) -> bool:
         """
         设置特定模型的冷却时间
@@ -746,7 +832,7 @@ class MongoDBManager:
             filename: 凭证文件名
             model_key: 模型键（antigravity 用模型名，gcli 用 pro/flash）
             cooldown_until: 冷却截止时间戳（None 表示清除冷却）
-            is_antigravity: 是否为 antigravity 凭证
+            mode: 凭证模式 ("geminicli" 或 "antigravity")
 
         Returns:
             是否成功
@@ -754,7 +840,7 @@ class MongoDBManager:
         self._ensure_initialized()
 
         try:
-            collection_name = self._get_collection_name(is_antigravity)
+            collection_name = self._get_collection_name(mode)
             collection = self._db[collection_name]
 
             # 使用原子操作直接更新，避免竞态条件
