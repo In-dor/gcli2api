@@ -340,41 +340,51 @@ async def normalize_gemini_request(
             # 检查最后一个 assistant 消息是否以 thinking 块开始
             contents = result.get("contents", [])
 
-                if not check_last_assistant_has_thinking(contents) and "claude" in model.lower():
-                    # 检测是否有工具调用（MCP场景）
-                    has_tool_calls = any(
-                        isinstance(content, dict) and
-                        any(
-                            isinstance(part, dict) and ("functionCall" in part or "function_call" in part)
-                            for part in content.get("parts", [])
-                        )
-                        for content in contents
+            if not check_last_assistant_has_thinking(contents) and "claude" in model.lower():
+                # 检测是否有工具调用（MCP场景）
+                has_tool_calls = any(
+                    isinstance(content, dict)
+                    and any(
+                        isinstance(part, dict)
+                        and ("functionCall" in part or "function_call" in part)
+                        for part in content.get("parts", [])
+                    )
+                    for content in contents
+                )
+
+                if has_tool_calls:
+                    # MCP 场景：检测到工具调用，移除 thinkingConfig
+                    log.warning(
+                        f"[ANTIGRAVITY] 检测到工具调用（MCP场景），移除 thinkingConfig 避免失效"
+                    )
+                    generation_config.pop("thinkingConfig", None)
+                else:
+                    # 非 MCP 场景：填充思考块
+                    log.warning(
+                        f"[ANTIGRAVITY] 最后一个 assistant 消息不以 thinking 块开始，自动填充思考块"
                     )
 
-                    if has_tool_calls:
-                        # MCP 场景：检测到工具调用，移除 thinkingConfig
-                        log.warning(f"[ANTIGRAVITY] 检测到工具调用（MCP场景），移除 thinkingConfig 避免失效")
-                        generation_config.pop("thinkingConfig", None)
-                    else:
-                        # 非 MCP 场景：填充思考块
-                        log.warning(f"[ANTIGRAVITY] 最后一个 assistant 消息不以 thinking 块开始，自动填充思考块")
-
-                        # 找到最后一个 model 角色的 content
-                        for i in range(len(contents) - 1, -1, -1):
-                            content = contents[i]
-                            if isinstance(content, dict) and content.get("role") == "model":
-                                # 在 parts 开头插入思考块（使用官方跳过验证的虚拟签名）
-                                parts = content.get("parts", [])
-                                thinking_part = {
-                                    "text": "Continuing from previous context...",
-                                    # "thought": True,  # 标记为思考块
-                                    "thoughtSignature": "skip_thought_signature_validator"  # 官方文档推荐的虚拟签名
-                                }
-                                # 如果第一个 part 不是 thinking，则插入
-                                if not parts or not (isinstance(parts[0], dict) and ("thought" in parts[0] or "thoughtSignature" in parts[0])):
-                                    content["parts"] = [thinking_part] + parts
-                                    log.debug(f"[ANTIGRAVITY] 已在最后一个 assistant 消息开头插入思考块（含跳过验证签名）")
-                                break
+                    # 找到最后一个 model 角色的 content
+                    for i in range(len(contents) - 1, -1, -1):
+                        content = contents[i]
+                        if isinstance(content, dict) and content.get("role") == "model":
+                            # 在 parts 开头插入思考块（使用官方跳过验证的虚拟签名）
+                            parts = content.get("parts", [])
+                            thinking_part = {
+                                "text": "Continuing from previous context...",
+                                # "thought": True,  # 标记为思考块
+                                "thoughtSignature": "skip_thought_signature_validator",  # 官方文档推荐的虚拟签名
+                            }
+                            # 如果第一个 part 不是 thinking，则插入
+                            if not parts or not (
+                                isinstance(parts[0], dict)
+                                and ("thought" in parts[0] or "thoughtSignature" in parts[0])
+                            ):
+                                content["parts"] = [thinking_part] + parts
+                                log.debug(
+                                    f"[ANTIGRAVITY] 已在最后一个 assistant 消息开头插入思考块（含跳过验证签名）"
+                                )
+                            break
 
             # 移除 -thinking 后缀
             model = model.replace("-thinking", "")
@@ -384,7 +394,7 @@ async def normalize_gemini_request(
         original_model = model
         if "opus" in model.lower():
             model = "claude-opus-4-5-thinking"
-        elif "sonnet" in model.lower() or "haiku" in model.lower():
+        elif "sonnet" in model.lower():
             model = "claude-sonnet-4-5-thinking"
         elif "haiku" in model.lower():
             model = "gemini-2.5-flash"
