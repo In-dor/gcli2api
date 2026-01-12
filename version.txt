@@ -1,4 +1,4 @@
-full_hash=a2572c65e3859419cf0d8f4d7b4a1944162ed422
-short_hash=a2572c6
-message=Merge branch 'master' of https://github.com/In-dor/gcli2api
-date=2026-01-12 04:48:11 +0800
+full_hash=e4cc801950ef1b2c6a60310a3d8fe5520f658327
+short_hash=e4cc801
+message=Update anthropic.py
+date=2026-01-12 20:32:02 +0800

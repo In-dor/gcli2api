@@ -36,7 +36,7 @@ from src.auth import (
     get_auth_status,
     verify_password,
 )
-from src.credential_manager import CredentialManager
+from src.credential_manager import credential_manager
 from .models import (
     LoginRequest,
     AuthStartRequest,
@@ -55,8 +55,8 @@ from config import get_code_assist_endpoint, get_antigravity_api_url
 # 创建路由器
 router = APIRouter()
 
-# 创建credential manager实例（延迟初始化，在首次使用时自动初始化）
-credential_manager = CredentialManager()
+# 不在模块级创建实例，使用单例工厂按需获取
+# 直接按需从模块工厂获取凭证管理器，避免与 web.py 产生循环导入
 
 # WebSocket连接管理
 
@@ -138,20 +138,6 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-
-
-async def ensure_credential_manager_initialized():
-    """确保credential manager已初始化"""
-    if not credential_manager._initialized:
-        await credential_manager.initialize()
-
-
-async def get_credential_manager():
-    """获取全局凭证管理器实例（已废弃，直接使用模块级的 credential_manager）"""
-    global credential_manager
-    # 确保已初始化（在首次使用时自动初始化）
-    await credential_manager._ensure_initialized()
-    return credential_manager
 
 
 def is_mobile_user_agent(user_agent: str) -> bool:
@@ -946,13 +932,13 @@ async def deduplicate_credentials_by_email_common(mode: str = "geminicli") -> JS
 # =============================================================================
 
 
-@router.post("/auth/upload")
+@router.post("/creds/upload")
 async def upload_credentials(
     files: List[UploadFile] = File(...),
     token: str = Depends(verify_panel_token),
     mode: str = "geminicli",
 ):
-    """批量上传认证文件"""
+    """批量上传凭证文件"""
     try:
         mode = validate_mode(mode)
         return await upload_credentials_common(files, mode=mode)
@@ -1536,7 +1522,7 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
 # =============================================================================
 
 
-@router.post("/auth/logs/clear")
+@router.post("/logs/clear")
 async def clear_logs(token: str = Depends(verify_panel_token)):
     """清空日志文件"""
     try:
@@ -1569,7 +1555,7 @@ async def clear_logs(token: str = Depends(verify_panel_token)):
         raise HTTPException(status_code=500, detail=f"清空日志文件失败: {str(e)}")
 
 
-@router.get("/auth/logs/download")
+@router.get("/logs/download")
 async def download_logs(token: str = Depends(verify_panel_token)):
     """下载日志文件"""
     try:
@@ -1605,9 +1591,29 @@ async def download_logs(token: str = Depends(verify_panel_token)):
         raise HTTPException(status_code=500, detail=f"下载日志文件失败: {str(e)}")
 
 
-@router.websocket("/auth/logs/stream")
+@router.websocket("/logs/stream")
 async def websocket_logs(websocket: WebSocket):
     """WebSocket端点，用于实时日志流"""
+    # WebSocket 认证: 从查询参数获取 token
+    token = websocket.query_params.get("token")
+
+    if not token:
+        await websocket.close(code=403, reason="Missing authentication token")
+        log.warning("WebSocket连接被拒绝: 缺少认证token")
+        return
+
+    # 验证 token
+    try:
+        panel_password = await config.get_panel_password()
+        if token != panel_password:
+            await websocket.close(code=403, reason="Invalid authentication token")
+            log.warning("WebSocket连接被拒绝: token验证失败")
+            return
+    except Exception as e:
+        await websocket.close(code=1011, reason="Authentication error")
+        log.error(f"WebSocket认证过程出错: {e}")
+        return
+
     # 检查连接数限制
     if not await manager.connect(websocket):
         return
