@@ -4,7 +4,7 @@ services:
   gcli2api:
     image: ghcr.io/In-dor/gcli2api:latest
     container_name: gcli2api
-    restart: unless-stopped
+    restart: always
     network_mode: host
     # 环境变量文件
     env_file:
