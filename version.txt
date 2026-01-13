@@ -1,4 +1,4 @@
-full_hash=64bcd7b229a0020e74818eec156474ad3b41be56
-short_hash=64bcd7b
-message=Merge remote-tracking branch 'O/HEAD'
-date=2026-01-12 23:02:27 +0800
+full_hash=c25a637f19801264e2e6d2e7bc994b729b11931e
+short_hash=c25a637
+message=认证支持更多字段
+date=2026-01-13 18:29:36 +0800
