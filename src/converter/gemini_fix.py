@@ -407,6 +407,10 @@ async def normalize_gemini_request(
         if original_model != model:
             log.debug(f"[ANTIGRAVITY] 映射模型: {original_model} -> {model}")
 
+        # 5. 移除 antigravity 模式不支持的字段
+        generation_config.pop("presencePenalty", None)
+        generation_config.pop("frequencyPenalty", None)
+
     # ========== 公共处理 ==========
 
     # 1. 安全设置覆盖
@@ -414,13 +418,10 @@ async def normalize_gemini_request(
 
     # 2. 参数范围限制
     if generation_config:
-        max_tokens = generation_config.get("maxOutputTokens")
-        if max_tokens is not None:
-            generation_config["maxOutputTokens"] = 64000
-
-        top_k = generation_config.get("topK")
-        if top_k is not None:
-            generation_config["topK"] = 64
+        # 强制设置 maxOutputTokens 为 64000
+        generation_config["maxOutputTokens"] = 64000
+        # 强制设置 topK 为 64
+        generation_config["topK"] = 64
 
     if "contents" in result:
         cleaned_contents = []
@@ -441,10 +442,23 @@ async def normalize_gemini_request(
                     )
 
                     if has_valid_value:
-                        # 清理 text 字段的尾随空格
-                        if "text" in part and isinstance(part["text"], str):
-                            part = part.copy()
-                            part["text"] = part["text"].rstrip()
+                        part = part.copy()
+
+                        # 修复 text 字段：确保是字符串而不是列表
+                        if "text" in part:
+                            text_value = part["text"]
+                            if isinstance(text_value, list):
+                                # 如果是列表，合并为字符串
+                                log.warning(f"[GEMINI_FIX] text 字段是列表，自动合并: {text_value}")
+                                part["text"] = " ".join(str(t) for t in text_value if t)
+                            elif isinstance(text_value, str):
+                                # 清理尾随空格
+                                part["text"] = text_value.rstrip()
+                            else:
+                                # 其他类型转为字符串
+                                log.warning(f"[GEMINI_FIX] text 字段类型异常 ({type(text_value)}), 转为字符串: {text_value}")
+                                part["text"] = str(text_value)
+
                         valid_parts.append(part)
                     else:
                         log.warning(f"[GEMINI_FIX] 移除空的或无效的 part: {part}")
