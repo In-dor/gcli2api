@@ -3,8 +3,7 @@ Gemini Format Utilities - 统一的 Gemini 格式处理和转换工具
 提供对 Gemini API 请求体和响应的标准化处理
 ────────────────────────────────────────────────────────────────
 """
-
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from log import log
 from src.utils import DEFAULT_SAFETY_SETTINGS
@@ -65,8 +64,12 @@ def prepare_image_generation_request(request_body: Dict[str, Any], model: str) -
 
 def get_base_model_name(model_name: str) -> str:
     """移除模型名称中的后缀,返回基础模型名"""
-    # 按照从长到短的顺序排列，避免 -think 先于 -maxthinking 被匹配
-    suffixes = ["-maxthinking", "-nothinking", "-search", "-think"]
+    # 按照从长到短的顺序排列，避免短后缀先于长后缀被匹配
+    suffixes = [
+        "-maxthinking", "-nothinking",  # 兼容旧模式
+        "-minimal", "-medium", "-search", "-think",  # 中等长度后缀
+        "-high", "-max", "-low"  # 短后缀
+    ]
     result = model_name
     changed = True
     # 持续循环直到没有任何后缀可以移除
@@ -80,25 +83,76 @@ def get_base_model_name(model_name: str) -> str:
     return result
 
 
-def get_thinking_settings(model_name: str) -> tuple[Optional[int], bool]:
+def get_thinking_settings(model_name: str) -> tuple[Optional[int], Optional[str]]:
     """
     根据模型名称获取思考配置
 
+    支持两种模式:
+    1. CLI 模式思考预算 (Gemini 2.5 系列): -max, -high, -medium, -low, -minimal
+    2. CLI 模式思考等级 (Gemini 3 Preview 系列): -high, -medium, -low, -minimal (仅 3-flash)
+    3. 兼容旧模式: -maxthinking, -nothinking (不返回给用户)
+
     Returns:
-        (thinking_budget, include_thoughts): 思考预算和是否包含思考内容
+        (thinking_budget, thinking_level): 思考预算和思考等级
     """
     base_model = get_base_model_name(model_name)
 
+    # ========== 兼容旧模式 (不返回给用户) ==========
     if "-nothinking" in model_name:
-        # nothinking 模式: 限制思考,pro模型仍包含thoughts
-        return 128, "pro" in base_model
+        # nothinking 模式: 限制思考
+        if "flash" in base_model:
+            return 0, None
+        return 128, None
     elif "-maxthinking" in model_name:
         # maxthinking 模式: 最大思考预算
         budget = 24576 if "flash" in base_model else 32768
-        return budget, True
-    else:
-        # 默认模式: 不设置thinking budget
-        return None, True
+        return budget, None
+
+    # ========== 新 CLI 模式: 基于思考预算/等级 ==========
+
+    # Gemini 3 Preview 系列: 使用 thinkingLevel
+    if "gemini-3" in base_model:
+        if "-high" in model_name:
+            return None, "high"
+        elif "-medium" in model_name:
+            # 仅 3-flash-preview 支持 medium
+            if "flash" in base_model:
+                return None, "medium"
+            # pro 系列不支持 medium，返回 Default
+            return None, None
+        elif "-low" in model_name:
+            return None, "low"
+        elif "-minimal" in model_name:
+            return None, None
+        else:
+            # Default: 不设置 thinking 配置
+            return None, None
+
+    # Gemini 2.5 系列: 使用 thinkingBudget
+    elif "gemini-2.5" in base_model:
+        if "-max" in model_name:
+            # 2.5-flash-max: 24576, 2.5-pro-max: 32768
+            budget = 24576 if "flash" in base_model else 32768
+            return budget, None
+        elif "-high" in model_name:
+            # 2.5-flash-high: 16000, 2.5-pro-high: 16000
+            return 16000, None
+        elif "-medium" in model_name:
+            # 2.5-flash-medium: 8192, 2.5-pro-medium: 8192
+            return 8192, None
+        elif "-low" in model_name:
+            # 2.5-flash-low: 1024, 2.5-pro-low: 1024
+            return 1024, None
+        elif "-minimal" in model_name:
+            # 2.5-flash-minimal: 0, 2.5-pro-minimal: 128
+            budget = 0 if "flash" in base_model else 128
+            return budget, None
+        else:
+            # Default: 不设置 thinking budget
+            return None, None
+
+    # 其他模型: 不设置 thinking 配置
+    return None, None
 
 
 def is_search_model(model_name: str) -> bool:
@@ -112,44 +166,6 @@ def is_search_model(model_name: str) -> bool:
 def is_thinking_model(model_name: str) -> bool:
     """检查是否为思考模型 (包含 -thinking 或 pro)"""
     return "think" in model_name or "pro" in model_name.lower()
-
-
-def check_last_assistant_has_thinking(contents: List[Dict[str, Any]]) -> bool:
-    """
-    检查最后一个 assistant 消息是否以 thinking 块开始
-
-    根据 Claude API 要求：当启用 thinking 时，最后一个 assistant 消息必须以 thinking 块开始
-
-    Args:
-        contents: Gemini 格式的 contents 数组
-
-    Returns:
-        如果最后一个 assistant 消息以 thinking 块开始则返回 True，否则返回 False
-    """
-    if not contents:
-        return True  # 没有 contents，允许启用 thinking
-
-    # 从后往前找最后一个 assistant (model) 消息
-    last_assistant_content = None
-    for content in reversed(contents):
-        if isinstance(content, dict) and content.get("role") == "model":
-            last_assistant_content = content
-            break
-
-    if not last_assistant_content:
-        return True  # 没有 assistant 消息，允许启用 thinking
-
-    # 检查第一个 part 是否是 thinking 块
-    parts = last_assistant_content.get("parts", [])
-    if not parts:
-        return False  # 有 assistant 消息但没有 parts，不允许 thinking
-
-    first_part = parts[0]
-    if not isinstance(first_part, dict):
-        return False
-
-    # 检查是否是 thinking 块（有 thought 或 thoughtSignature 字段）
-    return "thought" in first_part or "thoughtSignature" in first_part
 
 
 async def normalize_gemini_request(
@@ -341,51 +357,41 @@ async def normalize_gemini_request(
             # 检查最后一个 assistant 消息是否以 thinking 块开始
             contents = result.get("contents", [])
 
-            if not check_last_assistant_has_thinking(contents) and "claude" in model.lower():
-                # 检测是否有工具调用（MCP场景）
-                has_tool_calls = any(
-                    isinstance(content, dict)
-                    and any(
-                        isinstance(part, dict)
-                        and ("functionCall" in part or "function_call" in part)
-                        for part in content.get("parts", [])
-                    )
-                    for content in contents
-                )
-
-                if has_tool_calls:
-                    # MCP 场景：检测到工具调用，移除 thinkingConfig
-                    log.warning(
-                        f"[ANTIGRAVITY] 检测到工具调用（MCP场景），移除 thinkingConfig 避免失效"
-                    )
-                    generation_config.pop("thinkingConfig", None)
-                else:
-                    # 非 MCP 场景：填充思考块
-                    log.warning(
-                        f"[ANTIGRAVITY] 最后一个 assistant 消息不以 thinking 块开始，自动填充思考块"
+                if not check_last_assistant_has_thinking(contents) and "claude" in model.lower():
+                    # 检测是否有工具调用（MCP场景）
+                    has_tool_calls = any(
+                        isinstance(content, dict) and
+                        any(
+                            isinstance(part, dict) and ("functionCall" in part or "function_call" in part)
+                            for part in content.get("parts", [])
+                        )
+                        for content in contents
                     )
 
-                    # 找到最后一个 model 角色的 content
-                    for i in range(len(contents) - 1, -1, -1):
-                        content = contents[i]
-                        if isinstance(content, dict) and content.get("role") == "model":
-                            # 在 parts 开头插入思考块（使用官方跳过验证的虚拟签名）
-                            parts = content.get("parts", [])
-                            thinking_part = {
-                                "text": "Continuing from previous context...",
-                                # "thought": True,  # 标记为思考块
-                                "thoughtSignature": "skip_thought_signature_validator",  # 官方文档推荐的虚拟签名
-                            }
-                            # 如果第一个 part 不是 thinking，则插入
-                            if not parts or not (
-                                isinstance(parts[0], dict)
-                                and ("thought" in parts[0] or "thoughtSignature" in parts[0])
-                            ):
-                                content["parts"] = [thinking_part] + parts
-                                log.debug(
-                                    f"[ANTIGRAVITY] 已在最后一个 assistant 消息开头插入思考块（含跳过验证签名）"
-                                )
-                            break
+                    if has_tool_calls:
+                        # MCP 场景：检测到工具调用，移除 thinkingConfig
+                        log.warning(f"[ANTIGRAVITY] 检测到工具调用（MCP场景），移除 thinkingConfig 避免失效")
+                        generation_config.pop("thinkingConfig", None)
+                    else:
+                        # 非 MCP 场景：填充思考块
+                        log.warning(f"[ANTIGRAVITY] 最后一个 assistant 消息不以 thinking 块开始，自动填充思考块")
+
+                        # 找到最后一个 model 角色的 content
+                        for i in range(len(contents) - 1, -1, -1):
+                            content = contents[i]
+                            if isinstance(content, dict) and content.get("role") == "model":
+                                # 在 parts 开头插入思考块（使用官方跳过验证的虚拟签名）
+                                parts = content.get("parts", [])
+                                thinking_part = {
+                                    "text": "Continuing from previous context...",
+                                    # "thought": True,  # 标记为思考块
+                                    "thoughtSignature": "skip_thought_signature_validator"  # 官方文档推荐的虚拟签名
+                                }
+                                # 如果第一个 part 不是 thinking，则插入
+                                if not parts or not (isinstance(parts[0], dict) and ("thought" in parts[0] or "thoughtSignature" in parts[0])):
+                                    content["parts"] = [thinking_part] + parts
+                                    log.debug(f"[ANTIGRAVITY] 已在最后一个 assistant 消息开头插入思考块（含跳过验证签名）")
+                                break
 
             # 移除 -thinking 后缀
             model = model.replace("-thinking", "")
