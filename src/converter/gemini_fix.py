@@ -3,6 +3,7 @@ Gemini Format Utilities - 统一的 Gemini 格式处理和转换工具
 提供对 Gemini API 请求体和响应的标准化处理
 ────────────────────────────────────────────────────────────────
 """
+
 from typing import Any, Dict, Optional
 
 from log import log
@@ -66,9 +67,15 @@ def get_base_model_name(model_name: str) -> str:
     """移除模型名称中的后缀,返回基础模型名"""
     # 按照从长到短的顺序排列，避免短后缀先于长后缀被匹配
     suffixes = [
-        "-maxthinking", "-nothinking",  # 兼容旧模式
-        "-minimal", "-medium", "-search", "-think",  # 中等长度后缀
-        "-high", "-max", "-low"  # 短后缀
+        "-maxthinking",
+        "-nothinking",  # 兼容旧模式
+        "-minimal",
+        "-medium",
+        "-search",
+        "-think",  # 中等长度后缀
+        "-high",
+        "-max",
+        "-low",  # 短后缀
     ]
     result = model_name
     changed = True
@@ -166,6 +173,32 @@ def is_search_model(model_name: str) -> bool:
 def is_thinking_model(model_name: str) -> bool:
     """检查是否为思考模型 (包含 -thinking 或 pro)"""
     return "think" in model_name or "pro" in model_name.lower()
+
+
+def check_last_assistant_has_thinking(contents: list) -> bool:
+    """检查最后一个 model 消息是否包含 thinking 块"""
+    if not contents:
+        return False
+
+    # 找到最后一个 model 角色的 content
+    for i in range(len(contents) - 1, -1, -1):
+        content = contents[i]
+        if isinstance(content, dict) and content.get("role") == "model":
+            parts = content.get("parts", [])
+            if not parts:
+                return False
+
+            # 检查第一个 part 是否是 thinking 块
+            first_part = parts[0]
+            if isinstance(first_part, dict):
+                # 检查是否包含 thought 标记或签名
+                if first_part.get("thought", False) or "thoughtSignature" in first_part:
+                    return True
+
+            # 只检查最后一个 model 消息，找到就停止
+            return False
+
+    return False
 
 
 async def normalize_gemini_request(
@@ -357,41 +390,51 @@ async def normalize_gemini_request(
             # 检查最后一个 assistant 消息是否以 thinking 块开始
             contents = result.get("contents", [])
 
-                if not check_last_assistant_has_thinking(contents) and "claude" in model.lower():
-                    # 检测是否有工具调用（MCP场景）
-                    has_tool_calls = any(
-                        isinstance(content, dict) and
-                        any(
-                            isinstance(part, dict) and ("functionCall" in part or "function_call" in part)
-                            for part in content.get("parts", [])
-                        )
-                        for content in contents
+            if not check_last_assistant_has_thinking(contents) and "claude" in model.lower():
+                # 检测是否有工具调用（MCP场景）
+                has_tool_calls = any(
+                    isinstance(content, dict)
+                    and any(
+                        isinstance(part, dict)
+                        and ("functionCall" in part or "function_call" in part)
+                        for part in content.get("parts", [])
+                    )
+                    for content in contents
+                )
+
+                if has_tool_calls:
+                    # MCP 场景：检测到工具调用，移除 thinkingConfig
+                    log.warning(
+                        f"[ANTIGRAVITY] 检测到工具调用（MCP场景），移除 thinkingConfig 避免失效"
+                    )
+                    generation_config.pop("thinkingConfig", None)
+                else:
+                    # 非 MCP 场景：填充思考块
+                    log.warning(
+                        f"[ANTIGRAVITY] 最后一个 assistant 消息不以 thinking 块开始，自动填充思考块"
                     )
 
-                    if has_tool_calls:
-                        # MCP 场景：检测到工具调用，移除 thinkingConfig
-                        log.warning(f"[ANTIGRAVITY] 检测到工具调用（MCP场景），移除 thinkingConfig 避免失效")
-                        generation_config.pop("thinkingConfig", None)
-                    else:
-                        # 非 MCP 场景：填充思考块
-                        log.warning(f"[ANTIGRAVITY] 最后一个 assistant 消息不以 thinking 块开始，自动填充思考块")
-
-                        # 找到最后一个 model 角色的 content
-                        for i in range(len(contents) - 1, -1, -1):
-                            content = contents[i]
-                            if isinstance(content, dict) and content.get("role") == "model":
-                                # 在 parts 开头插入思考块（使用官方跳过验证的虚拟签名）
-                                parts = content.get("parts", [])
-                                thinking_part = {
-                                    "text": "Continuing from previous context...",
-                                    # "thought": True,  # 标记为思考块
-                                    "thoughtSignature": "skip_thought_signature_validator"  # 官方文档推荐的虚拟签名
-                                }
-                                # 如果第一个 part 不是 thinking，则插入
-                                if not parts or not (isinstance(parts[0], dict) and ("thought" in parts[0] or "thoughtSignature" in parts[0])):
-                                    content["parts"] = [thinking_part] + parts
-                                    log.debug(f"[ANTIGRAVITY] 已在最后一个 assistant 消息开头插入思考块（含跳过验证签名）")
-                                break
+                    # 找到最后一个 model 角色的 content
+                    for i in range(len(contents) - 1, -1, -1):
+                        content = contents[i]
+                        if isinstance(content, dict) and content.get("role") == "model":
+                            # 在 parts 开头插入思考块（使用官方跳过验证的虚拟签名）
+                            parts = content.get("parts", [])
+                            thinking_part = {
+                                "text": "Continuing from previous context...",
+                                # "thought": True,  # 标记为思考块
+                                "thoughtSignature": "skip_thought_signature_validator",  # 官方文档推荐的虚拟签名
+                            }
+                            # 如果第一个 part 不是 thinking，则插入
+                            if not parts or not (
+                                isinstance(parts[0], dict)
+                                and ("thought" in parts[0] or "thoughtSignature" in parts[0])
+                            ):
+                                content["parts"] = [thinking_part] + parts
+                                log.debug(
+                                    f"[ANTIGRAVITY] 已在最后一个 assistant 消息开头插入思考块（含跳过验证签名）"
+                                )
+                            break
 
             # 移除 -thinking 后缀
             model = model.replace("-thinking", "")
@@ -462,7 +505,9 @@ async def normalize_gemini_request(
                                 part["text"] = text_value.rstrip()
                             else:
                                 # 其他类型转为字符串
-                                log.warning(f"[GEMINI_FIX] text 字段类型异常 ({type(text_value)}), 转为字符串: {text_value}")
+                                log.warning(
+                                    f"[GEMINI_FIX] text 字段类型异常 ({type(text_value)}), 转为字符串: {text_value}"
+                                )
                                 part["text"] = str(text_value)
 
                         valid_parts.append(part)
