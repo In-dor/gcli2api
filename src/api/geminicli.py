@@ -196,8 +196,8 @@ async def stream_request(
                     except Exception:
                         error_body = ""
 
-                    # 如果错误码是429或者在禁用码当中，做好记录后进行重试
-                    if status_code == 429 or status_code in DISABLE_ERROR_CODES:
+                    # 如果错误码是429、503或者在禁用码当中，做好记录后进行重试
+                    if status_code == 429 or status_code == 503 or status_code in DISABLE_ERROR_CODES:
                         log.warning(f"[GEMINICLI STREAM] 流式请求失败 (status={status_code}), 凭证: {current_file}, 响应: {error_body[:500] if error_body else '无'}")
 
                         # 并行预热下一个凭证,不阻塞当前处理
@@ -210,7 +210,7 @@ async def stream_request(
 
                         # 记录错误
                         cooldown_until = None
-                        if status_code == 429 and error_body:
+                        if (status_code == 429 or status_code == 503) and error_body:
                             # 使用已缓存的error_body解析冷却时间
                             try:
                                 cooldown_until = await parse_and_log_cooldown(error_body, mode="geminicli")
@@ -262,25 +262,7 @@ async def stream_request(
             if success_recorded:
                 log.debug(f"[GEMINICLI STREAM] 流式响应完成，模型: {model_name}")
                 return
-            elif not need_retry:
-                # 没有收到任何数据（空回复），需要重试
-                log.warning(f"[GEMINICLI STREAM] 收到空回复，无任何内容，凭证: {current_file}")
-                await record_api_call_error(
-                    credential_manager, current_file, 200,
-                    None, mode="geminicli", model_key=model_group
-                )
-                
-                if attempt < max_retries:
-                    need_retry = True
-                else:
-                    log.error(f"[GEMINICLI STREAM] 空回复达到最大重试次数")
-                    yield Response(
-                        content=json.dumps({"error": "服务返回空回复"}),
-                        status_code=500,
-                        media_type="application/json"
-                    )
-                    return
-            
+
             # 统一处理重试
             if need_retry:
                 log.info(f"[GEMINICLI STREAM] 重试请求 (attempt {attempt + 2}/{max_retries + 1})...")
@@ -532,7 +514,7 @@ async def non_stream_request(
 
                 # 记录错误
                 cooldown_until = None
-                if status_code == 429 and error_text:
+                if status_code == 429 or status_code == 503 and error_text:
                     # 使用已缓存的error_text解析冷却时间
                     try:
                         cooldown_until = await parse_and_log_cooldown(error_text, mode="geminicli")
