@@ -8,14 +8,40 @@ import json
 import os
 import time
 import zipfile
-from typing import List
+from collections import deque
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, Response
-from fastapi.responses import JSONResponse
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    Response,
+    WebSocket,
+    Request,
+)
+from fastapi.responses import JSONResponse, HTMLResponse
+from starlette.websockets import WebSocketState
 
+import config
 from log import log
 from src.credential_manager import credential_manager
-from src.models import CredFileActionRequest, CredFileBatchActionRequest
+from src.models import (
+    CredFileActionRequest,
+    CredFileBatchActionRequest,
+    LoginRequest,
+    AuthStartRequest,
+    AuthCallbackRequest,
+    AuthCallbackUrlRequest,
+)
+from src.auth import (
+    create_auth_url,
+    asyncio_complete_auth_flow,
+    complete_auth_flow_from_callback_url,
+    get_auth_status,
+    verify_password,
+)
 from src.storage_adapter import get_storage_adapter
 from src.utils import verify_panel_token, GEMINICLI_USER_AGENT, ANTIGRAVITY_USER_AGENT
 from src.api.antigravity import fetch_quota_info
@@ -187,7 +213,7 @@ async def start_auth(request: AuthStartRequest, token: str = Depends(verify_pane
 
         # 使用认证令牌作为用户会话标识
         user_session = token if token else None
-        result = await create_auth_url(project_id, user_session, mode=request.mode)
+        result = await create_auth_url(project_id, user_session, mode=request.mode or "geminicli")
 
         if result["success"]:
             return JSONResponse(
@@ -218,7 +244,9 @@ async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verif
         # 使用认证令牌作为用户会话标识
         user_session = token if token else None
         # 异步等待OAuth回调完成
-        result = await asyncio_complete_auth_flow(project_id, user_session, mode=request.mode)
+        result = await asyncio_complete_auth_flow(
+            project_id, user_session, mode=request.mode or "geminicli"
+        )
 
         if result["success"]:
             # 单项目认证成功
@@ -270,7 +298,7 @@ async def auth_callback_url(
 
         # 从回调URL完成认证
         result = await complete_auth_flow_from_callback_url(
-            request.callback_url, request.project_id, mode=request.mode
+            request.callback_url, request.project_id, mode=request.mode or "geminicli"
         )
 
         if result["success"]:
@@ -434,6 +462,9 @@ async def upload_credentials_common(
     files_data = []
     for file in files:
         # 检查文件类型：支持JSON和ZIP
+        if not file.filename:
+            continue
+
         if file.filename.endswith(".zip"):
             zip_files_data = await extract_json_files_from_zip(file)
             files_data.extend(zip_files_data)
@@ -512,9 +543,9 @@ async def upload_credentials_common(
                         "message": f"处理异常: {str(result)}",
                     }
                 )
-            else:
+            elif isinstance(result, dict):
                 processed_results.append(result)
-                if result["status"] == "success":
+                if result.get("status") == "success":
                     batch_uploaded_count += 1
 
         all_results.extend(processed_results)
@@ -545,9 +576,9 @@ async def get_creds_status_common(
     limit: int,
     status_filter: str,
     mode: str = "geminicli",
-    error_code_filter: str = None,
-    cooldown_filter: str = None,
-    preview_filter: str = None,
+    error_code_filter: Optional[str] = None,
+    cooldown_filter: Optional[str] = None,
+    preview_filter: Optional[str] = None,
 ) -> JSONResponse:
     """获取凭证文件状态的通用函数"""
     mode = validate_mode(mode)
@@ -602,16 +633,16 @@ async def get_creds_status_common(
 
         creds_list.append(cred_info)
 
-        return JSONResponse(
-            content={
-                "items": creds_list,
-                "total": result["total"],
-                "offset": offset,
-                "limit": limit,
-                "has_more": (offset + limit) < result["total"],
-                "stats": result.get("stats", {"total": 0, "normal": 0, "disabled": 0}),
-            }
-        )
+    return JSONResponse(
+        content={
+            "items": creds_list,
+            "total": result["total"],
+            "offset": offset,
+            "limit": limit,
+            "has_more": (offset + limit) < result["total"],
+            "stats": result.get("stats", {"total": 0, "normal": 0, "disabled": 0}),
+        }
+    )
 
     # 回退到传统方式（MongoDB/其他后端）
     all_credentials = await storage_adapter.list_credentials(mode=mode)
