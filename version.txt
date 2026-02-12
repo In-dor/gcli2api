@@ -1,4 +1,4 @@
-full_hash=6b3863e77b57013b340ea50dfdae9bbb4a79deb4
-short_hash=6b3863e
-message=修正配置显示
-date=2026-02-11 21:41:29 +0800
+full_hash=7b53d78c8a00c97730b1d62db1bb51a678bbd3a8
+short_hash=7b53d78
+message=修
+date=2026-02-02 20:07:48 +0800
