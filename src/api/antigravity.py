@@ -325,7 +325,16 @@ async def stream_request(
             else:
                 # 所有重试都失败，返回最后一次的错误（如果有）
                 log.error(f"[ANTIGRAVITY STREAM] 所有重试均失败，最后异常: {e}")
-                yield last_error_response
+                if last_error_response:
+                    yield last_error_response
+                else:
+                    # 如果没有记录到错误响应，返回500错误
+                    yield Response(
+                        content=json.dumps({"error": f"流式请求异常: {str(e)}"}),
+                        status_code=500,
+                        media_type="application/json"
+                    )
+                return
 
 
 async def non_stream_request(
@@ -582,13 +591,27 @@ async def non_stream_request(
                 await asyncio.sleep(retry_interval)
                 continue
             else:
-                # 所有重试都失败，返回最后一次的错误（如果有）
+                # 所有重试都失败，返回最后一次的错误（如果有）或500错误
                 log.error(f"[ANTIGRAVITY] 所有重试均失败，最后异常: {e}")
-                return last_error_response
+                if last_error_response:
+                    return last_error_response
+                else:
+                    return Response(
+                        content=json.dumps({"error": f"非流式请求异常: {str(e)}"}),
+                        status_code=500,
+                        media_type="application/json"
+                    )
 
-    # 所有重试都失败，返回最后一次的原始错误
+    # 所有重试都失败，返回最后一次的原始错误（如果有）或500错误
     log.error("[ANTIGRAVITY] 所有重试均失败")
-    return last_error_response
+    if last_error_response:
+        return last_error_response
+    else:
+        return Response(
+            content=json.dumps({"error": "所有重试均失败"}),
+            status_code=500,
+            media_type="application/json"
+        )
 
 
 # ==================== 模型和配额查询 ====================
@@ -647,15 +670,24 @@ async def fetch_available_models() -> List[Dict[str, Any]]:
                         owned_by='google'
                     )
                     model_list.append(model_to_dict(model))
-
             # 添加额外的 claude-opus-4-5 模型
-            claude_opus_model = Model(
-                id='claude-opus-4-5',
-                object='model',
-                created=current_timestamp,
-                owned_by='google'
-            )
-            model_list.append(model_to_dict(claude_opus_model))
+            if "claude-opus-4-5-thinking" in data.get('models', {}):
+                model = Model(
+                    id='claude-opus-4-5',
+                    object='model',
+                    created=current_timestamp,
+                    owned_by='google'
+                )
+                model_list.append(model_to_dict(model))
+            # 添加额外的 claude-opus-4-6 模型
+            if "claude-opus-4-6-thinking" in data.get('models', {}):
+                claude_opus_model = Model(
+                    id='claude-opus-4-6',
+                    object='model',
+                    created=current_timestamp,
+                    owned_by='google'
+                )
+                model_list.append(model_to_dict(claude_opus_model))
 
             log.info(f"[ANTIGRAVITY] Fetched {len(model_list)} available models")
             return model_list

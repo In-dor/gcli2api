@@ -823,6 +823,316 @@
         transition: width 0.5s ease;
       }
 
+        .usage-progress-fill.gemini {
+            background-color: #ff6b35;
+        }
+
+        .usage-progress-fill.total {
+            background-color: #007bff;
+        }
+
+        .usage-progress-fill.warning {
+            background-color: #ffc107;
+        }
+
+        .usage-progress-fill.danger {
+            background-color: #dc3545;
+        }
+
+        .usage-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .usage-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .usage-btn.reset {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .usage-btn.limits {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .usage-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .usage-info-item {
+            background-color: #ffffff;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .usage-info-label {
+            font-weight: bold;
+            color: #666;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .usage-info-value {
+            color: #333;
+        }
+
+        .reset-time {
+            font-size: 11px;
+            color: #666;
+            font-style: italic;
+            margin-top: 5px;
+        }
+
+        /* 限制设置弹窗样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .modal-title {
+            margin: 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .modal-body {
+            margin-bottom: 15px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* 消息模态框样式 */
+        .message-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            animation: fadeIn 0.2s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .message-modal {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .message-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .message-modal.success .message-modal-header {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .message-modal.error .message-modal-header {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .message-modal.info .message-modal-header {
+            background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+            color: white;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .message-modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .message-modal-close {
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .message-modal-close:hover {
+            opacity: 1;
+        }
+
+        .message-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            line-height: 1.6;
+            color: #333;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .message-modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .message-modal-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #4285f4;
+            color: white;
+        }
+
+        .message-modal-btn:hover {
+            background-color: #3367d6;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
+        }
+
+        /* 消息中的链接样式 */
+        .message-link {
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 2px 4px;
+            border-radius: 3px;
+            background-color: rgba(25, 118, 210, 0.1);
+            transition: all 0.2s;
+            display: inline-block;
+            word-break: break-all;
+        }
+
+        .message-link:hover {
+            background-color: rgba(25, 118, 210, 0.2);
+            text-decoration: underline;
+            transform: translateY(-1px);
+        }
+
+        .message-link:active {
+            transform: translateY(0);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .message-modal {
+                max-width: 95%;
+                max-height: 90vh;
+            }
+
+            .message-modal-header {
+                padding: 16px 20px;
+            }
+
+            .message-modal-body {
+                padding: 20px;
+                font-size: 13px;
+            }
+
+            .message-modal-footer {
+                padding: 12px 20px;
+            }
+        }
       .quota-reset-time {
         font-size: 0.75rem;
         color: var(--text-light);
@@ -2022,220 +2332,158 @@
                       />
                     </div>
 
-                    <div
-                      style="
-                        background: #f8fafc;
-                        padding: 1rem;
-                        border-radius: 8px;
-                        margin-bottom: 1rem;
-                      "
-                    >
-                      <label
-                        style="
-                          display: flex;
-                          align-items: center;
-                          gap: 0.5rem;
-                          cursor: pointer;
-                        "
-                      >
-                        <input
-                          type="checkbox"
-                          id="retry429Enabled"
-                          style="width: auto"
-                        />
-                        启用 429 重试
-                      </label>
-                      <div style="display: flex; gap: 1rem; margin-top: 0.5rem">
-                        <div style="flex: 1">
-                          <label>最大次数</label>
-                          <input type="number" id="retry429MaxRetries" />
-                        </div>
-                        <div style="flex: 1">
-                          <label>间隔(秒)</label>
-                          <input
-                            type="number"
-                            id="retry429Interval"
-                            step="0.1"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                        <div class="config-group">
+                            <h4>重试配置</h4>
 
-                    <div
-                      style="
-                        display: grid;
-                        grid-template-columns: repeat(
-                          auto-fit,
-                          minmax(200px, 1fr)
-                        );
-                        gap: 1rem;
-                      "
-                    >
-                      <div>
-                        <label>轮换频率 (次/个)</label>
-                        <input type="number" id="callsPerRotation" />
-                      </div>
-                      <div>
-                        <label>抗截断重试次数</label>
-                        <input type="number" id="antiTruncationMaxAttempts" />
-                        <small
-                          style="
-                            display: block;
-                            color: var(--text-light);
-                            font-size: 0.75rem;
-                            margin-top: 2px;
-                          "
-                          >仅流式抗截断模型生效</small
-                        >
-                      </div>
-                    </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="retry429Enabled" class="config-checkbox" />
+                                    启用错误重试
+                                </label>
+                                <small class="config-note">遇到错误时自动重试</small>
+                            </div>
 
-                    <div
-                      style="
-                        margin-top: 1rem;
-                        padding: 1rem;
-                        background: #f0f9ff;
-                        border-radius: 8px;
-                      "
-                    >
-                      <div style="margin-bottom: 0.8rem">
-                        <label
-                          style="
-                            display: flex;
-                            align-items: center;
-                            gap: 0.5rem;
-                            cursor: pointer;
-                            margin-bottom: 0.2rem;
-                          "
-                        >
-                          <input
-                            type="checkbox"
-                            id="compatibilityModeEnabled"
-                            style="width: auto"
-                          />
-                          兼容性模式
-                        </label>
-                        <small
-                          style="
-                            display: block;
-                            color: var(--text-light);
-                            font-size: 0.75rem;
-                            padding-left: 1.5rem;
-                          "
-                          >将 System 消息转换为 User 消息，避免流式空回</small
-                        >
-                      </div>
-                      <div>
-                        <label
-                          style="
-                            display: flex;
-                            align-items: center;
-                            gap: 0.5rem;
-                            cursor: pointer;
-                            margin-bottom: 0.2rem;
-                          "
-                        >
-                          <input
-                            type="checkbox"
-                            id="returnThoughtsToFrontend"
-                            style="width: auto"
-                          />
-                          返回思维链 (Thinking)
-                        </label>
-                        <small
-                          style="
-                            display: block;
-                            color: var(--text-light);
-                            font-size: 0.75rem;
-                            padding-left: 1.5rem;
-                          "
-                          >启用后返回模型的思考过程 (如 Gemini 3.0 Pro)</small
-                        >
-                      </div>
-                      <div style="margin-top: 0.8rem">
-                        <label
-                          style="
-                            display: flex;
-                            align-items: center;
-                            gap: 0.5rem;
-                            cursor: pointer;
-                            margin-bottom: 0.2rem;
-                          "
-                        >
-                          <input
-                            type="checkbox"
-                            id="antigravityStream2nostream"
-                            style="width: auto"
-                          />
-                          Antigravity 流转非流
-                        </label>
-                        <small
-                          style="
-                            display: block;
-                            color: var(--text-light);
-                            font-size: 0.75rem;
-                            padding-left: 1.5rem;
-                          "
-                          >Antigravity 渠道强制将流式响应转换为非流式返回</small
-                        >
-                      </div>
-                      <div style="margin-top: 0.8rem">
-                        <label
-                          style="
-                            display: flex;
-                            align-items: center;
-                            gap: 0.5rem;
-                            cursor: pointer;
-                            margin-bottom: 0.2rem;
-                          "
-                        >
-                          <input
-                            type="checkbox"
-                            id="requestThoughtsFromModel"
-                            style="width: auto"
-                          />
-                          向模型请求思维链
-                        </label>
-                        <small
-                          style="
-                            display: block;
-                            color: var(--text-light);
-                            font-size: 0.75rem;
-                            padding-left: 1.5rem;
-                          "
-                          >强制向模型发送
-                          includeThoughts=True。若关闭，则仅在用户显式请求时发送。</small
-                        >
-                      </div>
-                      <div style="margin-top: 0.8rem">
-                        <label
-                          style="
-                            display: flex;
-                            align-items: center;
-                            gap: 0.5rem;
-                            cursor: pointer;
-                            margin-bottom: 0.2rem;
-                          "
-                        >
-                          <input
-                            type="checkbox"
-                            id="showVariantModels"
-                            style="width: auto"
-                          />
-                          显示变体模型
-                        </label>
-                        <small
-                          style="
-                            display: block;
-                            color: var(--text-light);
-                            font-size: 0.75rem;
-                            padding-left: 1.5rem;
-                          "
-                          >在模型列表中显示 "假流式/"、"流式抗截断/"
-                          等前缀的模型。即使隐藏，仍可通过名称调用。</small
-                        >
-                      </div>
+                            <div class="form-group">
+                                <label for="retry429MaxRetries">错误重试次数:</label>
+                                <input type="number" id="retry429MaxRetries" class="config-input" min="1" max="50" />
+                                <small class="config-note">遇到错误时的最大重试次数</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="retry429Interval">错误重试间隔(秒):</label>
+                                <input type="number" id="retry429Interval" class="config-input" min="0.01" max="10"
+                                    step="0.01" />
+                                <small class="config-note">遇到错误时每两次重试间的等待时间</small>
+                            </div>
+                        </div>
+
+                        <div class="config-group">
+                            <h4>其他设置</h4>
+                            <div class="form-group">
+                                <label for="callsPerRotation">轮换频率 (次/个):</label>
+                                <input type="number" id="callsPerRotation" class="config-input" min="1" max="1000" />
+                                <small class="config-note">每个凭证使用多少次后切换到下一个</small>
+                            </div>
+                        </div>
+    
+    
+                            <div class="config-group">
+                                <h4>兼容性配置</h4>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="compatibilityModeEnabled" class="config-checkbox" />
+                                    启用兼容性模式
+                                </label>
+                                <small class="config-note">启用后所有system消息全部转换成user，停用system_instructions <span
+                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                                <div class="config-info"
+                                    style="background-color: #fff3cd; border: 1px solid #ffc107; color: #856404;">
+                                    <strong>⚠️ 注意：</strong>该选项可能会降低模型理解能力，但是能避免流式空回的情况。
+                                    <br><strong>适用场景：</strong>当遇到流式传输时模型不返回内容或返回空响应时启用此选项。
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="returnThoughtsToFrontend" class="config-checkbox" />
+                                    返回思维链到前端
+                                </label>
+                                <small class="config-note">启用后，模型的思维链会在响应中返回；禁用后，思维链会被过滤掉 <span
+                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                                <div class="config-info"
+                                    style="background-color: #e3f2fd; border: 1px solid #2196f3; color: #0d47a1;">
+                                    <strong>💭 说明：</strong>某些模型（如Gemini 2.0
+                                    Pro）支持thinking模式，会在生成回答前先输出思考过程。启用后可以看到模型的思考过程；禁用后只显示最终回答，让输出更简洁。
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="antigravityStream2nostream" class="config-checkbox" />
+                                    Antigravity流式转非流式
+                                </label>
+                                <small class="config-note">启用后，非流式请求将使用流式API并收集为完整响应 <span
+                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                                <div class="config-info"
+                                    style="background-color: #f3e5f5; border: 1px solid #9c27b0; color: #4a148c;">
+                                    <strong>🔄 说明：</strong>针对Antigravity模式的优化选项。启用后，即使客户端请求非流式响应，后端也会使用流式API获取数据并收集完整后再返回。
+                                    <br><strong>适用场景：</strong>某些情况下流式API比非流式API更稳定，启用此选项可以提高响应质量。
+                                    <br><strong>默认：</strong>已启用
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="requestThoughtsFromModel" class="config-checkbox" />
+                                    向模型请求思维链
+                                </label>
+                                <small class="config-note">强制向模型发送 includeThoughts=True。若关闭，则仅在用户显式请求时发送。 <span
+                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                            </div>
+
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="showVariantModels" class="config-checkbox" />
+                                    显示变体模型
+                                </label>
+                                <small class="config-note">在模型列表中显示 "假流式/"、"流式抗截断/" 等前缀的模型。 <span
+                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                            </div>
+                        </div>
+
+                        <div class="config-group">
+                            <h4>抗截断配置</h4>
+
+                            <div class="form-group">
+                                <label for="antiTruncationMaxAttempts">抗截断最大重试次数:</label>
+                                <input type="number" id="antiTruncationMaxAttempts" class="config-input" min="1"
+                                    max="10" />
+                                <small class="config-note">当检测到输出截断时的最大续传尝试次数</small>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="config-info">
+                                    <strong>注意：</strong>抗截断功能现在通过模型名控制：
+                                    <ul style="margin: 5px 0; padding-left: 20px;">
+                                        <li>选择带有 "-流式抗截断" 后缀的模型即可启用</li>
+                                        <li>该功能仅在流式传输时生效</li>
+                                        <li>例如: "gemini-2.5-pro-流式抗截断"</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="config-group">
+                            <h4>配置热更新说明</h4>
+
+                            <div class="form-group">
+                                <div class="config-info"
+                                    style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724;">
+                                    <strong>🔥 热更新配置（立即生效）：</strong>
+                                    <ul style="margin: 8px 0; padding-left: 20px; color: #212529;">
+                                        <li><strong>网络配置：</strong>代理设置、端点配置、HTTP超时时间、最大连接数</li>
+                                        <li><strong>API配置：</strong>凭证轮换次数、错误重试设置、自动封禁配置</li>
+                                        <li><strong>密码配置：</strong>API密码、控制面板密码、通用密码</li>
+                                        <li><strong>功能配置：</strong>抗截断最大重试次数</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <div class="config-info"
+                                    style="background-color: #fff3cd; border: 1px solid #ffc107; color: #856404;">
+                                    <strong>🔄 需要重启的配置：</strong>
+                                    <ul style="margin: 8px 0; padding-left: 20px; color: #212529;">
+                                        <li><strong>服务器配置：</strong>主机地址、端口号</li>
+                                        <li><strong>目录配置：</strong>凭证目录路径、Code Assist端点</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                        </div>
                     </div>
+                </div>
+            </div>
                   </div>
                 </div>
               </div>

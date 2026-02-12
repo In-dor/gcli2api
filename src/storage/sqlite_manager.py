@@ -95,6 +95,9 @@ class SQLiteManager:
                     # 创建表
                     await self._create_tables(db)
 
+                    # 修复可能包含路径的凭证文件名
+                    await self._repair_credential_filenames(db)
+
                     await db.commit()
 
                 # 加载配置到内存
@@ -157,6 +160,7 @@ class SQLiteManager:
                 -- 状态字段
                 disabled INTEGER DEFAULT 0,
                 error_codes TEXT DEFAULT '[]',
+                error_messages TEXT DEFAULT '[]',
                 last_success REAL,
                 user_email TEXT,
 
@@ -186,6 +190,7 @@ class SQLiteManager:
                 -- 状态字段
                 disabled INTEGER DEFAULT 0,
                 error_codes TEXT DEFAULT '[]',
+                error_messages TEXT DEFAULT '[]',
                 last_success REAL,
                 user_email TEXT,
 
@@ -232,6 +237,82 @@ class SQLiteManager:
         """)
 
         log.debug("SQLite tables and indexes created")
+
+    async def _repair_credential_filenames(self, db: aiosqlite.Connection):
+        """
+        修复凭证数据库中可能包含路径的文件名，确保所有文件名都是 basename
+        """
+        try:
+            repaired_count = 0
+
+            # 修复 credentials 表
+            async with db.execute("SELECT filename FROM credentials") as cursor:
+                rows = await cursor.fetchall()
+                for (filename,) in rows:
+                    basename = os.path.basename(filename)
+                    if basename != filename:
+                        # 检查是否会产生冲突
+                        async with db.execute(
+                            "SELECT COUNT(*) FROM credentials WHERE filename = ?",
+                            (basename,)
+                        ) as check_cursor:
+                            count = (await check_cursor.fetchone())[0]
+
+                        if count == 0:
+                            # 无冲突，直接更新
+                            await db.execute(
+                                "UPDATE credentials SET filename = ? WHERE filename = ?",
+                                (basename, filename)
+                            )
+                            repaired_count += 1
+                            log.info(f"Repaired credential filename: {filename} -> {basename}")
+                        else:
+                            # 有冲突，删除带路径的旧记录（保留 basename 的记录）
+                            await db.execute(
+                                "DELETE FROM credentials WHERE filename = ?",
+                                (filename,)
+                            )
+                            repaired_count += 1
+                            log.warning(f"Removed duplicate credential with path: {filename} (kept {basename})")
+
+            # 修复 antigravity_credentials 表
+            async with db.execute("SELECT filename FROM antigravity_credentials") as cursor:
+                rows = await cursor.fetchall()
+                for (filename,) in rows:
+                    basename = os.path.basename(filename)
+                    if basename != filename:
+                        # 检查是否会产生冲突
+                        async with db.execute(
+                            "SELECT COUNT(*) FROM antigravity_credentials WHERE filename = ?",
+                            (basename,)
+                        ) as check_cursor:
+                            count = (await check_cursor.fetchone())[0]
+
+                        if count == 0:
+                            # 无冲突，直接更新
+                            await db.execute(
+                                "UPDATE antigravity_credentials SET filename = ? WHERE filename = ?",
+                                (basename, filename)
+                            )
+                            repaired_count += 1
+                            log.info(f"Repaired antigravity credential filename: {filename} -> {basename}")
+                        else:
+                            # 有冲突，删除带路径的旧记录（保留 basename 的记录）
+                            await db.execute(
+                                "DELETE FROM antigravity_credentials WHERE filename = ?",
+                                (filename,)
+                            )
+                            repaired_count += 1
+                            log.warning(f"Removed duplicate antigravity credential with path: {filename} (kept {basename})")
+
+            if repaired_count > 0:
+                log.info(f"Repaired {repaired_count} credential filename(s)")
+            else:
+                log.debug("No credential filenames need repair")
+
+        except Exception as e:
+            log.error(f"Error repairing credential filenames: {e}")
+            # 不抛出异常，允许继续初始化
 
     async def _load_config_cache(self):
         """加载配置到内存缓存（仅在初始化时调用一次）"""
@@ -432,6 +513,9 @@ class SQLiteManager:
         """存储或更新凭证"""
         self._ensure_initialized()
 
+        # 统一使用 basename 处理文件名
+        filename = os.path.basename(filename)
+
         try:
             table_name = self._get_table_name(mode)
             async with aiosqlite.connect(self._db_path) as db:
@@ -477,6 +561,9 @@ class SQLiteManager:
         """获取凭证数据"""
         self._ensure_initialized()
 
+        # 统一使用 basename 处理文件名
+        filename = os.path.basename(filename)
+
         try:
             table_name = self._get_table_name(mode)
             async with aiosqlite.connect(self._db_path) as db:
@@ -515,6 +602,9 @@ class SQLiteManager:
         """删除凭证"""
         self._ensure_initialized()
 
+        # 统一使用 basename 处理文件名
+        filename = os.path.basename(filename)
+
         try:
             table_name = self._get_table_name(mode)
             async with aiosqlite.connect(self._db_path) as db:
@@ -540,6 +630,9 @@ class SQLiteManager:
     async def update_credential_state(self, filename: str, state_updates: Dict[str, Any], mode: str = "geminicli") -> bool:
         """更新凭证状态"""
         self._ensure_initialized()
+
+        # 统一使用 basename 处理文件名
+        filename = os.path.basename(filename)
 
         try:
             table_name = self._get_table_name(mode)
@@ -598,6 +691,9 @@ class SQLiteManager:
     async def get_credential_state(self, filename: str, mode: str = "geminicli") -> Dict[str, Any]:
         """获取凭证状态（不包含error_messages）"""
         self._ensure_initialized()
+
+        # 统一使用 basename 处理文件名
+        filename = os.path.basename(filename)
 
         try:
             table_name = self._get_table_name(mode)
@@ -1075,6 +1171,9 @@ class SQLiteManager:
         """
         self._ensure_initialized()
 
+        # 统一使用 basename 处理文件名
+        filename = os.path.basename(filename)
+
         try:
             table_name = self._get_table_name(mode)
             async with aiosqlite.connect(self._db_path) as db:
@@ -1131,6 +1230,9 @@ class SQLiteManager:
             是否成功
         """
         self._ensure_initialized()
+
+        # 统一使用 basename 处理文件名
+        filename = os.path.basename(filename)
 
         try:
             table_name = self._get_table_name(mode)
