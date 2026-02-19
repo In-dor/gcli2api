@@ -21,7 +21,7 @@ async def serve_control_panel(request: Request):
         is_mobile = is_mobile_user_agent(user_agent)
 
         if is_mobile:
-            html_file_path = "front/control_panel_mobile.html"
+            html_file_path = "front/control_panel.html"
         else:
             html_file_path = "front/control_panel.html"
 
