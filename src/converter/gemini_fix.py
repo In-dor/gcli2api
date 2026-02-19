@@ -447,25 +447,25 @@ async def normalize_gemini_request(
         # 使用关键词匹配而不是精确匹配，更灵活地处理各种变体
         original_model = model
         if "opus" in model.lower():
-            if "4-5" in model:
-                model = "claude-opus-4-5-thinking"
-            else:
-                model = "claude-opus-4-6-thinking"
+            model = "claude-opus-4-6-thinking"
         elif "sonnet" in model.lower():
-            model = "claude-sonnet-4-5-thinking"
+            if "4-5" in model:
+                model = "claude-sonnet-4-5-thinking"
+            else:
+                model = "claude-sonnet-4-6"
         elif "haiku" in model.lower():
             model = "gemini-2.5-flash"
         elif "claude" in model.lower():
             # Claude 模型兜底：如果包含 claude 但不是 opus/sonnet/haiku
-            model = "claude-sonnet-4-5-thinking"
+            model = "claude-sonnet-4-6"
 
         result["model"] = model
         if original_model != model:
             log.debug(f"[ANTIGRAVITY] 映射模型: {original_model} -> {model}")
 
-        # 5. Claude Opus 4.6 Thinking 模型特殊处理：循环移除末尾的 model 消息，保证以用户消息结尾
+        # 5. 模型特殊处理：循环移除末尾的 model 消息，保证以用户消息结尾
         # 因为该模型不支持预填充
-        if "claude-opus-4-6-thinking" in model.lower():
+        if "claude-opus-4-6-thinking" in model.lower() or "claude-sonnet-4-6" in model.lower():
             contents = result.get("contents", [])
             removed_count = 0
             while (
@@ -475,7 +475,7 @@ async def normalize_gemini_request(
                 removed_count += 1
             if removed_count > 0:
                 log.warning(
-                    f"[ANTIGRAVITY] claude-opus-4-6-thinking 不支持预填充，移除了 {removed_count} 条末尾 model 消息"
+                    f"[ANTIGRAVITY] {model} 不支持预填充，移除了 {removed_count} 条末尾 model 消息"
                 )
                 result["contents"] = contents
 
