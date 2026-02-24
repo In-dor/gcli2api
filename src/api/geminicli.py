@@ -174,6 +174,7 @@ async def stream_request(
     for attempt in range(max_retries + 1):
         success_recorded = False  # 标记是否已记录成功
         need_retry = False  # 标记是否需要重试
+        keep_current_credential = False  # 标记是否保留当前凭证重试（无cd的429/503）
 
         try:
             async for chunk in stream_post_async(
@@ -198,15 +199,7 @@ async def stream_request(
                     if status_code == 429 or status_code == 503 or status_code in DISABLE_ERROR_CODES:
                         log.warning(f"[GEMINICLI STREAM] 流式请求失败 (status={status_code}), 凭证: {current_file}, 响应: {error_body[:500] if error_body else '无'}")
 
-                        # 并行预热下一个凭证,不阻塞当前处理
-                        if next_cred_task is None and attempt < max_retries:
-                            next_cred_task = asyncio.create_task(
-                                credential_manager.get_valid_credential(
-                                    mode="geminicli", model_name=model_name
-                                )
-                            )
-
-                        # 记录错误
+                        # 先解析冷却时间，再决定是否切换凭证
                         cooldown_until = None
                         if (status_code == 429 or status_code == 503) and error_body:
                             # 使用已缓存的error_body解析冷却时间
@@ -215,11 +208,23 @@ async def stream_request(
                             except Exception:
                                 pass
 
-                        await record_api_call_error(
-                            credential_manager, current_file, status_code,
-                            cooldown_until, mode="geminicli", model_name=model_name,
-                            error_message=error_body
-                        )
+                        # 对于没有触发cd的429/503错误，保留当前凭证重试；否则预热下一个凭证
+                        if (status_code == 429 or status_code == 503) and cooldown_until is None:
+                            keep_current_credential = True
+                        elif next_cred_task is None and attempt < max_retries:
+                            next_cred_task = asyncio.create_task(
+                                credential_manager.get_valid_credential(
+                                    mode="geminicli", model_name=model_name
+                                )
+                            )
+
+                        # 无cd的429/503保留当前凭证重试，无需记录错误
+                        if not keep_current_credential:
+                            await record_api_call_error(
+                                credential_manager, current_file, status_code,
+                                cooldown_until, mode="geminicli", model_name=model_name,
+                                error_message=error_body
+                            )
 
                         # 检查是否应该重试
                         should_retry = await handle_error_with_retry(
@@ -302,6 +307,12 @@ async def stream_request(
             # 统一处理重试
             if need_retry:
                 log.info(f"[GEMINICLI STREAM] 重试请求 (attempt {attempt + 2}/{max_retries + 1})...")
+
+                # 对于没有冷却时间的429错误，保留当前凭证重试
+                if keep_current_credential:
+                    log.info(f"[GEMINICLI STREAM] {status_code}无冷却时间，保留当前凭证重试: {current_file}")
+                    await asyncio.sleep(retry_interval)
+                    continue
 
                 # 使用预热的凭证任务,避免等待
                 if next_cred_task is not None:
@@ -492,15 +503,7 @@ async def non_stream_request(
             if status_code == 429 or status_code == 503 or status_code in DISABLE_ERROR_CODES:
                 log.warning(f"[NON-STREAM] 非流式请求失败 (status={status_code}), 凭证: {current_file}, 响应: {error_text[:500] if error_text else '无'}")
 
-                # 并行预热下一个凭证,不阻塞当前处理
-                if next_cred_task is None and attempt < max_retries:
-                    next_cred_task = asyncio.create_task(
-                        credential_manager.get_valid_credential(
-                            mode="geminicli", model_name=model_name
-                        )
-                    )
-
-                # 记录错误
+                # 先解析冷却时间，再决定是否切换凭证
                 cooldown_until = None
                 if (status_code == 429 or status_code == 503) and error_text:
                     # 使用已缓存的error_text解析冷却时间
@@ -509,11 +512,23 @@ async def non_stream_request(
                     except Exception:
                         pass
 
-                await record_api_call_error(
-                    credential_manager, current_file, status_code,
-                    cooldown_until, mode="geminicli", model_name=model_name,
-                    error_message=error_text
-                )
+                # 对于没有触发cd的429错误，不预热新凭证
+                if not ((status_code == 429 or status_code == 503) and cooldown_until is None):
+                    # 并行预热下一个凭证,不阻塞当前处理
+                    if next_cred_task is None and attempt < max_retries:
+                        next_cred_task = asyncio.create_task(
+                            credential_manager.get_valid_credential(
+                                mode="geminicli", model_name=model_name
+                            )
+                        )
+
+                # 无cd的429/503保留当前凭证重试，无需记录错误
+                if not ((status_code == 429 or status_code == 503) and cooldown_until is None):
+                    await record_api_call_error(
+                        credential_manager, current_file, status_code,
+                        cooldown_until, mode="geminicli", model_name=model_name,
+                        error_message=error_text
+                    )
 
                 # 检查是否应该重试（会自动处理禁用逻辑）
                 should_retry = await handle_error_with_retry(
@@ -525,6 +540,12 @@ async def non_stream_request(
                 if should_retry and attempt < max_retries:
                     # 重新获取凭证并重试
                     log.info(f"[NON-STREAM] 重试请求 (attempt {attempt + 2}/{max_retries + 1})...")
+
+                    # 对于没有冷却时间的429错误，保留当前凭证重试
+                    if (status_code == 429 or status_code == 503) and cooldown_until is None:
+                        log.info(f"[NON-STREAM] {status_code}无冷却时间，保留当前凭证重试: {current_file}")
+                        await asyncio.sleep(retry_interval)
+                        continue
 
                     # 使用预热的凭证任务,避免等待
                     if next_cred_task is not None:
