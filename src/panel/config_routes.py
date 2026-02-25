@@ -24,7 +24,6 @@ async def get_config(token: str = Depends(verify_panel_token)):
     """获取当前配置"""
     try:
 
-
         # 读取当前配置（包括环境变量和TOML文件中的配置）
         current_config = {}
 
@@ -50,16 +49,28 @@ async def get_config(token: str = Depends(verify_panel_token)):
         current_config["retry_429_interval"] = await config.get_retry_429_interval()
 
         # 抗截断配置
-        current_config["anti_truncation_max_attempts"] = await config.get_anti_truncation_max_attempts()
+        current_config["anti_truncation_max_attempts"] = (
+            await config.get_anti_truncation_max_attempts()
+        )
 
         # 兼容性配置
         current_config["compatibility_mode_enabled"] = await config.get_compatibility_mode_enabled()
 
         # 思维链返回配置
-        current_config["return_thoughts_to_frontend"] = await config.get_return_thoughts_to_frontend()
+        current_config["return_thoughts_to_frontend"] = (
+            await config.get_return_thoughts_to_frontend()
+        )
+        current_config["request_thoughts_from_model"] = (
+            await config.get_request_thoughts_from_model()
+        )
+
+        # 模型列表显示配置
+        current_config["show_variant_models"] = await config.get_show_variant_models()
 
         # Antigravity流式转非流式配置
-        current_config["antigravity_stream2nostream"] = await config.get_antigravity_stream2nostream()
+        current_config["antigravity_stream2nostream"] = (
+            await config.get_antigravity_stream2nostream()
+        )
 
         # 服务器配置
         current_config["host"] = await config.get_server_host()
@@ -136,9 +147,19 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
             if not isinstance(new_config["return_thoughts_to_frontend"], bool):
                 raise HTTPException(status_code=400, detail="思维链返回开关必须是布尔值")
 
+        if "request_thoughts_from_model" in new_config:
+            if not isinstance(new_config["request_thoughts_from_model"], bool):
+                raise HTTPException(status_code=400, detail="向模型请求思维链开关必须是布尔值")
+
+        if "show_variant_models" in new_config:
+            if not isinstance(new_config["show_variant_models"], bool):
+                raise HTTPException(status_code=400, detail="显示变体模型开关必须是布尔值")
+
         if "antigravity_stream2nostream" in new_config:
             if not isinstance(new_config["antigravity_stream2nostream"], bool):
-                raise HTTPException(status_code=400, detail="Antigravity流式转非流式开关必须是布尔值")
+                raise HTTPException(
+                    status_code=400, detail="Antigravity流式转非流式开关必须是布尔值"
+                )
 
         # 验证服务器配置
         if "host" in new_config:
