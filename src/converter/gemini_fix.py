@@ -50,7 +50,7 @@ def prepare_image_generation_request(request_body: Dict[str, Any], model: str) -
     if image_size:
         image_config["imageSize"] = image_size
 
-    request_body["model"] = "gemini-3-pro-image"  # 统一使用基础模型名
+    request_body["model"] = "gemini-3.1-flash-image"  # 统一使用基础模型名
     request_body["generationConfig"] = {"candidateCount": 1, "imageConfig": image_config}
 
     # 移除不需要的字段
