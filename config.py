@@ -39,7 +39,6 @@ ENV_MAPPINGS = {
     "RETRY_429_MAX_RETRIES": "retry_429_max_retries",
     "RETRY_429_ENABLED": "retry_429_enabled",
     "RETRY_429_INTERVAL": "retry_429_interval",
-    "RETRY_429_KEEP_CREDENTIAL": "retry_429_keep_credential",
     "ANTI_TRUNCATION_MAX_ATTEMPTS": "anti_truncation_max_attempts",
     "COMPATIBILITY_MODE": "compatibility_mode_enabled",
     "RETURN_THOUGHTS_TO_FRONTEND": "return_thoughts_to_frontend",
@@ -51,6 +50,8 @@ ENV_MAPPINGS = {
     "API_PASSWORD": "api_password",
     "PANEL_PASSWORD": "panel_password",
     "PASSWORD": "password",
+    "KEEPALIVE_URL": "keepalive_url",
+    "KEEPALIVE_INTERVAL": "keepalive_interval",
 }
 
 
@@ -187,26 +188,7 @@ async def get_retry_429_interval() -> float:
         except ValueError:
             pass
 
-    return float(await get_config_value("retry_429_interval", 0.1))
-
-
-async def get_retry_429_keep_credential() -> bool:
-    """
-    Get 429/503 keep credential setting.
-
-    控制当 429/503 错误没有冷却时间（无 cd）时，重试是否保持当前凭证。
-    - True（默认）：保留当前凭证重试，不切换
-    - False：切换到下一个可用凭证重试
-
-    Environment variable: RETRY_429_KEEP_CREDENTIAL
-    Database config key: retry_429_keep_credential
-    Default: True
-    """
-    env_value = os.getenv("RETRY_429_KEEP_CREDENTIAL")
-    if env_value:
-        return env_value.lower() in ("true", "1", "yes", "on")
-
-    return bool(await get_config_value("retry_429_keep_credential", True))
+    return float(await get_config_value("retry_429_interval", 1))
 
 
 async def get_anti_truncation_max_attempts() -> int:
@@ -510,3 +492,37 @@ async def get_antigravity_api_url() -> str:
             "ANTIGRAVITY_API_URL",
         )
     )
+
+
+async def get_keepalive_url() -> str:
+    """
+    Get keep-alive URL setting.
+
+    配置后保活服务会定期向该URL发送GET请求。
+    留空表示禁用保活服务。
+
+    Environment variable: KEEPALIVE_URL
+    Database config key: keepalive_url
+    Default: "" (disabled)
+    """
+    return str(await get_config_value("keepalive_url", "", "KEEPALIVE_URL"))
+
+
+async def get_keepalive_interval() -> int:
+    """
+    Get keep-alive interval in seconds.
+
+    保活请求发送间隔（秒）。
+
+    Environment variable: KEEPALIVE_INTERVAL
+    Database config key: keepalive_interval
+    Default: 60
+    """
+    env_value = os.getenv("KEEPALIVE_INTERVAL")
+    if env_value:
+        try:
+            return int(env_value)
+        except ValueError:
+            pass
+
+    return int(await get_config_value("keepalive_interval", 60))

@@ -1,4 +1,4 @@
-full_hash=523a1a2760fbff1b3c1a79a2d3b2dc28e0aae35b
-short_hash=523a1a2
-message=Merge branch 'master' of https://github.com/In-dor/gcli2api
-date=2026-02-27 19:20:30 +0800
+full_hash=3a2aec4900e6e2139a2156e3cb50ab351e5fb7ab
+short_hash=3a2aec4
+message=优化流式传输时的报错显示
+date=2026-02-27 23:32:41 +0800

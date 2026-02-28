@@ -2768,7 +2768,6 @@ function populateConfigForm() {
     document.getElementById('retry429Enabled').checked = Boolean(c.retry_429_enabled);
     setConfigField('retry429MaxRetries', c.retry_429_max_retries || 20);
     setConfigField('retry429Interval', c.retry_429_interval || 0.1);
-    document.getElementById('retry429KeepCredential').checked = Boolean(c.retry_429_keep_credential !== false);
 
     document.getElementById('compatibilityModeEnabled').checked = Boolean(c.compatibility_mode_enabled);
     document.getElementById('returnThoughtsToFrontend').checked = Boolean(c.return_thoughts_to_frontend !== false);
@@ -2777,6 +2776,9 @@ function populateConfigForm() {
     document.getElementById('showVariantModels').checked = Boolean(c.show_variant_models !== false);
 
     setConfigField('antiTruncationMaxAttempts', c.anti_truncation_max_attempts || 3);
+
+    setConfigField('keepaliveUrl', c.keepalive_url || '');
+    setConfigField('keepaliveInterval', c.keepalive_interval || 60);
 }
 
 function setConfigField(fieldId, value) {
@@ -2831,13 +2833,14 @@ async function saveConfig() {
             retry_429_enabled: getChecked('retry429Enabled'),
             retry_429_max_retries: getInt('retry429MaxRetries', 20),
             retry_429_interval: getFloat('retry429Interval', 0.1),
-            retry_429_keep_credential: getChecked('retry429KeepCredential'),
             compatibility_mode_enabled: getChecked('compatibilityModeEnabled'),
             return_thoughts_to_frontend: getChecked('returnThoughtsToFrontend'),
             antigravity_stream2nostream: getChecked('antigravityStream2nostream'),
             request_thoughts_from_model: getChecked('requestThoughtsFromModel'),
             show_variant_models: getChecked('showVariantModels'),
-            anti_truncation_max_attempts: getInt('antiTruncationMaxAttempts', 3)
+            anti_truncation_max_attempts: getInt('antiTruncationMaxAttempts', 3),
+            keepalive_url: getValue('keepaliveUrl'),
+            keepalive_interval: getInt('keepaliveInterval', 60)
         };
 
         const response = await fetch('./config/save', {
