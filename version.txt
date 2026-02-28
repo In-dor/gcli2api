@@ -1,4 +1,4 @@
-full_hash=b8da338f2ee9b44126f3ce355b0fa3b792ff7561
-short_hash=b8da338
-message=Merge remote-tracking branch 'O/HEAD'
-date=2026-03-01 00:07:02 +0800
+full_hash=75ea965afa9a8e28f9895e6e440fe9887a96f12c
+short_hash=75ea965
+message=支持对gemini-3.1-flash-image的思维链处理
+date=2026-03-01 00:24:23 +0800
