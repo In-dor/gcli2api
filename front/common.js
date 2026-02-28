@@ -2761,19 +2761,26 @@ function populateConfigForm() {
     setConfigField('serviceUsageApiUrl', c.service_usage_api_url || '');
     setConfigField('antigravityApiUrl', c.antigravity_api_url || '');
 
-    document.getElementById('autoBanEnabled').checked = Boolean(c.auto_ban_enabled);
+    const autoBanEnabledEl = document.getElementById('autoBanEnabled');
+    if (autoBanEnabledEl) autoBanEnabledEl.checked = Boolean(c.auto_ban_enabled);
     setConfigField('autoBanErrorCodes', (c.auto_ban_error_codes || []).join(','));
     setConfigField('callsPerRotation', c.calls_per_rotation || 10);
 
-    document.getElementById('retry429Enabled').checked = Boolean(c.retry_429_enabled);
+    const retry429EnabledEl = document.getElementById('retry429Enabled');
+    if (retry429EnabledEl) retry429EnabledEl.checked = Boolean(c.retry_429_enabled);
     setConfigField('retry429MaxRetries', c.retry_429_max_retries || 20);
     setConfigField('retry429Interval', c.retry_429_interval || 0.1);
 
-    document.getElementById('compatibilityModeEnabled').checked = Boolean(c.compatibility_mode_enabled);
-    document.getElementById('returnThoughtsToFrontend').checked = Boolean(c.return_thoughts_to_frontend !== false);
-    document.getElementById('antigravityStream2nostream').checked = Boolean(c.antigravity_stream2nostream !== false);
-    document.getElementById('requestThoughtsFromModel').checked = Boolean(c.request_thoughts_from_model !== false);
-    document.getElementById('showVariantModels').checked = Boolean(c.show_variant_models !== false);
+    const compatibilityModeEnabledEl = document.getElementById('compatibilityModeEnabled');
+    if (compatibilityModeEnabledEl) compatibilityModeEnabledEl.checked = Boolean(c.compatibility_mode_enabled);
+    const returnThoughtsToFrontendEl = document.getElementById('returnThoughtsToFrontend');
+    if (returnThoughtsToFrontendEl) returnThoughtsToFrontendEl.checked = Boolean(c.return_thoughts_to_frontend !== false);
+    const antigravityStream2nostreamEl = document.getElementById('antigravityStream2nostream');
+    if (antigravityStream2nostreamEl) antigravityStream2nostreamEl.checked = Boolean(c.antigravity_stream2nostream !== false);
+    const requestThoughtsFromModelEl = document.getElementById('requestThoughtsFromModel');
+    if (requestThoughtsFromModelEl) requestThoughtsFromModelEl.checked = Boolean(c.request_thoughts_from_model !== false);
+    const showVariantModelsEl = document.getElementById('showVariantModels');
+    if (showVariantModelsEl) showVariantModelsEl.checked = Boolean(c.show_variant_models !== false);
 
     setConfigField('antiTruncationMaxAttempts', c.anti_truncation_max_attempts || 3);
 
