@@ -50,7 +50,11 @@ def prepare_image_generation_request(request_body: Dict[str, Any], model: str) -
     if image_size:
         image_config["imageSize"] = image_size
 
-    request_body["model"] = "gemini-3.1-flash-image"  # 统一使用基础模型名
+    base_model = "gemini-3.1-flash-image"
+    if "preview" in model_lower:
+        base_model = "gemini-3.1-flash-image-preview"
+
+    request_body["model"] = base_model
     request_body["generationConfig"] = {"candidateCount": 1, "imageConfig": image_config}
 
     # 移除不需要的字段
@@ -176,7 +180,11 @@ def is_search_model(model_name: str) -> bool:
 
 def is_thinking_model(model_name: str) -> bool:
     """检查是否为思考模型 (包含 -thinking 或 pro)"""
-    return "think" in model_name or "pro" in model_name.lower()
+    return (
+        "think" in model_name
+        or "pro" in model_name.lower()
+        or "gemini-3.1-flash-image" in model_name.lower()
+    )
 
 
 def check_last_assistant_has_thinking(contents: list) -> bool:
