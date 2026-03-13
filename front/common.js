@@ -1850,8 +1850,15 @@ function renderQuotaUI(container, filename, models) {
     }
 
     // 排序：剩余额度越少（remaining小）越靠前，方便关注紧缺资源
-    const sortedModels = Object.entries(models).sort(([, a], [, b]) => {
-        return (a.remaining || 0) - (b.remaining || 0);
+    const sortedModels = Object.entries(models).sort(([nameA, a], [nameB, b]) => {
+        const remainingDiff = (a.remaining || 0) - (b.remaining || 0);
+        if (remainingDiff !== 0) return remainingDiff;
+        
+        const timeA = a.resetTime || '';
+        const timeB = b.resetTime || '';
+        if (timeA !== timeB) return timeA.localeCompare(timeB);
+        
+        return nameA.localeCompare(nameB);
     });
 
     let html = `
