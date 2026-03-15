@@ -1,4 +1,4 @@
-full_hash=9a0e91b779cd508cc9600d7350171676a5276bb4
-short_hash=9a0e91b
-message=优化额度排序
-date=2026-03-14 01:30:52 +0800
+full_hash=191ef8d63cf811df91551ac69b343e90f7688678
+short_hash=191ef8d
+message=对于"Resource has been exhausted (e.g. check quota)."设置12h冷却 避免一直重试
+date=2026-03-15 20:54:07 +0800
