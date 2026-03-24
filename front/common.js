@@ -58,6 +58,7 @@ function createCredsManager(type) {
         currentErrorCodeFilter: 'all',
         currentCooldownFilter: 'all',
         currentPreviewFilter: 'all',
+        currentTierFilter: 'all',
         statsData: { total: 0, normal: 0, disabled: 0 },
 
         // API端点
@@ -104,8 +105,9 @@ function createCredsManager(type) {
                 const errorCodeFilter = this.currentErrorCodeFilter || 'all';
                 const cooldownFilter = this.currentCooldownFilter || 'all';
                 const previewFilter = this.currentPreviewFilter || 'all';
+                const tierFilter = this.currentTierFilter || 'all';
                 const response = await fetch(
-                    `${this.getEndpoint('status')}?offset=${offset}&limit=${this.pageSize}&status_filter=${this.currentStatusFilter}&error_code_filter=${errorCodeFilter}&cooldown_filter=${cooldownFilter}&preview_filter=${previewFilter}&${this.getModeParam()}`,
+                    `${this.getEndpoint('status')}?offset=${offset}&limit=${this.pageSize}&status_filter=${this.currentStatusFilter}&error_code_filter=${errorCodeFilter}&cooldown_filter=${cooldownFilter}&preview_filter=${previewFilter}&tier_filter=${tierFilter}&${this.getModeParam()}`,
                     { headers: getAuthHeaders() }
                 );
 
@@ -123,7 +125,8 @@ function createCredsManager(type) {
                             },
                             user_email: item.user_email,
                             model_cooldowns: item.model_cooldowns || {},
-                            preview: item.preview  // 保存preview字段
+                            preview: item.preview,
+                            tier: item.tier || 'pro'
                         };
                     });
 
@@ -237,9 +240,11 @@ function createCredsManager(type) {
             const errorCodeFilterEl = document.getElementById(this.getElementId('ErrorCodeFilter'));
             const cooldownFilterEl = document.getElementById(this.getElementId('CooldownFilter'));
             const previewFilterEl = document.getElementById(this.getElementId('PreviewFilter'));
+            const tierFilterEl = document.getElementById(this.getElementId('TierFilter'));
             this.currentErrorCodeFilter = errorCodeFilterEl ? errorCodeFilterEl.value : 'all';
             this.currentCooldownFilter = cooldownFilterEl ? cooldownFilterEl.value : 'all';
             this.currentPreviewFilter = previewFilterEl ? previewFilterEl.value : 'all';
+            this.currentTierFilter = tierFilterEl ? tierFilterEl.value : 'all';
             this.currentPage = 1;
             this.refresh();
         },
@@ -644,6 +649,12 @@ function createCredCard(credInfo, manager) {
             statusBadges += '<span class="status-badge" style="background-color: #607d8b; color: white;" title="该凭证不支持Preview模型">❌ Preview</span>';
         }
     }
+
+    // tier 状态显示 (geminicli 和 antigravity 都显示)
+    const tier = (credInfo.tier || 'pro').toString().toLowerCase();
+    const tierLabel = tier.toUpperCase();
+    const tierColor = tier === 'ultra' ? '#ff9800' : (tier === 'free' ? '#607d8b' : '#2e7d32');
+    statusBadges += `<span class="status-badge" style="background-color: ${tierColor}; color: white;" title="凭证等级: ${tierLabel}">Tier: ${tierLabel}</span>`;
 
     // 模型级冷却状态
     if (credInfo.model_cooldowns && Object.keys(credInfo.model_cooldowns).length > 0) {
@@ -1577,11 +1588,12 @@ async function verifyProjectId(filename) {
 
         if (response.ok && data.success) {
             // 成功时显示绿色成功消息和Project ID
-            const successMsg = `✅ 检验成功！\n文件: ${filename}\nProject ID: ${data.project_id}\n\n${data.message}`;
+            const tierLine = data.subscription_tier ? `\nTier: ${data.subscription_tier}` : '';
+            const successMsg = `✅ 检验成功！\n文件: ${filename}\nProject ID: ${data.project_id}${tierLine}\n\n${data.message}`;
             showStatus(successMsg.replace(/\n/g, '<br>'), 'success');
 
             // 弹出成功提示
-            showMessageModal('检验成功', `✅ 检验成功！\n\n文件: ${filename}\nProject ID: ${data.project_id}\n\n${data.message}`, 'success');
+            showMessageModal('检验成功', `✅ 检验成功！\n\n文件: ${filename}\nProject ID: ${data.project_id}${tierLine}\n\n${data.message}`, 'success');
 
             await AppState.creds.refresh();
         } else {
@@ -1610,11 +1622,12 @@ async function verifyAntigravityProjectId(filename) {
 
         if (response.ok && data.success) {
             // 成功时显示绿色成功消息和Project ID
-            const successMsg = `✅ 检验成功！\n文件: ${filename}\nProject ID: ${data.project_id}\n\n${data.message}`;
+            const tierLine = data.subscription_tier ? `\nTier: ${data.subscription_tier}` : '';
+            const successMsg = `✅ 检验成功！\n文件: ${filename}\nProject ID: ${data.project_id}${tierLine}\n\n${data.message}`;
             showStatus(successMsg.replace(/\n/g, '<br>'), 'success');
 
             // 弹出成功提示
-            showMessageModal('检验成功', `✅ Antigravity检验成功！\n\n文件: ${filename}\nProject ID: ${data.project_id}\n\n${data.message}`, 'success');
+            showMessageModal('检验成功', `✅ Antigravity检验成功！\n\n文件: ${filename}\nProject ID: ${data.project_id}${tierLine}\n\n${data.message}`, 'success');
 
             await AppState.antigravityCreds.refresh();
         } else {
@@ -1643,7 +1656,7 @@ async function testCredential(filename) {
         // 解析JSON响应
         const data = await response.json();
 
-        if (response.status === 200 || response.status === 429) {
+        if (response.status === 200) {
             // 凭证可用
             const successMsg = `✅ 测试成功！\n文件: ${filename}\n状态: ${data.message || '凭证可用'} (${data.status_code || 200})`;
             showStatus('✅ 测试成功！', 'success');
@@ -1691,7 +1704,7 @@ async function testAntigravityCredential(filename) {
         // 解析JSON响应
         const data = await response.json();
 
-        if (response.status === 200 || response.status === 429) {
+        if (response.status === 200) {
             // 凭证可用
             const successMsg = `✅ 测试成功！\n文件: ${filename}\n状态: ${data.message || 'Antigravity凭证可用'} (${data.status_code || 200})`;
             showStatus('✅ 测试成功！', 'success');
@@ -3260,3 +3273,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+function autoSetKeepaliveUrl() {
+    const url = `${window.location.protocol}//${window.location.host}`;
+    document.getElementById('keepaliveUrl').value = url;
+}
