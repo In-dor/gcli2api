@@ -252,7 +252,7 @@ async def normalize_gemini_request(
     # ========== 模式特定处理 ==========
     if mode == "geminicli":
         # 1. 思考设置
-        thinking_budget, include_thoughts = get_thinking_settings(model)
+        thinking_budget, thinking_level = get_thinking_settings(model)
 
         # 检查用户是否已提供思考配置
         # 如果用户提供了 thinkingBudget 或 thinkingLevel，则跳过自动配置，避免冲突
@@ -263,7 +263,9 @@ async def normalize_gemini_request(
                 has_user_controls = True
 
         # 只有在没有用户明确控制的情况下才应用默认逻辑
-        if (thinking_budget is not None or request_thoughts_from_model) and not has_user_controls:
+        if (
+            thinking_budget is not None or thinking_level is not None or request_thoughts_from_model
+        ) and not has_user_controls:
             # 特判：gemini-2.5-flash-lite 模型默认不支持思考
             is_flash_lite = "gemini-2.5-flash-lite" in model.lower()
 
@@ -272,9 +274,12 @@ async def normalize_gemini_request(
                 final_include_thoughts = False
             elif request_thoughts_from_model:
                 final_include_thoughts = True
+            elif thinking_budget is not None and int(thinking_budget) == 0:
+                # thinkingBudget=0 时强制关闭，避免 includeThoughts 与 budget 冲突
+                final_include_thoughts = False
             else:
-                # 否则遵循 return_thoughts 配置
-                final_include_thoughts = include_thoughts if return_thoughts else False
+                # 否则遵循 return_thoughts 配置（必须是布尔值）
+                final_include_thoughts = bool(return_thoughts)
 
             # 即使 thinkingConfig 已存在，也可能需要覆盖 includeThoughts
             if "thinkingConfig" not in generation_config:
@@ -283,14 +288,21 @@ async def normalize_gemini_request(
                 }
                 if thinking_budget is not None:
                     generation_config["thinkingConfig"]["thinkingBudget"] = thinking_budget
+                if thinking_level is not None:
+                    generation_config["thinkingConfig"]["thinkingLevel"] = thinking_level
             else:
                 # 确保 includeThoughts 被正确设置
                 generation_config["thinkingConfig"]["includeThoughts"] = final_include_thoughts
                 if (
                     thinking_budget is not None
                     and "thinkingBudget" not in generation_config["thinkingConfig"]
+                    and "thinkingLevel" not in generation_config["thinkingConfig"]
                 ):
                     generation_config["thinkingConfig"]["thinkingBudget"] = thinking_budget
+                if thinking_level is not None:
+                    generation_config["thinkingConfig"]["thinkingLevel"] = thinking_level
+                    # Gemini 3 只保留 thinkingLevel
+                    generation_config["thinkingConfig"].pop("thinkingBudget", None)
 
         # 即使有用户控制，也要处理特殊情况：如果用户只提供了 thinkingBudget 且没提供 includeThoughts
         # 我们可能需要补充 includeThoughts=True (如果 thinkingBudget > 0)
