@@ -32,6 +32,10 @@ const AppState = {
     logManualClose: false,
     logReconnectTimer: null,
     logReconnectAttempts: 0,
+    logConnectTimeoutTimer: null,
+    logClientHeartbeatTimer: null,
+    logHealthCheckTimer: null,
+    logLastMessageAt: 0,
     allLogs: [],
     filteredLogs: [],
     currentLogFilter: 'all',
@@ -873,6 +877,7 @@ async function autoLogin() {
 }
 
 function logout() {
+    disconnectWebSocket(true);
     localStorage.removeItem('gcli2api_auth_token');
     AppState.authToken = '';
     document.getElementById('loginSection').classList.remove('hidden');
@@ -2451,6 +2456,16 @@ async function deduplicateAntigravityByEmail() {
 const LOG_WS_HEARTBEAT_TOKEN = '__GCLI2API_LOG_HEARTBEAT__';
 const LOG_WS_RECONNECT_BASE_DELAY = 1000;
 const LOG_WS_RECONNECT_MAX_DELAY = 15000;
+const LOG_WS_CONNECT_TIMEOUT = 12000;
+const LOG_WS_CLIENT_HEARTBEAT_INTERVAL = 10000;
+const LOG_WS_HEALTH_CHECK_INTERVAL = 5000;
+const LOG_WS_IDLE_TIMEOUT = 35000;
+
+function isLogHeartbeatMessage(message) {
+    if (typeof message !== 'string') return false;
+    const normalized = message.trim();
+    return normalized === LOG_WS_HEARTBEAT_TOKEN || normalized.includes(LOG_WS_HEARTBEAT_TOKEN);
+}
 
 function isLogsTabActive() {
     const logsTab = document.getElementById('logsTab');
@@ -2464,11 +2479,76 @@ function clearLogReconnectTimer() {
     }
 }
 
+function clearLogConnectTimeoutTimer() {
+    if (AppState.logConnectTimeoutTimer) {
+        clearTimeout(AppState.logConnectTimeoutTimer);
+        AppState.logConnectTimeoutTimer = null;
+    }
+}
+
+function stopLogKeepAliveTimers() {
+    clearLogConnectTimeoutTimer();
+
+    if (AppState.logClientHeartbeatTimer) {
+        clearInterval(AppState.logClientHeartbeatTimer);
+        AppState.logClientHeartbeatTimer = null;
+    }
+
+    if (AppState.logHealthCheckTimer) {
+        clearInterval(AppState.logHealthCheckTimer);
+        AppState.logHealthCheckTimer = null;
+    }
+}
+
+function startLogConnectTimeoutGuard() {
+    clearLogConnectTimeoutTimer();
+    AppState.logConnectTimeoutTimer = setTimeout(() => {
+        AppState.logConnectTimeoutTimer = null;
+        if (AppState.logWebSocket && AppState.logWebSocket.readyState === WebSocket.CONNECTING) {
+            document.getElementById('connectionStatusText').textContent = '连接超时，重新连接中';
+            document.getElementById('logConnectionStatus').className = 'status warning';
+            try {
+                AppState.logWebSocket.close();
+            } catch (_) {
+                // 忽略关闭异常
+            }
+        }
+    }, LOG_WS_CONNECT_TIMEOUT);
+}
+
+function startLogKeepAliveTimers() {
+    stopLogKeepAliveTimers();
+
+    // 客户端 -> 服务端心跳：某些网络设备需要双向流量才能保持连接
+    AppState.logClientHeartbeatTimer = setInterval(() => {
+        if (!AppState.logWebSocket || AppState.logWebSocket.readyState !== WebSocket.OPEN) return;
+        try {
+            AppState.logWebSocket.send(LOG_WS_HEARTBEAT_TOKEN);
+        } catch (_) {
+            // 发送失败时让 onclose/onerror 统一处理
+        }
+    }, LOG_WS_CLIENT_HEARTBEAT_INTERVAL);
+
+    // 健康检查：如果长时间未收到任何消息（含服务端心跳），主动触发重连
+    AppState.logHealthCheckTimer = setInterval(() => {
+        if (!AppState.logWebSocket || AppState.logWebSocket.readyState !== WebSocket.OPEN) return;
+
+        const idleMs = Date.now() - AppState.logLastMessageAt;
+        if (idleMs > LOG_WS_IDLE_TIMEOUT) {
+            document.getElementById('connectionStatusText').textContent = '连接超时，重新连接中';
+            document.getElementById('logConnectionStatus').className = 'status warning';
+            try {
+                AppState.logWebSocket.close();
+            } catch (_) {
+                // 忽略关闭异常
+            }
+        }
+    }, LOG_WS_HEALTH_CHECK_INTERVAL);
+}
+
 function scheduleLogReconnect() {
     // 用户手动断开时不重连
     if (AppState.logManualClose) return;
-    // 仅在日志标签页激活时进行自动重连，避免后台无意义重连
-    if (!isLogsTabActive()) return;
     // 未登录或无 token 时不重连
     if (!AppState.authToken) return;
 
@@ -2488,13 +2568,19 @@ function scheduleLogReconnect() {
 }
 
 function connectWebSocket() {
-    if (
-        AppState.logWebSocket &&
-        (AppState.logWebSocket.readyState === WebSocket.OPEN ||
-            AppState.logWebSocket.readyState === WebSocket.CONNECTING)
-    ) {
+    if (AppState.logWebSocket && AppState.logWebSocket.readyState === WebSocket.OPEN) {
         showStatus('WebSocket已经连接', 'info');
         return;
+    }
+
+    // CONNECTING 状态卡住时，主动重建连接
+    if (AppState.logWebSocket && AppState.logWebSocket.readyState === WebSocket.CONNECTING) {
+        try {
+            AppState.logWebSocket.close();
+        } catch (_) {
+            // 忽略关闭异常
+        }
+        AppState.logWebSocket = null;
     }
 
     try {
@@ -2509,11 +2595,16 @@ function connectWebSocket() {
 
         AppState.logManualClose = false;
         clearLogReconnectTimer();
+        stopLogKeepAliveTimers();
 
         AppState.logWebSocket = new WebSocket(wsUrlWithAuth);
+        startLogConnectTimeoutGuard();
 
         AppState.logWebSocket.onopen = () => {
             AppState.logReconnectAttempts = 0;
+            AppState.logLastMessageAt = Date.now();
+            clearLogConnectTimeoutTimer();
+            startLogKeepAliveTimers();
             document.getElementById('connectionStatusText').textContent = '已连接';
             document.getElementById('logConnectionStatus').className = 'status success';
             showStatus('日志流连接成功', 'success');
@@ -2521,8 +2612,10 @@ function connectWebSocket() {
         };
 
         AppState.logWebSocket.onmessage = (event) => {
-            const logLine = event.data;
-            if (logLine === LOG_WS_HEARTBEAT_TOKEN) {
+            const logLine = typeof event.data === 'string' ? event.data : String(event.data ?? '');
+            AppState.logLastMessageAt = Date.now();
+
+            if (isLogHeartbeatMessage(logLine)) {
                 return;
             }
 
@@ -2541,6 +2634,7 @@ function connectWebSocket() {
 
         AppState.logWebSocket.onclose = () => {
             AppState.logWebSocket = null;
+            stopLogKeepAliveTimers();
 
             if (AppState.logManualClose) {
                 document.getElementById('connectionStatusText').textContent = '未连接';
@@ -2555,6 +2649,7 @@ function connectWebSocket() {
         };
 
         AppState.logWebSocket.onerror = (error) => {
+            stopLogKeepAliveTimers();
             document.getElementById('connectionStatusText').textContent = '连接错误';
             document.getElementById('logConnectionStatus').className = 'status error';
             showStatus('日志流连接错误: ' + error, 'error');
@@ -2569,16 +2664,24 @@ function connectWebSocket() {
 function disconnectWebSocket(manual = true) {
     AppState.logManualClose = manual;
     clearLogReconnectTimer();
+    stopLogKeepAliveTimers();
 
     if (AppState.logWebSocket) {
         AppState.logWebSocket.close();
         AppState.logWebSocket = null;
         if (manual) {
+            AppState.logReconnectAttempts = 0;
             document.getElementById('connectionStatusText').textContent = '未连接';
             document.getElementById('logConnectionStatus').className = 'status info';
             showStatus('日志流连接已断开', 'info');
         }
     }
+}
+
+function ensureLogWebSocketConnected() {
+    if (AppState.logManualClose) return;
+    if (!AppState.authToken) return;
+    connectWebSocket();
 }
 
 function clearLogsDisplay() {
@@ -2643,9 +2746,11 @@ function filterLogs() {
     AppState.currentLogFilter = filter;
 
     if (filter === 'all') {
-        AppState.filteredLogs = [...AppState.allLogs];
+        AppState.filteredLogs = AppState.allLogs.filter(log => !isLogHeartbeatMessage(log));
     } else {
-        AppState.filteredLogs = AppState.allLogs.filter(log => log.toUpperCase().includes(filter));
+        AppState.filteredLogs = AppState.allLogs.filter(
+            log => !isLogHeartbeatMessage(log) && log.toUpperCase().includes(filter)
+        );
     }
 
     displayLogs();
@@ -2662,6 +2767,8 @@ function displayLogs() {
 
         // Parse and style each log line
         AppState.filteredLogs.forEach(logLine => {
+            if (isLogHeartbeatMessage(logLine)) return;
+
             const lineDiv = document.createElement('div');
             lineDiv.className = 'log-line';
 
@@ -3316,6 +3423,25 @@ window.onload = async function () {
     if (antigravityAuthBtn) {
         antigravityAuthBtn.addEventListener('click', startAntigravityAuth);
     }
+
+    // 页面从后台恢复时，确保日志连接被拉起
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && isLogsTabActive()) {
+            ensureLogWebSocketConnected();
+        }
+    });
+
+    // 浏览器恢复页面缓存/会话时再兜底一次
+    window.addEventListener('focus', () => {
+        if (isLogsTabActive()) {
+            ensureLogWebSocketConnected();
+        }
+    });
+
+    // 页面关闭时主动断开，避免残留连接
+    window.addEventListener('beforeunload', () => {
+        disconnectWebSocket(true);
+    });
 };
 
 // 拖拽功能 - 初始化

@@ -22,10 +22,10 @@ router = APIRouter(prefix="/logs", tags=["logs"])
 
 # 心跳消息（用于防止长时间无日志时连接被中间网络设备回收）
 HEARTBEAT_MESSAGE = "__GCLI2API_LOG_HEARTBEAT__"
-HEARTBEAT_INTERVAL = 25
+HEARTBEAT_INTERVAL = 10
 
 # WebSocket连接管理器
-manager = ConnectionManager()
+manager = ConnectionManager(max_connections=20)
 
 
 @router.post("/clear")
