@@ -2499,7 +2499,7 @@ function parseIncomingLogChunk(logChunk) {
             }
         }
 
-        // 非标准前缀行视为上一条日志的延续，保持级别样式连续
+        // 非标准前缀行视为上一条日志的延续：保留级别用于筛选，但渲染时不重复输出 [LEVEL]
         parsedLines.push({
             isHeader: false,
             timestamp: null,
@@ -2833,18 +2833,8 @@ function displayLogs() {
                 return;
             }
 
-            if (logLine.level) {
-                const levelClass = getLogLevelClass(logLine.level);
-                htmlParts.push(
-                    `<div class="log-line">` +
-                    `<span class="${levelClass}">[${logLine.level}]</span>` +
-                    `<span class="log-message">${safeMessage}</span>` +
-                    `</div>`
-                );
-                return;
-            }
-
-            htmlParts.push(`<div class="log-line log-message">${safeMessage}</div>`);
+            // 续行/普通行：仅输出原文本，不重复注入级别标签
+            htmlParts.push(`<div class="log-line"><span class="log-message">${safeMessage}</span></div>`);
         });
 
         logContent.innerHTML = htmlParts.join('');
