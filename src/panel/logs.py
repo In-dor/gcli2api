@@ -5,7 +5,6 @@
 import asyncio
 import datetime
 import os
-import time
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -13,6 +12,7 @@ from starlette.websockets import WebSocketState
 
 import config
 from log import log
+from src.log_realtime import log_realtime_channel
 from src.utils import verify_panel_token
 from .utils import ConnectionManager
 
@@ -47,7 +47,7 @@ async def clear_logs(token: str = Depends(verify_panel_token)):
                 log.info(f"日志文件已清空: {log_file_path}")
 
                 # 通知所有WebSocket连接日志已清空
-                await manager.broadcast("--- 日志文件已清空 ---")
+                log_realtime_channel.publish("--- 日志文件已清空 ---")
 
                 return JSONResponse(
                     content={"message": f"日志文件已清空: {os.path.basename(log_file_path)}"}
@@ -144,11 +144,8 @@ async def websocket_logs(websocket: WebSocket):
                 await websocket.send_text(f"Error reading log file: {e}")
                 log.error(f"WebSocket初始日志读取错误: {e}")
 
-        # 监控日志文件变化
-        last_size = os.path.getsize(log_file_path) if os.path.exists(log_file_path) else 0
-        max_read_size = 8192  # 限制单次读取大小为8KB，防止大量日志造成内存激增
-        check_interval = 2  # 增加检查间隔，减少CPU和I/O开销
-        last_heartbeat_time = time.monotonic()
+        # 订阅日志实时发布通道
+        subscriber_id, subscriber_queue = await log_realtime_channel.subscribe()
 
         # 创建后台任务监听客户端断开
         # 即使没有日志更新，receive_text() 也能即时感知断开
@@ -163,75 +160,44 @@ async def websocket_logs(websocket: WebSocket):
 
         try:
             while websocket.client_state == WebSocketState.CONNECTED:
-                # 使用 asyncio.wait 同时等待定时器和断开信号
-                # timeout=check_interval 替代了 asyncio.sleep
+                queue_task = asyncio.create_task(subscriber_queue.get())
                 done, pending = await asyncio.wait(
-                    [listener_task], timeout=check_interval, return_when=asyncio.FIRST_COMPLETED
+                    [listener_task, queue_task],
+                    timeout=HEARTBEAT_INTERVAL,
+                    return_when=asyncio.FIRST_COMPLETED,
                 )
 
                 # 如果监听任务结束（通常是因为连接断开），则退出循环
                 if listener_task in done:
+                    if not queue_task.done():
+                        queue_task.cancel()
+                        try:
+                            await queue_task
+                        except asyncio.CancelledError:
+                            pass
                     break
 
-                # 定期发送心跳，避免长期空闲导致反向代理/NAT/负载均衡断开连接
-                now = time.monotonic()
-                if now - last_heartbeat_time >= HEARTBEAT_INTERVAL:
+                # 收到实时日志，立即推送
+                if queue_task in done:
+                    try:
+                        message = queue_task.result()
+                        await websocket.send_text(message)
+                    except Exception:
+                        break
+                else:
+                    # 定期发送心跳，避免长期空闲导致连接被中间网络设备回收
                     try:
                         await websocket.send_text(HEARTBEAT_MESSAGE)
-                        last_heartbeat_time = now
                     except Exception:
                         break
 
-                if os.path.exists(log_file_path):
-                    current_size = os.path.getsize(log_file_path)
-                    if current_size > last_size:
-                        # 限制读取大小，防止单次读取过多内容
-                        read_size = min(current_size - last_size, max_read_size)
-
-                        try:
-                            # 使用 with 确保文件正确关闭，即使发生异常
-                            with open(log_file_path, "r", encoding="utf-8", errors="replace") as f:
-                                f.seek(last_size)
-                                new_content = f.read(read_size)
-                                # with 退出时自动关闭文件句柄
-
-                                # 处理编码错误的情况
-                                if not new_content:
-                                    last_size = current_size
-                                    continue
-
-                                # 分行发送，避免发送不完整的行
-                                lines = new_content.splitlines(keepends=True)
-                                if lines:
-                                    # 如果最后一行没有换行符，保留到下次处理
-                                    if not lines[-1].endswith("\n") and len(lines) > 1:
-                                        # 除了最后一行，其他都发送
-                                        for line in lines[:-1]:
-                                            if line.strip():
-                                                await websocket.send_text(line.rstrip())
-                                        # 更新位置，但要退回最后一行的字节数
-                                        last_size += len(new_content.encode("utf-8")) - len(
-                                            lines[-1].encode("utf-8")
-                                        )
-                                    else:
-                                        # 所有行都发送
-                                        for line in lines:
-                                            if line.strip():
-                                                await websocket.send_text(line.rstrip())
-                                        last_size += len(new_content.encode("utf-8"))
-                        except UnicodeDecodeError as e:
-                            # 遇到编码错误时，跳过这部分内容
-                            log.warning(f"WebSocket日志读取编码错误: {e}, 跳过部分内容")
-                            last_size = current_size
-                        except Exception as e:
-                            await websocket.send_text(f"Error reading new content: {e}")
-                            # 发生其他错误时，重置文件位置
-                            last_size = current_size
-
-                    # 如果文件被截断（如清空日志），重置位置
-                    elif current_size < last_size:
-                        last_size = 0
-                        await websocket.send_text("--- 日志已清空 ---")
+                # queue_task 每轮都会新建，若未完成需及时取消以免泄漏
+                if queue_task in pending:
+                    queue_task.cancel()
+                    try:
+                        await queue_task
+                    except asyncio.CancelledError:
+                        pass
 
         finally:
             # 确保清理监听任务
@@ -241,6 +207,7 @@ async def websocket_logs(websocket: WebSocket):
                     await listener_task
                 except asyncio.CancelledError:
                     pass
+            log_realtime_channel.unsubscribe(subscriber_id)
 
     except WebSocketDisconnect:
         pass

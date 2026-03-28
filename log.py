@@ -5,9 +5,12 @@
 import os
 import sys
 import threading
+import logging
 from datetime import datetime
 from collections import deque
 import atexit
+
+from src.log_realtime import log_realtime_channel
 
 # 日志级别定义
 LOG_LEVELS = {"debug": 0, "info": 1, "warning": 2, "error": 3, "critical": 4}
@@ -59,6 +62,40 @@ _cached_log_level: int = LOG_LEVELS["info"]
 _cached_log_file: str = "log.txt"
 # ENABLE_LOG=0/false/no/off 时彻底关闭日志
 _log_enabled: bool = True
+
+
+class RealtimePublishHandler(logging.Handler):
+    """将日志事件实时发布到异步订阅通道。"""
+
+    def emit(self, record: logging.LogRecord):
+        try:
+            message = self.format(record)
+            log_realtime_channel.publish(message)
+        except Exception:
+            # 实时推送失败不影响主日志链路
+            pass
+
+
+_realtime_handler = RealtimePublishHandler()
+_realtime_handler.setFormatter(logging.Formatter("%(message)s"))
+
+
+def _publish_realtime(entry: str, level: str):
+    """构造 LogRecord 并交由实时 handler 处理。"""
+    try:
+        record = logging.LogRecord(
+            name="gcli2api",
+            level=getattr(logging, level, logging.INFO),
+            pathname="",
+            lineno=0,
+            msg=entry,
+            args=(),
+            exc_info=None,
+        )
+        _realtime_handler.handle(record)
+    except Exception:
+        # 不影响原有输出与落盘
+        pass
 
 
 def _refresh_config():
@@ -284,6 +321,7 @@ def _log(level: str, message: str):
     else:
         print(console_entry)
 
+    _publish_realtime(entry, level.upper())
     _write_to_file(entry)
 
 
