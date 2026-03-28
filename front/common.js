@@ -39,6 +39,7 @@ const AppState = {
     allLogs: [],
     filteredLogs: [],
     currentLogFilter: 'all',
+    logLastLevel: null,
 
     // 使用统计
     usageStatsData: {},
@@ -2109,13 +2110,6 @@ async function toggleErrorDetailsCommon(pathId, manager) {
     }
 }
 
-// HTML转义函数
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
 // 高亮HTTP链接函数
 function highlightHttpLinks(text) {
     // 匹配 http:// 或 https:// 开头的URL
@@ -2460,6 +2454,63 @@ const LOG_WS_CONNECT_TIMEOUT = 12000;
 const LOG_WS_CLIENT_HEARTBEAT_INTERVAL = 10000;
 const LOG_WS_HEALTH_CHECK_INTERVAL = 5000;
 const LOG_WS_IDLE_TIMEOUT = 35000;
+const LOG_LINE_HEADER_REGEX = /^(\[[^\]\n]+\])\s+(\[[^\]\n]+\])(?:\s+(.*))?$/;
+
+function normalizeLogLevel(levelToken) {
+    if (!levelToken) return null;
+
+    const normalized = levelToken.replace(/[\[\]]/g, '').trim().toUpperCase();
+    if (normalized.includes('ERROR') || normalized.includes('CRITICAL')) return 'ERROR';
+    if (normalized.includes('WARN')) return 'WARNING';
+    if (normalized.includes('INFO')) return 'INFO';
+    if (normalized.includes('DEBUG')) return 'DEBUG';
+    return null;
+}
+
+function getLogLevelClass(level) {
+    if (level === 'ERROR') return 'log-level-error';
+    if (level === 'WARNING') return 'log-level-warning';
+    if (level === 'INFO') return 'log-level-info';
+    if (level === 'DEBUG') return 'log-level-debug';
+    return 'log-message';
+}
+
+function parseIncomingLogChunk(logChunk) {
+    const parsedLines = [];
+    const lines = String(logChunk).split(/\r?\n/);
+
+    lines.forEach((line) => {
+        // 忽略纯空行，避免尾部换行导致的空日志
+        if (!line.length) return;
+
+        const match = line.match(LOG_LINE_HEADER_REGEX);
+        if (match) {
+            const level = normalizeLogLevel(match[2]);
+            if (level) {
+                AppState.logLastLevel = level;
+                parsedLines.push({
+                    isHeader: true,
+                    timestamp: match[1],
+                    levelToken: match[2],
+                    level,
+                    message: match[3] || '',
+                });
+                return;
+            }
+        }
+
+        // 非标准前缀行视为上一条日志的延续，保持级别样式连续
+        parsedLines.push({
+            isHeader: false,
+            timestamp: null,
+            levelToken: null,
+            level: AppState.logLastLevel,
+            message: line,
+        });
+    });
+
+    return parsedLines;
+}
 
 function isLogHeartbeatMessage(message) {
     if (typeof message !== 'string') return false;
@@ -2620,7 +2671,10 @@ function connectWebSocket() {
             }
 
             if (logLine.trim()) {
-                AppState.allLogs.push(logLine);
+                const parsedLines = parseIncomingLogChunk(logLine);
+                if (parsedLines.length === 0) return;
+
+                AppState.allLogs.push(...parsedLines);
                 if (AppState.allLogs.length > 1000) {
                     AppState.allLogs = AppState.allLogs.slice(-1000);
                 }
@@ -2687,6 +2741,7 @@ function ensureLogWebSocketConnected() {
 function clearLogsDisplay() {
     AppState.allLogs = [];
     AppState.filteredLogs = [];
+    AppState.logLastLevel = null;
     document.getElementById('logContent').textContent = '日志已清空，等待新日志...';
 }
 
@@ -2746,11 +2801,9 @@ function filterLogs() {
     AppState.currentLogFilter = filter;
 
     if (filter === 'all') {
-        AppState.filteredLogs = AppState.allLogs.filter(log => !isLogHeartbeatMessage(log));
+        AppState.filteredLogs = AppState.allLogs;
     } else {
-        AppState.filteredLogs = AppState.allLogs.filter(
-            log => !isLogHeartbeatMessage(log) && log.toUpperCase().includes(filter)
-        );
+        AppState.filteredLogs = AppState.allLogs.filter(log => log.level === filter);
     }
 
     displayLogs();
@@ -2762,50 +2815,46 @@ function displayLogs() {
         logContent.textContent = AppState.currentLogFilter === 'all' ?
             '暂无日志...' : `暂无${AppState.currentLogFilter}级别的日志...`;
     } else {
-        // Clear previous content
-        logContent.innerHTML = '';
+        // 一次性拼装 HTML，避免逐条 append 触发多次布局
+        const htmlParts = [];
 
-        // Parse and style each log line
-        AppState.filteredLogs.forEach(logLine => {
-            if (isLogHeartbeatMessage(logLine)) return;
+        AppState.filteredLogs.forEach((logLine) => {
+            const safeMessage = escapeHtml(logLine.message);
 
-            const lineDiv = document.createElement('div');
-            lineDiv.className = 'log-line';
-
-            // Regex to match: [Timestamp] [Level] Message
-            // Example: [2025-12-21 12:00:05] [INFO] Some message
-            const match = logLine.match(/^(\[.*?\])\s+(\[.*?\])\s+(.*)$/);
-
-            if (match) {
-                const timestamp = match[1];
-                const level = match[2];
-                const message = match[3];
-
-                // Determine level class
-                let levelClass = 'log-message'; // default
-                const levelText = level.toUpperCase();
-                if (levelText.includes('INFO')) levelClass = 'log-level-info';
-                else if (levelText.includes('ERROR')) levelClass = 'log-level-error';
-                else if (levelText.includes('WARN')) levelClass = 'log-level-warning';
-
-                // 使用紧凑的 HTML 结构，避免 pre-wrap 导致多余换行
-                lineDiv.innerHTML = `<span class="log-timestamp">${escapeHtml(timestamp)}</span>` +
-                    `<span class="${levelClass}">${escapeHtml(level)}</span>` +
-                    `<span class="log-message">${escapeHtml(message)}</span>`;
-            } else {
-                // If regex doesn't match (e.g. stack trace), display as plain text
-                lineDiv.textContent = logLine;
-                lineDiv.className = 'log-line log-message'; // Use default message color
+            if (logLine.isHeader) {
+                const levelClass = getLogLevelClass(logLine.level);
+                htmlParts.push(
+                    `<div class="log-line">` +
+                    `<span class="log-timestamp">${escapeHtml(logLine.timestamp)}</span>` +
+                    `<span class="${levelClass}">${escapeHtml(logLine.levelToken)}</span>` +
+                    `<span class="log-message">${safeMessage}</span>` +
+                    `</div>`
+                );
+                return;
             }
 
-            logContent.appendChild(lineDiv);
+            if (logLine.level) {
+                const levelClass = getLogLevelClass(logLine.level);
+                htmlParts.push(
+                    `<div class="log-line">` +
+                    `<span class="${levelClass}">[${logLine.level}]</span>` +
+                    `<span class="log-message">${safeMessage}</span>` +
+                    `</div>`
+                );
+                return;
+            }
+
+            htmlParts.push(`<div class="log-line log-message">${safeMessage}</div>`);
         });
+
+        logContent.innerHTML = htmlParts.join('');
     }
 }
 
 function escapeHtml(text) {
-    if (!text) return text;
+    if (text === null || text === undefined) return '';
     return text
+        .toString()
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
