@@ -29,6 +29,9 @@ const AppState = {
 
     // 日志管理
     logWebSocket: null,
+    logManualClose: false,
+    logReconnectTimer: null,
+    logReconnectAttempts: 0,
     allLogs: [],
     filteredLogs: [],
     currentLogFilter: 'all',
@@ -2445,8 +2448,51 @@ async function deduplicateAntigravityByEmail() {
 // =====================================================================
 // WebSocket日志相关
 // =====================================================================
+const LOG_WS_HEARTBEAT_TOKEN = '__GCLI2API_LOG_HEARTBEAT__';
+const LOG_WS_RECONNECT_BASE_DELAY = 1000;
+const LOG_WS_RECONNECT_MAX_DELAY = 15000;
+
+function isLogsTabActive() {
+    const logsTab = document.getElementById('logsTab');
+    return !!(logsTab && logsTab.classList.contains('active'));
+}
+
+function clearLogReconnectTimer() {
+    if (AppState.logReconnectTimer) {
+        clearTimeout(AppState.logReconnectTimer);
+        AppState.logReconnectTimer = null;
+    }
+}
+
+function scheduleLogReconnect() {
+    // 用户手动断开时不重连
+    if (AppState.logManualClose) return;
+    // 仅在日志标签页激活时进行自动重连，避免后台无意义重连
+    if (!isLogsTabActive()) return;
+    // 未登录或无 token 时不重连
+    if (!AppState.authToken) return;
+
+    clearLogReconnectTimer();
+
+    const attempt = AppState.logReconnectAttempts + 1;
+    AppState.logReconnectAttempts = attempt;
+    const delay = Math.min(LOG_WS_RECONNECT_BASE_DELAY * (2 ** (attempt - 1)), LOG_WS_RECONNECT_MAX_DELAY);
+
+    document.getElementById('connectionStatusText').textContent = `重连中 (${attempt})...`;
+    document.getElementById('logConnectionStatus').className = 'status info';
+
+    AppState.logReconnectTimer = setTimeout(() => {
+        AppState.logReconnectTimer = null;
+        connectWebSocket();
+    }, delay);
+}
+
 function connectWebSocket() {
-    if (AppState.logWebSocket && AppState.logWebSocket.readyState === WebSocket.OPEN) {
+    if (
+        AppState.logWebSocket &&
+        (AppState.logWebSocket.readyState === WebSocket.OPEN ||
+            AppState.logWebSocket.readyState === WebSocket.CONNECTING)
+    ) {
         showStatus('WebSocket已经连接', 'info');
         return;
     }
@@ -2461,9 +2507,13 @@ function connectWebSocket() {
         document.getElementById('connectionStatusText').textContent = '连接中...';
         document.getElementById('logConnectionStatus').className = 'status info';
 
+        AppState.logManualClose = false;
+        clearLogReconnectTimer();
+
         AppState.logWebSocket = new WebSocket(wsUrlWithAuth);
 
         AppState.logWebSocket.onopen = () => {
+            AppState.logReconnectAttempts = 0;
             document.getElementById('connectionStatusText').textContent = '已连接';
             document.getElementById('logConnectionStatus').className = 'status success';
             showStatus('日志流连接成功', 'success');
@@ -2472,6 +2522,10 @@ function connectWebSocket() {
 
         AppState.logWebSocket.onmessage = (event) => {
             const logLine = event.data;
+            if (logLine === LOG_WS_HEARTBEAT_TOKEN) {
+                return;
+            }
+
             if (logLine.trim()) {
                 AppState.allLogs.push(logLine);
                 if (AppState.allLogs.length > 1000) {
@@ -2486,9 +2540,18 @@ function connectWebSocket() {
         };
 
         AppState.logWebSocket.onclose = () => {
-            document.getElementById('connectionStatusText').textContent = '连接断开';
+            AppState.logWebSocket = null;
+
+            if (AppState.logManualClose) {
+                document.getElementById('connectionStatusText').textContent = '未连接';
+                document.getElementById('logConnectionStatus').className = 'status info';
+                return;
+            }
+
+            document.getElementById('connectionStatusText').textContent = '连接断开，尝试重连';
             document.getElementById('logConnectionStatus').className = 'status error';
-            showStatus('日志流连接断开', 'info');
+            showStatus('日志流连接断开，正在自动重连', 'warning');
+            scheduleLogReconnect();
         };
 
         AppState.logWebSocket.onerror = (error) => {
@@ -2503,13 +2566,18 @@ function connectWebSocket() {
     }
 }
 
-function disconnectWebSocket() {
+function disconnectWebSocket(manual = true) {
+    AppState.logManualClose = manual;
+    clearLogReconnectTimer();
+
     if (AppState.logWebSocket) {
         AppState.logWebSocket.close();
         AppState.logWebSocket = null;
-        document.getElementById('connectionStatusText').textContent = '未连接';
-        document.getElementById('logConnectionStatus').className = 'status info';
-        showStatus('日志流连接已断开', 'info');
+        if (manual) {
+            document.getElementById('connectionStatusText').textContent = '未连接';
+            document.getElementById('logConnectionStatus').className = 'status info';
+            showStatus('日志流连接已断开', 'info');
+        }
     }
 }
 

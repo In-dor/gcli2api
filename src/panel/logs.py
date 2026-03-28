@@ -5,6 +5,7 @@
 import asyncio
 import datetime
 import os
+import time
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
@@ -18,6 +19,10 @@ from .utils import ConnectionManager
 
 # 创建路由器
 router = APIRouter(prefix="/logs", tags=["logs"])
+
+# 心跳消息（用于防止长时间无日志时连接被中间网络设备回收）
+HEARTBEAT_MESSAGE = "__GCLI2API_LOG_HEARTBEAT__"
+HEARTBEAT_INTERVAL = 25
 
 # WebSocket连接管理器
 manager = ConnectionManager()
@@ -143,6 +148,7 @@ async def websocket_logs(websocket: WebSocket):
         last_size = os.path.getsize(log_file_path) if os.path.exists(log_file_path) else 0
         max_read_size = 8192  # 限制单次读取大小为8KB，防止大量日志造成内存激增
         check_interval = 2  # 增加检查间隔，减少CPU和I/O开销
+        last_heartbeat_time = time.monotonic()
 
         # 创建后台任务监听客户端断开
         # 即使没有日志更新，receive_text() 也能即时感知断开
@@ -160,14 +166,21 @@ async def websocket_logs(websocket: WebSocket):
                 # 使用 asyncio.wait 同时等待定时器和断开信号
                 # timeout=check_interval 替代了 asyncio.sleep
                 done, pending = await asyncio.wait(
-                    [listener_task],
-                    timeout=check_interval,
-                    return_when=asyncio.FIRST_COMPLETED
+                    [listener_task], timeout=check_interval, return_when=asyncio.FIRST_COMPLETED
                 )
 
                 # 如果监听任务结束（通常是因为连接断开），则退出循环
                 if listener_task in done:
                     break
+
+                # 定期发送心跳，避免长期空闲导致反向代理/NAT/负载均衡断开连接
+                now = time.monotonic()
+                if now - last_heartbeat_time >= HEARTBEAT_INTERVAL:
+                    try:
+                        await websocket.send_text(HEARTBEAT_MESSAGE)
+                        last_heartbeat_time = now
+                    except Exception:
+                        break
 
                 if os.path.exists(log_file_path):
                     current_size = os.path.getsize(log_file_path)
