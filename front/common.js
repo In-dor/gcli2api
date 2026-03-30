@@ -2479,9 +2479,10 @@ function parseIncomingLogChunk(logChunk) {
     const parsedLines = [];
     const lines = String(logChunk).split(/\r?\n/);
 
-    lines.forEach((line) => {
-        // 忽略纯空行，避免尾部换行导致的空日志
-        if (!line.length) return;
+    lines.forEach((line, index) => {
+        // 忽略仅由尾部换行产生的最后一个空片段，但保留日志块中的真实空行
+        const isTrailingChunkNewline = index === lines.length - 1 && line.length === 0 && lines.length > 1;
+        if (isTrailingChunkNewline) return;
 
         const match = line.match(LOG_LINE_HEADER_REGEX);
         if (match) {
@@ -2497,6 +2498,11 @@ function parseIncomingLogChunk(logChunk) {
                 });
                 return;
             }
+        }
+
+        // 在完全没有上下文时忽略孤立空行，避免空消息占位；其余情况保留空行/缩进行
+        if (!line.length && AppState.logLastLevel === null && parsedLines.length === 0 && AppState.allLogs.length === 0) {
+            return;
         }
 
         // 非标准前缀行视为上一条日志的延续：保留级别用于筛选，但渲染时不重复输出 [LEVEL]
@@ -2670,19 +2676,17 @@ function connectWebSocket() {
                 return;
             }
 
-            if (logLine.trim()) {
-                const parsedLines = parseIncomingLogChunk(logLine);
-                if (parsedLines.length === 0) return;
+            const parsedLines = parseIncomingLogChunk(logLine);
+            if (parsedLines.length === 0) return;
 
-                AppState.allLogs.push(...parsedLines);
-                if (AppState.allLogs.length > 1000) {
-                    AppState.allLogs = AppState.allLogs.slice(-1000);
-                }
-                filterLogs();
-                if (document.getElementById('autoScroll').checked) {
-                    const logContainer = document.getElementById('logContainer');
-                    logContainer.scrollTop = logContainer.scrollHeight;
-                }
+            AppState.allLogs.push(...parsedLines);
+            if (AppState.allLogs.length > 1000) {
+                AppState.allLogs = AppState.allLogs.slice(-1000);
+            }
+            filterLogs();
+            if (document.getElementById('autoScroll').checked) {
+                const logContainer = document.getElementById('logContainer');
+                logContainer.scrollTop = logContainer.scrollHeight;
             }
         };
 

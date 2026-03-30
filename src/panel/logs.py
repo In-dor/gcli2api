@@ -138,8 +138,8 @@ async def websocket_logs(websocket: WebSocket):
                     lines = f.readlines()
                     # 只发送最后50行，减少初始内存消耗
                     for line in lines[-50:]:
-                        if line.strip():
-                            await websocket.send_text(line.strip())
+                        # 仅移除行尾换行符，保留历史日志原有缩进与空行
+                        await websocket.send_text(line.rstrip("\r\n"))
             except Exception as e:
                 await websocket.send_text(f"Error reading log file: {e}")
                 log.error(f"WebSocket初始日志读取错误: {e}")
