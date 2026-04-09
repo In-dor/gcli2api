@@ -1,4 +1,4 @@
-full_hash=214bd277720c46a970c493c32a1a7c2a0ad63355
-short_hash=214bd27
-message=Merge remote-tracking branch 'O/HEAD'
-date=2026-04-09 06:33:45 +0800
+full_hash=77245dde6bd8063b2fbeb4c90a7eb7a2c0d3ad3c
+short_hash=77245dd
+message=使用预填充优化流式抗截断效果
+date=2026-04-09 22:35:35 +0800
