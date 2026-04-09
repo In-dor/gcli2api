@@ -103,6 +103,20 @@ def _get_cached_config(key: str, default: Any = None) -> Any:
     return _config_cache.get(key, default)
 
 
+def get_return_thoughts_to_frontend_sync() -> bool:
+    """
+    同步获取是否向前端返回思维链。
+
+    用于无法直接 await 配置读取的响应转换链路。
+    优先级与异步 getter 保持一致：ENV > 内存缓存 > 默认值。
+    """
+    env_value = os.getenv("RETURN_THOUGHTS_TO_FRONTEND")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(_get_cached_config("return_thoughts_to_frontend", True))
+
+
 async def get_config_value(key: str, default: Any = None, env_var: Optional[str] = None) -> Any:
     """Get configuration value with priority: ENV > Storage > default."""
     # 确保配置已初始化

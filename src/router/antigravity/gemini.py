@@ -28,7 +28,7 @@ from src.utils import (
     get_base_model_from_feature_model,
     is_anti_truncation_model,
     authenticate_gemini_flexible,
-    is_fake_streaming_model
+    is_fake_streaming_model,
 )
 
 # 本地模块 - 转换器（假流式需要）
@@ -59,6 +59,7 @@ router = APIRouter()
 
 
 # ==================== API 路由 ====================
+
 
 @router.post("/antigravity/v1beta/models/{model:path}:generateContent")
 @router.post("/antigravity/v1/models/{model:path}:generateContent")
@@ -98,16 +99,15 @@ async def generate_content(
 
     # 规范化 Gemini 请求 (使用 antigravity 模式)
     from src.converter.gemini_fix import normalize_gemini_request
+
     normalized_dict = await normalize_gemini_request(normalized_dict, mode="antigravity")
 
     # 准备API请求格式 - 提取model并将其他字段放入request中
-    api_request = {
-        "model": normalized_dict.pop("model"),
-        "request": normalized_dict
-    }
+    api_request = {"model": normalized_dict.pop("model"), "request": normalized_dict}
 
     # 调用 API 层的非流式请求
     from src.api.antigravity import non_stream_request
+
     response = await non_stream_request(body=api_request)
 
     # 解包装响应：Antigravity API 可能返回的格式有额外的 response 包装层
@@ -115,16 +115,28 @@ async def generate_content(
     # 保持 Gemini 原生的 inlineData 格式,不进行 Markdown 转换
     try:
         if response.status_code == 200:
-            response_data = json.loads(response.body if hasattr(response, 'body') else response.content)
+            response_data = json.loads(
+                response.body if hasattr(response, "body") else response.content
+            )
+            from src.converter.utils import (
+                filter_gemini_response_thoughts,
+                should_return_thoughts_to_frontend,
+            )
+
+            if not should_return_thoughts_to_frontend():
+                response_data = filter_gemini_response_thoughts(response_data)
+
             # 如果有 response 包装，解包装它
             if "response" in response_data:
                 unwrapped_data = response_data["response"]
                 return JSONResponse(content=unwrapped_data)
+            return JSONResponse(content=response_data)
         # 错误响应或没有 response 字段，直接返回
         return response
     except Exception as e:
         log.warning(f"Failed to unwrap response: {e}, returning original response")
         return response
+
 
 @router.post("/antigravity/v1beta/models/{model:path}:streamGenerateContent")
 @router.post("/antigravity/v1/models/{model:path}:streamGenerateContent")
@@ -162,10 +174,7 @@ async def stream_generate_content(
         normalized_req = await normalize_gemini_request(normalized_dict.copy(), mode="antigravity")
 
         # 准备API请求格式 - 提取model并将其他字段放入request中
-        api_request = {
-            "model": normalized_req.pop("model"),
-            "request": normalized_req
-        }
+        api_request = {"model": normalized_req.pop("model"), "request": normalized_req}
 
         response = await non_stream_request(body=api_request)
 
@@ -177,9 +186,15 @@ async def stream_generate_content(
 
         # 处理成功响应 - 提取响应内容
         if hasattr(response, "body"):
-            response_body = response.body.decode() if isinstance(response.body, bytes) else response.body
+            response_body = (
+                response.body.decode() if isinstance(response.body, bytes) else response.body
+            )
         elif hasattr(response, "content"):
-            response_body = response.content.decode() if isinstance(response.content, bytes) else response.content
+            response_body = (
+                response.content.decode()
+                if isinstance(response.content, bytes)
+                else response.content
+            )
         else:
             response_body = str(response)
 
@@ -195,14 +210,20 @@ async def stream_generate_content(
                 return
 
             # 使用统一的解析函数
-            content, reasoning_content, finish_reason, images = parse_response_for_fake_stream(response_data)
+            content, reasoning_content, finish_reason, images = parse_response_for_fake_stream(
+                response_data
+            )
 
             log.debug(f"Gemini extracted content: {content}")
-            log.debug(f"Gemini extracted reasoning: {reasoning_content[:100] if reasoning_content else 'None'}...")
+            log.debug(
+                f"Gemini extracted reasoning: {reasoning_content[:100] if reasoning_content else 'None'}..."
+            )
             log.debug(f"Gemini extracted images count: {len(images)}")
 
             # 构建响应块
-            chunks = build_gemini_fake_stream_chunks(content, reasoning_content, finish_reason, images)
+            chunks = build_gemini_fake_stream_chunks(
+                content, reasoning_content, finish_reason, images
+            )
             for idx, chunk in enumerate(chunks):
                 chunk_json = json.dumps(chunk)
                 log.debug(f"[FAKE_STREAM] Yielding chunk #{idx+1}: {chunk_json[:200]}")
@@ -229,7 +250,7 @@ async def stream_generate_content(
         # 准备API请求格式 - 提取model并将其他字段放入request中
         api_request = {
             "model": normalized_req.pop("model") if "model" in normalized_req else real_model,
-            "request": normalized_req
+            "request": normalized_req,
         }
 
         max_attempts = await get_anti_truncation_max_attempts()
@@ -270,7 +291,7 @@ async def stream_generate_content(
         # 迭代 process_stream() 生成器，并展开 response 包装
         async for chunk in processor.process_stream():
             if isinstance(chunk, (str, bytes)):
-                chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+                chunk_str = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
 
                 # 解析并展开 response 包装
                 if chunk_str.startswith("data: "):
@@ -290,7 +311,9 @@ async def stream_generate_content(
                             log.debug(f"[ANTIGRAVITY-ANTI-TRUNCATION] 展开response包装")
                             unwrapped_data = data["response"]
                             # 重新构建SSE格式
-                            yield f"data: {json.dumps(unwrapped_data, ensure_ascii=False)}\n\n".encode('utf-8')
+                            yield f"data: {json.dumps(unwrapped_data, ensure_ascii=False)}\n\n".encode(
+                                "utf-8"
+                            )
                         else:
                             # 已经是展开的格式，直接返回
                             yield chunk
@@ -313,10 +336,7 @@ async def stream_generate_content(
         normalized_req = await normalize_gemini_request(normalized_dict.copy(), mode="antigravity")
 
         # 准备API请求格式 - 提取model并将其他字段放入request中
-        api_request = {
-            "model": normalized_req.pop("model"),
-            "request": normalized_req
-        }
+        api_request = {"model": normalized_req.pop("model"), "request": normalized_req}
 
         # 所有流式请求都使用非 native 模式（SSE格式）并展开 response 包装
         log.debug(f"[ANTIGRAVITY] 使用非native模式，将展开response包装")
@@ -336,18 +356,30 @@ async def stream_generate_content(
             if isinstance(chunk, Response):
                 # 将Response转换为SSE格式的错误消息
                 try:
-                    error_content = chunk.body if isinstance(chunk.body, bytes) else (chunk.body or b'').encode('utf-8')
-                    error_json = json.loads(error_content.decode('utf-8'))
+                    error_content = (
+                        chunk.body
+                        if isinstance(chunk.body, bytes)
+                        else (chunk.body or b"").encode("utf-8")
+                    )
+                    error_json = json.loads(error_content.decode("utf-8"))
                 except Exception:
-                    error_json = {"error": {"code": chunk.status_code, "message": "upstream error", "status": "ERROR"}}
-                log.error(f"[ANTIGRAVITY STREAM] 返回错误给客户端: status={chunk.status_code}, error={str(error_json)[:200]}")
-                yield f"data: {json.dumps(error_json)}\n\n".encode('utf-8')
+                    error_json = {
+                        "error": {
+                            "code": chunk.status_code,
+                            "message": "upstream error",
+                            "status": "ERROR",
+                        }
+                    }
+                log.error(
+                    f"[ANTIGRAVITY STREAM] 返回错误给客户端: status={chunk.status_code}, error={str(error_json)[:200]}"
+                )
+                yield f"data: {json.dumps(error_json)}\n\n".encode("utf-8")
                 yield b"data: [DONE]\n\n"
                 return
 
             # 处理SSE格式的chunk
             if isinstance(chunk, (str, bytes)):
-                chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
+                chunk_str = chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
 
                 # 解析并展开 response 包装
                 if chunk_str.startswith("data: "):
@@ -367,7 +399,9 @@ async def stream_generate_content(
                             log.debug(f"[ANTIGRAVITY] 展开response包装")
                             unwrapped_data = data["response"]
                             # 重新构建SSE格式
-                            yield f"data: {json.dumps(unwrapped_data, ensure_ascii=False)}\n\n".encode('utf-8')
+                            yield f"data: {json.dumps(unwrapped_data, ensure_ascii=False)}\n\n".encode(
+                                "utf-8"
+                            )
                         else:
                             # 已经是展开的格式，直接返回
                             yield chunk
@@ -386,6 +420,7 @@ async def stream_generate_content(
         return await build_streaming_response_or_error(anti_truncation_generator())
     else:
         return await build_streaming_response_or_error(normal_stream_generator())
+
 
 @router.post("/antigravity/v1beta/models/{model:path}:countTokens")
 @router.post("/antigravity/v1/models/{model:path}:countTokens")
@@ -432,6 +467,7 @@ async def count_tokens(
     # 返回Gemini格式的响应
     return JSONResponse(content={"totalTokens": total_tokens})
 
+
 # ==================== 测试代码 ====================
 
 if __name__ == "__main__":
@@ -457,10 +493,7 @@ if __name__ == "__main__":
     # 测试请求体 (Gemini格式)
     test_request_body = {
         "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": "Hello, tell me a joke in one sentence."}]
-            }
+            {"role": "user", "parts": [{"text": "Hello, tell me a joke in one sentence."}]}
         ]
     }
 
@@ -477,7 +510,7 @@ if __name__ == "__main__":
         response = client.post(
             "/antigravity/v1/models/gemini-2.5-flash:generateContent",
             json=test_request_body,
-            params={"key": test_api_key}
+            params={"key": test_api_key},
         )
 
         print("非流式响应数据:")
@@ -502,7 +535,9 @@ if __name__ == "__main__":
     def test_stream_request():
         """测试流式请求"""
         print("\n" + "=" * 80)
-        print("【测试3】流式请求 (POST /antigravity/v1/models/gemini-2.5-flash:streamGenerateContent)")
+        print(
+            "【测试3】流式请求 (POST /antigravity/v1/models/gemini-2.5-flash:streamGenerateContent)"
+        )
         print("=" * 80)
         print(f"请求体: {json.dumps(test_request_body, indent=2, ensure_ascii=False)}\n")
 
@@ -513,7 +548,7 @@ if __name__ == "__main__":
             "POST",
             "/antigravity/v1/models/gemini-2.5-flash:streamGenerateContent",
             json=test_request_body,
-            params={"key": test_api_key}
+            params={"key": test_api_key},
         ) as response:
             print(f"状态码: {response.status_code}")
             print(f"Content-Type: {response.headers.get('content-type', 'N/A')}\n")
@@ -528,13 +563,15 @@ if __name__ == "__main__":
 
                     # 解码chunk
                     try:
-                        chunk_str = chunk.decode('utf-8')
-                        print(f"  内容预览: {repr(chunk_str[:200] if len(chunk_str) > 200 else chunk_str)}")
+                        chunk_str = chunk.decode("utf-8")
+                        print(
+                            f"  内容预览: {repr(chunk_str[:200] if len(chunk_str) > 200 else chunk_str)}"
+                        )
 
                         # 如果是SSE格式，尝试解析每一行
                         if chunk_str.startswith("data: "):
                             # 按行分割，处理每个SSE事件
-                            for line in chunk_str.strip().split('\n'):
+                            for line in chunk_str.strip().split("\n"):
                                 line = line.strip()
                                 if not line:
                                     continue
@@ -545,7 +582,9 @@ if __name__ == "__main__":
                                     try:
                                         json_str = line[6:]  # 去掉 "data: " 前缀
                                         json_data = json.loads(json_str)
-                                        print(f"  解析后的JSON: {json.dumps(json_data, indent=4, ensure_ascii=False)}")
+                                        print(
+                                            f"  解析后的JSON: {json.dumps(json_data, indent=4, ensure_ascii=False)}"
+                                        )
                                     except Exception as e:
                                         print(f"  SSE解析失败: {e}")
                     except Exception as e:
@@ -556,7 +595,9 @@ if __name__ == "__main__":
     def test_fake_stream_request():
         """测试假流式请求"""
         print("\n" + "=" * 80)
-        print("【测试4】假流式请求 (POST /antigravity/v1/models/假流式/gemini-2.5-flash:streamGenerateContent)")
+        print(
+            "【测试4】假流式请求 (POST /antigravity/v1/models/假流式/gemini-2.5-flash:streamGenerateContent)"
+        )
         print("=" * 80)
         print(f"请求体: {json.dumps(test_request_body, indent=2, ensure_ascii=False)}\n")
 
@@ -567,7 +608,7 @@ if __name__ == "__main__":
             "POST",
             "/antigravity/v1/models/假流式/gemini-2.5-flash:streamGenerateContent",
             json=test_request_body,
-            params={"key": test_api_key}
+            params={"key": test_api_key},
         ) as response:
             print(f"状态码: {response.status_code}")
             print(f"Content-Type: {response.headers.get('content-type', 'N/A')}\n")
@@ -576,14 +617,14 @@ if __name__ == "__main__":
             for chunk in response.iter_bytes():
                 if chunk:
                     chunk_count += 1
-                    chunk_str = chunk.decode('utf-8')
+                    chunk_str = chunk.decode("utf-8")
 
                     print(f"\nChunk #{chunk_count}:")
                     print(f"  长度: {len(chunk_str)} 字节")
 
                     # 解析chunk中的所有SSE事件
                     events = []
-                    for line in chunk_str.split('\n'):
+                    for line in chunk_str.split("\n"):
                         line = line.strip()
                         if line.startswith("data: "):
                             events.append(line)
@@ -599,9 +640,18 @@ if __name__ == "__main__":
                                 json_str = event_line[6:]  # 去掉 "data: " 前缀
                                 json_data = json.loads(json_str)
                                 # 提取text内容
-                                text = json_data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                                finish_reason = json_data.get("candidates", [{}])[0].get("finishReason")
-                                print(f"  事件 #{event_idx}: text={repr(text[:50])}{'...' if len(text) > 50 else ''}, finishReason={finish_reason}")
+                                text = (
+                                    json_data.get("candidates", [{}])[0]
+                                    .get("content", {})
+                                    .get("parts", [{}])[0]
+                                    .get("text", "")
+                                )
+                                finish_reason = json_data.get("candidates", [{}])[0].get(
+                                    "finishReason"
+                                )
+                                print(
+                                    f"  事件 #{event_idx}: text={repr(text[:50])}{'...' if len(text) > 50 else ''}, finishReason={finish_reason}"
+                                )
                             except Exception as e:
                                 print(f"  事件 #{event_idx}: 解析失败 - {e}")
 
@@ -610,7 +660,9 @@ if __name__ == "__main__":
     def test_anti_truncation_stream_request():
         """测试流式抗截断请求"""
         print("\n" + "=" * 80)
-        print("【测试5】流式抗截断请求 (POST /antigravity/v1/models/流式抗截断/gemini-2.5-flash:streamGenerateContent)")
+        print(
+            "【测试5】流式抗截断请求 (POST /antigravity/v1/models/流式抗截断/gemini-2.5-flash:streamGenerateContent)"
+        )
         print("=" * 80)
         print(f"请求体: {json.dumps(test_request_body, indent=2, ensure_ascii=False)}\n")
 
@@ -621,7 +673,7 @@ if __name__ == "__main__":
             "POST",
             "/antigravity/v1/models/流式抗截断/gemini-2.5-flash:streamGenerateContent",
             json=test_request_body,
-            params={"key": test_api_key}
+            params={"key": test_api_key},
         ) as response:
             print(f"状态码: {response.status_code}")
             print(f"Content-Type: {response.headers.get('content-type', 'N/A')}\n")
@@ -636,13 +688,15 @@ if __name__ == "__main__":
 
                     # 解码chunk
                     try:
-                        chunk_str = chunk.decode('utf-8')
-                        print(f"  内容预览: {repr(chunk_str[:200] if len(chunk_str) > 200 else chunk_str)}")
+                        chunk_str = chunk.decode("utf-8")
+                        print(
+                            f"  内容预览: {repr(chunk_str[:200] if len(chunk_str) > 200 else chunk_str)}"
+                        )
 
                         # 如果是SSE格式，尝试解析每一行
                         if chunk_str.startswith("data: "):
                             # 按行分割，处理每个SSE事件
-                            for line in chunk_str.strip().split('\n'):
+                            for line in chunk_str.strip().split("\n"):
                                 line = line.strip()
                                 if not line:
                                     continue
@@ -653,7 +707,9 @@ if __name__ == "__main__":
                                     try:
                                         json_str = line[6:]  # 去掉 "data: " 前缀
                                         json_data = json.loads(json_str)
-                                        print(f"  解析后的JSON: {json.dumps(json_data, indent=4, ensure_ascii=False)}")
+                                        print(
+                                            f"  解析后的JSON: {json.dumps(json_data, indent=4, ensure_ascii=False)}"
+                                        )
                                     except Exception as e:
                                         print(f"  SSE解析失败: {e}")
                     except Exception as e:
@@ -682,4 +738,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ 测试过程中出现异常: {e}")
         import traceback
+
         traceback.print_exc()

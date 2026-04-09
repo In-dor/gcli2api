@@ -3,6 +3,7 @@ Anthropic 到 Gemini 格式转换器
 
 提供请求体、响应和流式转换的完整功能。
 """
+
 from __future__ import annotations
 
 import json
@@ -12,11 +13,11 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from fastapi import Response
 from log import log
-from src.converter.utils import merge_system_messages
+from src.converter.utils import merge_system_messages, should_return_thoughts_to_frontend
 
 from src.converter.thoughtSignature_fix import (
     encode_tool_id_with_signature,
-    decode_tool_id_and_signature
+    decode_tool_id_and_signature,
 )
 
 DEFAULT_TEMPERATURE = 0.4
@@ -33,81 +34,82 @@ MIN_SIGNATURE_LENGTH = 10
 def has_valid_thoughtsignature(block: Dict[str, Any]) -> bool:
     """
     检查 thinking 块是否有有效签名
-    
+
     Args:
         block: content block 字典
-        
+
     Returns:
         bool: 是否有有效签名
     """
     if not isinstance(block, dict):
         return True
-    
+
     block_type = block.get("type")
     if block_type not in ("thinking", "redacted_thinking"):
         return True  # 非 thinking 块默认有效
-    
+
     thinking = block.get("thinking", "")
     thoughtsignature = block.get("thoughtSignature")
-    
+
     # 空 thinking + 任意 thoughtsignature = 有效 (trailing signature case)
     if not thinking and thoughtsignature is not None:
         return True
-    
+
     # 有内容 + 足够长度的 thoughtsignature = 有效
-    if thoughtsignature and isinstance(thoughtsignature, str) and len(thoughtsignature) >= MIN_SIGNATURE_LENGTH:
+    if (
+        thoughtsignature
+        and isinstance(thoughtsignature, str)
+        and len(thoughtsignature) >= MIN_SIGNATURE_LENGTH
+    ):
         return True
-    
+
     return False
 
 
 def sanitize_thinking_block(block: Dict[str, Any]) -> Dict[str, Any]:
     """
     清理 thinking 块,只保留必要字段(移除 cache_control 等)
-    
+
     Args:
         block: content block 字典
-        
+
     Returns:
         清理后的 block 字典
     """
     if not isinstance(block, dict):
         return block
-    
+
     block_type = block.get("type")
     if block_type not in ("thinking", "redacted_thinking"):
         return block
-    
+
     # 重建块,移除额外字段
-    sanitized: Dict[str, Any] = {
-        "type": block_type,
-        "thinking": block.get("thinking", "")
-    }
-    
+    sanitized: Dict[str, Any] = {"type": block_type, "thinking": block.get("thinking", "")}
+
     thoughtsignature = block.get("thoughtSignature")
     if thoughtsignature:
         sanitized["thoughtSignature"] = thoughtsignature
-    
+
     return sanitized
 
 
 def remove_trailing_unsigned_thinking(blocks: List[Dict[str, Any]]) -> None:
     """
     移除尾部的无签名 thinking 块
-    
+
     Args:
         blocks: content blocks 列表 (会被修改)
     """
     if not blocks:
         return
-    
+
     # 从后向前扫描
     end_index = len(blocks)
     for i in range(len(blocks) - 1, -1, -1):
         block = blocks[i]
         if not isinstance(block, dict):
             break
-        
+
         block_type = block.get("type")
         if block_type in ("thinking", "redacted_thinking"):
             if not has_valid_thoughtsignature(block):
@@ -116,7 +118,7 @@ def remove_trailing_unsigned_thinking(blocks: List[Dict[str, Any]]) -> None:
                 break  # 遇到有效签名的 thinking 块,停止
         else:
             break  # 遇到非 thinking 块,停止
-    
+
     if end_index < len(blocks):
         removed = len(blocks) - end_index
         del blocks[end_index:]
@@ -170,7 +172,9 @@ def filter_invalid_thinking_blocks(messages: List[Dict[str, Any]]) -> None:
                     )
                     new_blocks.append({"type": "text", "text": thinking_text})
                 else:
-                    log.debug("[Claude-Handler] Dropping empty thinking block with invalid thoughtSignature")
+                    log.debug(
+                        "[Claude-Handler] Dropping empty thinking block with invalid thoughtSignature"
+                    )
 
         msg["content"] = new_blocks
         filtered_count = original_len - len(new_blocks)
@@ -235,9 +239,11 @@ def _remove_nulls_for_tool_input(value: Any) -> Any:
 
     return value
 
+
 # ============================================================================
 # 2. JSON Schema 清理
 # ============================================================================
+
 
 def clean_json_schema(schema: Any) -> Any:
     """
@@ -248,12 +254,33 @@ def clean_json_schema(schema: Any) -> Any:
 
     # 下游不支持的字段
     unsupported_keys = {
-        "$schema", "$id", "$ref", "$defs", "definitions", "title",
-        "example", "examples", "readOnly", "writeOnly", "default",
-        "exclusiveMaximum", "exclusiveMinimum", "oneOf", "anyOf", "allOf",
-        "const", "additionalItems", "contains", "patternProperties",
-        "dependencies", "propertyNames", "if", "then", "else",
-        "contentEncoding", "contentMediaType",
+        "$schema",
+        "$id",
+        "$ref",
+        "$defs",
+        "definitions",
+        "title",
+        "example",
+        "examples",
+        "readOnly",
+        "writeOnly",
+        "default",
+        "exclusiveMaximum",
+        "exclusiveMinimum",
+        "oneOf",
+        "anyOf",
+        "allOf",
+        "const",
+        "additionalItems",
+        "contains",
+        "patternProperties",
+        "dependencies",
+        "propertyNames",
+        "if",
+        "then",
+        "else",
+        "contentEncoding",
+        "contentMediaType",
     }
 
     validation_fields = {
@@ -297,7 +324,9 @@ def clean_json_schema(schema: Any) -> Any:
         elif isinstance(value, dict):
             cleaned[key] = clean_json_schema(value)
         elif isinstance(value, list):
-            cleaned[key] = [clean_json_schema(item) if isinstance(item, dict) else item for item in value]
+            cleaned[key] = [
+                clean_json_schema(item) if isinstance(item, dict) else item for item in value
+            ]
         else:
             cleaned[key] = value
 
@@ -315,7 +344,10 @@ def clean_json_schema(schema: Any) -> Any:
 # 4. Tools 转换
 # ============================================================================
 
-def convert_tools(anthropic_tools: Optional[List[Dict[str, Any]]]) -> Optional[List[Dict[str, Any]]]:
+
+def convert_tools(
+    anthropic_tools: Optional[List[Dict[str, Any]]],
+) -> Optional[List[Dict[str, Any]]]:
     """
     将 Anthropic tools[] 转换为下游 tools（functionDeclarations）结构。
     """
@@ -348,6 +380,7 @@ def convert_tools(anthropic_tools: Optional[List[Dict[str, Any]]]) -> Optional[L
 # 5. Messages 转换
 # ============================================================================
 
+
 def _extract_tool_result_output(content: Any) -> str:
     """从 tool_result.content 中提取输出字符串"""
     if isinstance(content, list):
@@ -363,9 +396,7 @@ def _extract_tool_result_output(content: Any) -> str:
 
 
 def convert_messages_to_contents(
-    messages: List[Dict[str, Any]],
-    *,
-    include_thinking: bool = True
+    messages: List[Dict[str, Any]], *, include_thinking: bool = True
 ) -> List[Dict[str, Any]]:
     """
     将 Anthropic messages[] 转换为下游 contents[]（role: user/model, parts: []）。
@@ -388,17 +419,19 @@ def convert_messages_to_contents(
                     tool_name = item.get("name")
                     if encoded_tool_id and tool_name:
                         # 解码获取原始ID和签名
-                        original_id, thoughtsignature = decode_tool_id_and_signature(encoded_tool_id)
+                        original_id, thoughtsignature = decode_tool_id_and_signature(
+                            encoded_tool_id
+                        )
                         # 存储映射：编码ID -> (name, thoughtsignature)
                         tool_use_info[str(encoded_tool_id)] = (tool_name, thoughtsignature)
 
     for msg in messages:
         role = msg.get("role", "user")
-        
+
         # system 消息已经由 merge_system_messages 处理，这里跳过
         if role == "system":
             continue
-        
+
         # 支持 'assistant' 和 'model' 角色（Google history usage）
         gemini_role = "model" if role in ("assistant", "model") else "user"
         raw_content = msg.get("content", "")
@@ -422,17 +455,17 @@ def convert_messages_to_contents(
                     thinking_text = item.get("thinking", "")
                     if thinking_text is None:
                         thinking_text = ""
-                    
+
                     part: Dict[str, Any] = {
                         "text": str(thinking_text),
                         "thought": True,
                     }
-                    
+
                     # 如果有 thoughtsignature 则添加
                     thoughtsignature = item.get("thoughtSignature")
                     if thoughtsignature:
                         part["thoughtSignature"] = thoughtsignature
-                    
+
                     parts.append(part)
                 elif item_type == "redacted_thinking":
                     if not include_thinking:
@@ -441,17 +474,17 @@ def convert_messages_to_contents(
                     thinking_text = item.get("thinking")
                     if thinking_text is None:
                         thinking_text = item.get("data", "")
-                    
+
                     part_dict: Dict[str, Any] = {
                         "text": str(thinking_text or ""),
                         "thought": True,
                     }
-                    
+
                     # 如果有 thoughtsignature 则添加
                     thoughtsignature = item.get("thoughtSignature")
                     if thoughtsignature:
                         part_dict["thoughtSignature"] = thoughtsignature
-                    
+
                     parts.append(part_dict)
                 elif item_type == "text":
                     text = item.get("text", "")
@@ -490,7 +523,7 @@ def convert_messages_to_contents(
                 elif item_type == "tool_result":
                     output = _extract_tool_result_output(item.get("content"))
                     encoded_tool_use_id = item.get("tool_use_id") or ""
-                    
+
                     # 解码获取原始ID（functionResponse不需要签名）
                     original_tool_use_id, _ = decode_tool_id_and_signature(encoded_tool_use_id)
 
@@ -503,7 +536,7 @@ def convert_messages_to_contents(
                             func_name = tool_info[0]  # 获取 name
                     if not func_name:
                         func_name = "unknown_function"
-                    
+
                     parts.append(
                         {
                             "functionResponse": {
@@ -576,6 +609,7 @@ def reorganize_tool_messages(contents: List[Dict[str, Any]]) -> List[Dict[str, A
 # 7. Tool Choice 转换
 # ============================================================================
 
+
 def convert_tool_choice_to_tool_config(tool_choice: Any) -> Optional[Dict[str, Any]]:
     """
     将 Anthropic tool_choice 转换为 Gemini toolConfig
@@ -591,10 +625,10 @@ def convert_tool_choice_to_tool_config(tool_choice: Any) -> Optional[Dict[str, A
     """
     if not tool_choice:
         return None
-    
+
     if isinstance(tool_choice, dict):
         choice_type = tool_choice.get("type")
-        
+
         if choice_type == "auto":
             return {"functionCallingConfig": {"mode": "AUTO"}}
         elif choice_type == "any":
@@ -608,7 +642,7 @@ def convert_tool_choice_to_tool_config(tool_choice: Any) -> Optional[Dict[str, A
                         "allowedFunctionNames": [tool_name],
                     }
                 }
-    
+
     # 无效或不支持的 tool_choice，返回 None
     return None
 
@@ -616,6 +650,7 @@ def convert_tool_choice_to_tool_config(tool_choice: Any) -> Optional[Dict[str, A
 # ============================================================================
 # 8. Generation Config 构建
 # ============================================================================
+
 
 def build_generation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -657,29 +692,29 @@ def build_generation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     if thinking and isinstance(thinking, dict):
         thinking_type = thinking.get("type")
         budget_tokens = thinking.get("budget_tokens")
-        
+
         # 如果启用了 extended thinking，设置 thinkingConfig
         if thinking_type == "enabled":
             is_plan_mode = True
             thinking_config: Dict[str, Any] = {}
-            
+
             # 设置思考预算，默认使用较大的值以支持计划模式
             if budget_tokens is not None:
                 thinking_config["thinkingBudget"] = budget_tokens
             else:
                 # 默认给一个较大的思考预算以支持完整的计划生成
                 thinking_config["thinkingBudget"] = 48000
-            
+
             # 始终包含思考内容，这样才能看到计划
             thinking_config["includeThoughts"] = True
-            
+
             config["thinkingConfig"] = thinking_config
-            log.info(f"[ANTHROPIC2GEMINI] Extended thinking enabled with budget: {thinking_config['thinkingBudget']}")
+            log.info(
+                f"[ANTHROPIC2GEMINI] Extended thinking enabled with budget: {thinking_config['thinkingBudget']}"
+            )
         elif thinking_type == "disabled":
             # 明确禁用思考模式
-            config["thinkingConfig"] = {
-                "includeThoughts": False
-            }
+            config["thinkingConfig"] = {"includeThoughts": False}
             log.info("[ANTHROPIC2GEMINI] Extended thinking explicitly disabled")
 
     stop_sequences = payload.get("stop_sequences")
@@ -689,8 +724,10 @@ def build_generation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
         # Plan mode 时清空默认 stop sequences，避免过早停止
         # 默认的 stop sequences 可能会导致模型在生成计划时过早停止
         config["stopSequences"] = []
-        log.info("[ANTHROPIC2GEMINI] Plan mode: cleared default stop sequences to prevent premature stopping")
-    
+        log.info(
+            "[ANTHROPIC2GEMINI] Plan mode: cleared default stop sequences to prevent premature stopping"
+        )
+
     # 如果不是 plan mode 且没有自定义 stop_sequences，保持默认值
     # (默认值已经在 config 初始化时设置)
 
@@ -700,6 +737,7 @@ def build_generation_config(payload: Dict[str, Any]) -> Dict[str, Any]:
 # ============================================================================
 # 8. 主要转换函数
 # ============================================================================
+
 
 async def anthropic_to_gemini_request(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -726,7 +764,7 @@ async def anthropic_to_gemini_request(payload: Dict[str, Any]) -> Dict[str, Any]
     messages = payload.get("messages") or []
     if not isinstance(messages, list):
         messages = []
-    
+
     # [CRITICAL FIX] 过滤并修复 Thinking 块签名
     # 在转换前先过滤无效的 thinking 块
     filter_invalid_thinking_blocks(messages)
@@ -736,7 +774,7 @@ async def anthropic_to_gemini_request(payload: Dict[str, Any]) -> Dict[str, Any]
 
     # 转换消息内容（始终包含thinking块，由响应端处理）
     contents = convert_messages_to_contents(messages, include_thinking=True)
-    
+
     # [CRITICAL FIX] 移除尾部无签名的 thinking 块
     # 对真实请求应用额外的清理
     for content in contents:
@@ -745,12 +783,12 @@ async def anthropic_to_gemini_request(payload: Dict[str, Any]) -> Dict[str, Any]
             parts = content.get("parts", [])
             if isinstance(parts, list):
                 remove_trailing_unsigned_thinking(parts)
-    
+
     contents = reorganize_tool_messages(contents)
 
     # 转换工具
     tools = convert_tools(payload.get("tools"))
-    
+
     # 转换 tool_choice
     tool_config = convert_tool_choice_to_tool_config(payload.get("tool_choice"))
 
@@ -759,14 +797,14 @@ async def anthropic_to_gemini_request(payload: Dict[str, Any]) -> Dict[str, Any]
         "contents": contents,
         "generationConfig": generation_config,
     }
-    
+
     # 如果 merge_system_messages 已经添加了 systemInstruction，使用它
     if "systemInstruction" in payload:
         gemini_request["systemInstruction"] = payload["systemInstruction"]
-    
+
     if tools:
         gemini_request["tools"] = tools
-    
+
     # 添加 toolConfig（如果有 tool_choice）
     if tool_config:
         gemini_request["toolConfig"] = tool_config
@@ -775,9 +813,7 @@ async def anthropic_to_gemini_request(payload: Dict[str, Any]) -> Dict[str, Any]
 
 
 def gemini_to_anthropic_response(
-    gemini_response: Dict[str, Any],
-    model: str,
-    status_code: int = 200
+    gemini_response: Dict[str, Any], model: str, status_code: int = 200
 ) -> Dict[str, Any]:
     """
     将 Gemini 格式非流式响应转换为 Anthropic 格式非流式响应
@@ -816,6 +852,7 @@ def gemini_to_anthropic_response(
     # 转换内容块
     content = []
     has_tool_use = False
+    include_thinking = should_return_thoughts_to_frontend()
 
     for part in parts:
         if not isinstance(part, dict):
@@ -823,17 +860,20 @@ def gemini_to_anthropic_response(
 
         # 处理 thinking 块
         if part.get("thought") is True:
+            if not include_thinking:
+                continue
+
             thinking_text = part.get("text", "")
             if thinking_text is None:
                 thinking_text = ""
-            
+
             block: Dict[str, Any] = {"type": "thinking", "thinking": str(thinking_text)}
-            
+
             # 如果有 thoughtsignature 则添加
             thoughtsignature = part.get("thoughtSignature")
             if thoughtsignature:
                 block["thoughtSignature"] = thoughtsignature
-            
+
             content.append(block)
             continue
 
@@ -848,7 +888,7 @@ def gemini_to_anthropic_response(
             fc = part.get("functionCall", {}) or {}
             original_id = fc.get("id") or f"toolu_{uuid.uuid4().hex}"
             thoughtsignature = part.get("thoughtSignature")
-            
+
             # 对工具调用ID进行签名编码
             encoded_id = encode_tool_id_with_signature(original_id, thoughtsignature)
             content.append(
@@ -878,7 +918,7 @@ def gemini_to_anthropic_response(
 
     # 确定停止原因
     finish_reason = candidate.get("finishReason")
-    
+
     # 只有在正常停止（STOP）且有工具调用时才设为 tool_use
     # 避免在 SAFETY、MAX_TOKENS 等情况下仍然返回 tool_use 导致循环
     if has_tool_use and finish_reason == "STOP":
@@ -890,8 +930,12 @@ def gemini_to_anthropic_response(
         stop_reason = "end_turn"
 
     # 提取 token 使用情况
-    input_tokens = usage_metadata.get("promptTokenCount", 0) if isinstance(usage_metadata, dict) else 0
-    output_tokens = usage_metadata.get("candidatesTokenCount", 0) if isinstance(usage_metadata, dict) else 0
+    input_tokens = (
+        usage_metadata.get("promptTokenCount", 0) if isinstance(usage_metadata, dict) else 0
+    )
+    output_tokens = (
+        usage_metadata.get("candidatesTokenCount", 0) if isinstance(usage_metadata, dict) else 0
+    )
 
     # 构建 Anthropic 响应
     message_id = f"msg_{uuid.uuid4().hex}"
@@ -912,9 +956,7 @@ def gemini_to_anthropic_response(
 
 
 async def gemini_stream_to_anthropic_stream(
-    gemini_stream: AsyncIterator[bytes],
-    model: str,
-    status_code: int = 200
+    gemini_stream: AsyncIterator[bytes], model: str, status_code: int = 200
 ) -> AsyncIterator[bytes]:
     """
     将 Gemini 格式流式响应转换为 Anthropic SSE 格式流式响应
@@ -945,6 +987,7 @@ async def gemini_stream_to_anthropic_stream(
     input_tokens = 0
     output_tokens = 0
     finish_reason: Optional[str] = None
+    include_thinking = should_return_thoughts_to_frontend()
 
     def _sse_event(event: str, data: Dict[str, Any]) -> bytes:
         """生成 SSE 事件"""
@@ -968,9 +1011,13 @@ async def gemini_stream_to_anthropic_stream(
         async for chunk in gemini_stream:
             # 检查是否是 Response 对象（错误情况）
             if isinstance(chunk, Response):
-                log.warning(f"[GEMINI_TO_ANTHROPIC] 收到 Response 对象，状态码: {chunk.status_code}，直接转发错误")
+                log.warning(
+                    f"[GEMINI_TO_ANTHROPIC] 收到 Response 对象，状态码: {chunk.status_code}，直接转发错误"
+                )
                 # 直接转发错误响应内容，不做格式转换
-                error_content = chunk.body if isinstance(chunk.body, bytes) else chunk.body.encode('utf-8')
+                error_content = (
+                    chunk.body if isinstance(chunk.body, bytes) else chunk.body.encode("utf-8")
+                )
                 yield error_content
                 return
 
@@ -990,8 +1037,10 @@ async def gemini_stream_to_anthropic_stream(
             log.debug(f"[GEMINI_TO_ANTHROPIC] Parsing JSON: {raw[:200]}")
 
             try:
-                data = json.loads(raw.decode('utf-8', errors='ignore'))
-                log.debug(f"[GEMINI_TO_ANTHROPIC] Parsed data: {json.dumps(data, ensure_ascii=False)[:300]}")
+                data = json.loads(raw.decode("utf-8", errors="ignore"))
+                log.debug(
+                    f"[GEMINI_TO_ANTHROPIC] Parsed data: {json.dumps(data, ensure_ascii=False)[:300]}"
+                )
             except Exception as e:
                 log.warning(f"[GEMINI_TO_ANTHROPIC] JSON parse error: {e}")
                 continue
@@ -1041,9 +1090,12 @@ async def gemini_stream_to_anthropic_stream(
 
                 # 处理 thinking 块
                 if part.get("thought") is True:
+                    if not include_thinking:
+                        continue
+
                     thinking_text = part.get("text", "")
                     thoughtsignature = part.get("thoughtSignature")
-                    
+
                     # 检查是否需要关闭上一个块并开启新的 thinking 块
                     if current_block_type != "thinking":
                         close_evt = _close_block()
@@ -1070,15 +1122,15 @@ async def gemini_stream_to_anthropic_stream(
                         close_evt = _close_block()
                         if close_evt:
                             yield close_evt
-                        
+
                         current_block_index += 1
                         current_block_type = "thinking"
                         current_thinking_signature = thoughtsignature
-                        
+
                         block_new: Dict[str, Any] = {"type": "thinking", "thinking": ""}
                         if thoughtsignature:
                             block_new["thoughtSignature"] = thoughtsignature
-                        
+
                         yield _sse_event(
                             "content_block_start",
                             {
@@ -1186,10 +1238,12 @@ async def gemini_stream_to_anthropic_stream(
                         {"type": "content_block_stop", "index": current_block_index},
                     )
                     # 工具调用块已完全关闭，current_block_type 保持为 None
-                    
+
                     if _anthropic_debug_enabled():
-                        log.info(f"[ANTHROPIC][tool_use] 工具调用块已关闭: index={current_block_index}")
-                    
+                        log.info(
+                            f"[ANTHROPIC][tool_use] 工具调用块已关闭: index={current_block_index}"
+                        )
+
                     continue
 
             # 检查是否结束

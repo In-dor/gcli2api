@@ -3016,7 +3016,7 @@ function populateConfigForm() {
     const antigravityStream2nostreamEl = document.getElementById('antigravityStream2nostream');
     if (antigravityStream2nostreamEl) antigravityStream2nostreamEl.checked = Boolean(c.antigravity_stream2nostream !== false);
     const requestThoughtsFromModelEl = document.getElementById('requestThoughtsFromModel');
-    if (requestThoughtsFromModelEl) requestThoughtsFromModelEl.checked = Boolean(c.request_thoughts_from_model !== false);
+    if (requestThoughtsFromModelEl) requestThoughtsFromModelEl.checked = Boolean(c.request_thoughts_from_model === true);
     const showVariantModelsEl = document.getElementById('showVariantModels');
     if (showVariantModelsEl) showVariantModelsEl.checked = Boolean(c.show_variant_models !== false);
 

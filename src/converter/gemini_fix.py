@@ -255,7 +255,7 @@ async def normalize_gemini_request(
         规范化后的请求
     """
     # 导入配置函数
-    from config import get_return_thoughts_to_frontend, get_request_thoughts_from_model
+    from config import get_request_thoughts_from_model
 
     result = request.copy()
     model = result.get("model", "")
@@ -269,7 +269,6 @@ async def normalize_gemini_request(
     )
 
     # 获取配置值
-    return_thoughts = await get_return_thoughts_to_frontend()
     request_thoughts_from_model = await get_request_thoughts_from_model()
 
     # ========== 模式特定处理 ==========
@@ -281,16 +280,26 @@ async def normalize_gemini_request(
         # 如果用户提供了 thinkingBudget 或 thinkingLevel，则跳过自动配置，避免冲突
         user_thinking_config = generation_config.get("thinkingConfig")
         has_user_controls = False
+        has_user_include_thoughts = False
         if user_thinking_config and isinstance(user_thinking_config, dict):
             if "thinkingBudget" in user_thinking_config or "thinkingLevel" in user_thinking_config:
                 has_user_controls = True
+            if "includeThoughts" in user_thinking_config:
+                has_user_include_thoughts = True
 
         # 只有在没有用户明确控制的情况下才应用默认逻辑
         if (
-            thinking_budget is not None or thinking_level is not None or request_thoughts_from_model
-        ) and not has_user_controls:
+            (
+                thinking_budget is not None
+                or thinking_level is not None
+                or request_thoughts_from_model
+            )
+            and not has_user_controls
+            and not has_user_include_thoughts
+        ):
             # 特判：gemini-2.5-flash-lite 模型默认不支持思考
             is_flash_lite = "gemini-2.5-flash-lite" in model.lower()
+            final_include_thoughts = None
 
             # 如果强制向模型请求思维链，则无论 return_thoughts 设置如何都请求
             if is_flash_lite:
@@ -300,22 +309,20 @@ async def normalize_gemini_request(
             elif thinking_budget is not None and int(thinking_budget) == 0:
                 # thinkingBudget=0 时强制关闭，避免 includeThoughts 与 budget 冲突
                 final_include_thoughts = False
-            else:
-                # 否则遵循 return_thoughts 配置（必须是布尔值）
-                final_include_thoughts = bool(return_thoughts)
 
             # 即使 thinkingConfig 已存在，也可能需要覆盖 includeThoughts
             if "thinkingConfig" not in generation_config:
-                generation_config["thinkingConfig"] = {
-                    "includeThoughts": final_include_thoughts,
-                }
+                generation_config["thinkingConfig"] = {}
+                if final_include_thoughts is not None:
+                    generation_config["thinkingConfig"]["includeThoughts"] = final_include_thoughts
                 if thinking_budget is not None:
                     generation_config["thinkingConfig"]["thinkingBudget"] = thinking_budget
                 if thinking_level is not None:
                     generation_config["thinkingConfig"]["thinkingLevel"] = thinking_level
             else:
                 # 确保 includeThoughts 被正确设置
-                generation_config["thinkingConfig"]["includeThoughts"] = final_include_thoughts
+                if final_include_thoughts is not None:
+                    generation_config["thinkingConfig"]["includeThoughts"] = final_include_thoughts
                 if (
                     thinking_budget is not None
                     and "thinkingBudget" not in generation_config["thinkingConfig"]
@@ -330,7 +337,7 @@ async def normalize_gemini_request(
         # 即使有用户控制，也要处理特殊情况：如果用户只提供了 thinkingBudget 且没提供 includeThoughts
         # 我们可能需要补充 includeThoughts=True (如果 thinkingBudget > 0)
         # 或者处理 thinkingBudget=0 的情况
-        elif has_user_controls and user_thinking_config:
+        elif user_thinking_config and isinstance(user_thinking_config, dict):
             # 冲突处理：如果 thinkingBudget 为 0，确保 includeThoughts 不为 True
             budget = user_thinking_config.get("thinkingBudget")
             if budget is not None and int(budget) == 0:
@@ -338,6 +345,10 @@ async def normalize_gemini_request(
                 # 为了安全起见，如果不强制要求，可以不发 includeThoughts，或者显式设为 False
                 if "includeThoughts" in user_thinking_config:
                     user_thinking_config["includeThoughts"] = False
+                else:
+                    user_thinking_config["includeThoughts"] = False
+            elif request_thoughts_from_model and "includeThoughts" not in user_thinking_config:
+                user_thinking_config["includeThoughts"] = True
                 # 确保不会因为下面的逻辑又加回来
 
             # 版本适配：如果同时存在 thinkingLevel 和 thinkingBudget
@@ -400,9 +411,12 @@ async def normalize_gemini_request(
 
             # 检查是否有用户控制
             has_user_controls = False
+            has_user_include_thoughts = False
             if isinstance(thinking_config, dict):
                 if "thinkingBudget" in thinking_config or "thinkingLevel" in thinking_config:
                     has_user_controls = True
+                if "includeThoughts" in thinking_config:
+                    has_user_include_thoughts = True
 
             # 优先使用传入的思考预算，否则使用默认值
             # 仅在用户没有提供控制时才设置默认值
@@ -413,8 +427,8 @@ async def normalize_gemini_request(
                     thinking_config["thinkingBudget"] = 1024
 
             # 处理 includeThoughts
-            # 只有在没有用户控制或者没有显式设置 includeThoughts 时才应用默认逻辑
-            if request_thoughts_from_model:
+            # 仅在用户未显式设置 includeThoughts 时，才由 request_thoughts_from_model 决定
+            if request_thoughts_from_model and not has_user_include_thoughts:
                 # 如果强制开启，但也得尊重 thinkingBudget=0 的情况
                 budget = thinking_config.get("thinkingBudget")
                 if budget is not None and int(budget) == 0:
@@ -422,8 +436,6 @@ async def normalize_gemini_request(
                     thinking_config["includeThoughts"] = False
                 else:
                     thinking_config["includeThoughts"] = True
-            elif "includeThoughts" not in thinking_config:
-                thinking_config["includeThoughts"] = return_thoughts
 
             # 再次检查冲突：如果 thinkingBudget 为 0，确保 includeThoughts 为 False
             if "thinkingBudget" in thinking_config and int(thinking_config["thinkingBudget"]) == 0:
