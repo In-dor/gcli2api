@@ -334,9 +334,9 @@ async def normalize_gemini_request(
                     # Gemini 3 只保留 thinkingLevel
                     generation_config["thinkingConfig"].pop("thinkingBudget", None)
 
-        # 即使有用户控制，也要处理特殊情况：如果用户只提供了 thinkingBudget 且没提供 includeThoughts
-        # 我们可能需要补充 includeThoughts=True (如果 thinkingBudget > 0)
-        # 或者处理 thinkingBudget=0 的情况
+        # 即使有用户控制，也要处理特殊情况：
+        # 1. 如果存在硬冲突约束（如 thinkingBudget=0），则强制关闭 includeThoughts
+        # 2. 如果 request_thoughts_from_model 开启，则强制请求 includeThoughts=True
         elif user_thinking_config and isinstance(user_thinking_config, dict):
             # 冲突处理：如果 thinkingBudget 为 0，确保 includeThoughts 不为 True
             budget = user_thinking_config.get("thinkingBudget")
@@ -347,9 +347,8 @@ async def normalize_gemini_request(
                     user_thinking_config["includeThoughts"] = False
                 else:
                     user_thinking_config["includeThoughts"] = False
-            elif request_thoughts_from_model and "includeThoughts" not in user_thinking_config:
+            elif request_thoughts_from_model:
                 user_thinking_config["includeThoughts"] = True
-                # 确保不会因为下面的逻辑又加回来
 
             # 版本适配：如果同时存在 thinkingLevel 和 thinkingBudget
             # Gemini 3 (例如 gemini-3-*) 优先 thinkingLevel
@@ -411,12 +410,9 @@ async def normalize_gemini_request(
 
             # 检查是否有用户控制
             has_user_controls = False
-            has_user_include_thoughts = False
             if isinstance(thinking_config, dict):
                 if "thinkingBudget" in thinking_config or "thinkingLevel" in thinking_config:
                     has_user_controls = True
-                if "includeThoughts" in thinking_config:
-                    has_user_include_thoughts = True
 
             # 优先使用传入的思考预算，否则使用默认值
             # 仅在用户没有提供控制时才设置默认值
@@ -427,12 +423,12 @@ async def normalize_gemini_request(
                     thinking_config["thinkingBudget"] = 1024
 
             # 处理 includeThoughts
-            # 仅在用户未显式设置 includeThoughts 时，才由 request_thoughts_from_model 决定
-            if request_thoughts_from_model and not has_user_include_thoughts:
-                # 如果强制开启，但也得尊重 thinkingBudget=0 的情况
+            # request_thoughts_from_model 开启时，应强制请求 includeThoughts=True；
+            # 但必须尊重硬冲突约束（如 thinkingBudget=0）
+            if request_thoughts_from_model:
                 budget = thinking_config.get("thinkingBudget")
                 if budget is not None and int(budget) == 0:
-                    # 明确被用户禁用
+                    # 硬冲突约束优先
                     thinking_config["includeThoughts"] = False
                 else:
                     thinking_config["includeThoughts"] = True
