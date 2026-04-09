@@ -1,4 +1,4 @@
-full_hash=463630cbf9d8cc5d3fbcf4ad58cf8c1a0d4f3be8
-short_hash=463630c
-message=修复
-date=2026-04-10 02:46:10 +0800
+full_hash=13eeb8838e863617eda24733af2f88cccf822ce2
+short_hash=13eeb88
+message=优化思维链开关
+date=2026-04-10 03:37:10 +0800
