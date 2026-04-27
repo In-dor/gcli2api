@@ -14,24 +14,125 @@
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/su-kaka/gcli2api)
 ---
 
-## ⚠️ License Declaration
+## Installation Guide
 
-**This project is licensed under the Cooperative Non-Commercial License (CNC-1.0)**
+### Termux Environment
 
-This is a strict anti-commercial open source license. Please refer to the [LICENSE](../LICENSE) file for details.
+**Initial Installation**
+```bash
+curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
+```
 
-### ✅ Permitted Uses:
-- Personal learning, research, and educational purposes
-- Non-profit organization use
-- Open source project integration (must comply with the same license)
-- Academic research and publication
+**Restart Service**
+```bash
+cd gcli2api
+bash termux-start.sh
+```
 
-### ❌ Prohibited Uses:
-- Any form of commercial use
-- Enterprise use with annual revenue exceeding $1 million
-- Venture capital-backed or publicly traded companies
-- Providing paid services or products
-- Commercial competitive use
+### Windows Environment
+
+**Initial Installation**
+```powershell
+iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
+```
+
+**Restart Service**
+Double-click to execute `start.bat`
+
+### Linux Environment
+
+**Initial Installation**
+```bash
+curl -o install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
+```
+
+**Restart Service**
+```bash
+cd gcli2api
+bash start.sh
+```
+
+### macOS Environment
+
+**Initial Installation**
+```bash
+curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
+```
+
+**Restart Service**
+```bash
+cd gcli2api
+bash start.sh
+```
+
+### Docker Environment
+
+**Docker Run Command**
+```bash
+# Using universal password
+docker run -d --name gcli2api --network host -e PASSWORD=pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
+
+# Using separate passwords
+docker run -d --name gcli2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
+```
+
+**Docker Mac**
+```bash
+# Using universal password
+docker run -d \
+  --name gcli2api \
+  -p 7861:7861 \
+  -p 8080:8080 \
+  -e PASSWORD=pwd \
+  -e PORT=7861 \
+  -v "$(pwd)/data/creds":/app/creds \
+  ghcr.io/su-kaka/gcli2api:latest
+```
+
+```bash
+# Using separate passwords
+docker run -d \
+--name gcli2api \
+-p 7861:7861 \
+-p 8080:8080 \
+-e API_PASSWORD=api_pwd \
+-e PANEL_PASSWORD=panel_pwd \
+-e PORT=7861 \
+-v $(pwd)/data/creds:/app/creds \
+ghcr.io/su-kaka/gcli2api:latest
+```
+
+**Docker Compose Run Command**
+1. Save the following content as `docker-compose.yml` file:
+    ```yaml
+    version: '3.8'
+
+    services:
+      gcli2api:
+        image: ghcr.io/su-kaka/gcli2api:latest
+        container_name: gcli2api
+        restart: unless-stopped
+        network_mode: host
+        environment:
+          # Using universal password (recommended for simple deployment)
+          - PASSWORD=pwd
+          - PORT=7861
+          # Or use separate passwords (recommended for production)
+          # - API_PASSWORD=your_api_password
+          # - PANEL_PASSWORD=your_panel_password
+        volumes:
+          - ./data/creds:/app/creds
+        healthcheck:
+          test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
+          interval: 30s
+          timeout: 10s
+          retries: 3
+          start_period: 40s
+    ```
+2. Start the service:
+    ```bash
+    docker-compose up -d
+    ```
 
 ## Core Features
 
@@ -192,129 +293,6 @@ All models have 1M context window capacity. Each credential file provides 1000 r
 - System automatically recognizes feature identifiers in model names
 - Transparently handles feature mode transitions
 - Supports feature combination usage
-
-
----
-
-## Installation Guide
-
-### Termux Environment
-
-**Initial Installation**
-```bash
-curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
-```
-
-**Restart Service**
-```bash
-cd gcli2api
-bash termux-start.sh
-```
-
-### Windows Environment
-
-**Initial Installation**
-```powershell
-iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
-```
-
-**Restart Service**
-Double-click to execute `start.bat`
-
-### Linux Environment
-
-**Initial Installation**
-```bash
-curl -o install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
-```
-
-**Restart Service**
-```bash
-cd gcli2api
-bash start.sh
-```
-
-### macOS Environment
-
-**Initial Installation**
-```bash
-curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
-```
-
-**Restart Service**
-```bash
-cd gcli2api
-bash start.sh
-```
-
-### Docker Environment
-
-**Docker Run Command**
-```bash
-# Using universal password
-docker run -d --name gcli2api --network host -e PASSWORD=pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
-
-# Using separate passwords
-docker run -d --name gcli2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
-```
-
-**Docker Mac**
-```bash
-# Using universal password
-docker run -d \
-  --name gcli2api \
-  -p 7861:7861 \
-  -p 8080:8080 \
-  -e PASSWORD=pwd \
-  -e PORT=7861 \
-  -v "$(pwd)/data/creds":/app/creds \
-  ghcr.io/su-kaka/gcli2api:latest
-```
-
-```bash
-# Using separate passwords
-docker run -d \
---name gcli2api \
--p 7861:7861 \
--p 8080:8080 \
--e API_PASSWORD=api_pwd \
--e PANEL_PASSWORD=panel_pwd \
--e PORT=7861 \
--v $(pwd)/data/creds:/app/creds \
-ghcr.io/su-kaka/gcli2api:latest
-```
-
-**Docker Compose Run Command**
-1. Save the following content as `docker-compose.yml` file:
-    ```yaml
-    version: '3.8'
-
-    services:
-      gcli2api:
-        image: ghcr.io/su-kaka/gcli2api:latest
-        container_name: gcli2api
-        restart: unless-stopped
-        network_mode: host
-        environment:
-          # Using universal password (recommended for simple deployment)
-          - PASSWORD=pwd
-          - PORT=7861
-          # Or use separate passwords (recommended for production)
-          # - API_PASSWORD=your_api_password
-          # - PANEL_PASSWORD=your_panel_password
-        volumes:
-          - ./data/creds:/app/creds
-        healthcheck:
-          test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
-          interval: 30s
-          timeout: 10s
-          retries: 3
-          start_period: 40s
-    ```
-2. Start the service:
-    ```bash
-    docker-compose up -d
-    ```
 
 ---
 
@@ -637,132 +615,6 @@ curl -X POST "http://127.0.0.1:7861/v1/messages" \
 - Supports all Claude standard parameters
 - Response format follows Claude API specification
 
-#### 4. Antigravity API Endpoints
-
-**Supports three formats: OpenAI, Gemini, and Claude**
-
-##### Antigravity OpenAI Format Endpoints
-
-**Endpoint:** `/antigravity/v1/chat/completions`
-**Authentication:** `Authorization: Bearer your_api_password`
-
-**Request Example:**
-```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
-  -H "Authorization: Bearer your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-sonnet-4-5",
-    "messages": [
-      {"role": "user", "content": "Hello"}
-    ],
-    "stream": true
-  }'
-```
-
-##### Antigravity Gemini Format Endpoints
-
-**Non-streaming Endpoint:** `/antigravity/v1/models/{model}:generateContent`
-**Streaming Endpoint:** `/antigravity/v1/models/{model}:streamGenerateContent`
-
-**Authentication Methods (choose one):**
-- `Authorization: Bearer your_api_password`
-- `x-goog-api-key: your_api_password`
-- URL parameter: `?key=your_api_password`
-
-**Request Examples:**
-```bash
-# Gemini format non-streaming request
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/claude-sonnet-4-5:generateContent" \
-  -H "x-goog-api-key: your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ],
-    "generationConfig": {
-      "temperature": 0.7
-    }
-  }'
-
-# Gemini format streaming request
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/gemini-2.5-flash:streamGenerateContent?key=your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ]
-  }'
-```
-
-##### Antigravity Claude Format Endpoints
-
-**Endpoint:** `/antigravity/v1/messages`
-**Authentication:** `x-api-key: your_api_password`
-
-**Request Example:**
-```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/messages" \
-  -H "x-api-key: your_api_password" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-sonnet-4-5",
-    "max_tokens": 1024,
-    "messages": [
-      {"role": "user", "content": "Hello"}
-    ]
-  }'
-```
-
-**Supported Antigravity Models:**
-- Claude series: `claude-sonnet-4-5`, `claude-opus-4-5`, etc.
-- Gemini series: `gemini-2.5-flash`, `gemini-2.5-pro`, etc.
-- Automatically supports thinking models
-
-**Gemini Native Example:**
-```python
-from io import BytesIO
-from PIL import Image
-from google.genai import Client
-from google.genai.types import HttpOptions
-from google.genai import types
-# The client gets the API key from the environment variable `GEMINI_API_KEY`.
-
-client = Client(
-            api_key="pwd",
-            http_options=HttpOptions(base_url="http://127.0.0.1:7861"),
-        )
-
-prompt = (
-    """
-    Draw a cat
-    """
-)
-
-response = client.models.generate_content(
-    model="gemini-3.1-flash-image",
-    contents=[prompt],
-    config=types.GenerateContentConfig(
-        image_config=types.ImageConfig(
-            aspect_ratio="16:9",
-        )
-    )
-)
-for part in response.candidates[0].content.parts:
-    if part.text is not None:
-        print(part.text)
-    elif part.inline_data is not None:
-        image = Image.open(BytesIO(part.inline_data.data))
-        image.save("generated_image.png")
-
-```
-
-**Notes:**
-- OpenAI endpoints return OpenAI-compatible format
-- Gemini endpoints return Gemini native format
-- Both endpoints use the same API password
-
 ## 📋 Complete API Reference
 
 ### Web Console API
@@ -884,3 +736,22 @@ This project is for learning and research purposes only. Using this project indi
 - Comply with relevant terms of service and legal regulations
 
 The project authors are not responsible for any direct or indirect losses arising from the use of this project.
+
+## ⚠️ License Declaration
+
+**This project is licensed under the Cooperative Non-Commercial License (CNC-1.0)**
+
+This is a strict anti-commercial open source license. Please refer to the [LICENSE](../LICENSE) file for details.
+
+### ✅ Permitted Uses:
+- Personal learning, research, and educational purposes
+- Non-profit organization use
+- Open source project integration (must comply with the same license)
+- Academic research and publication
+
+### ❌ Prohibited Uses:
+- Any form of commercial use
+- Enterprise use with annual revenue exceeding $1 million
+- Venture capital-backed or publicly traded companies
+- Providing paid services or products
+- Commercial competitive use

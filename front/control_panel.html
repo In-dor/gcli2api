@@ -1931,6 +1931,7 @@
                     <label for="errorCodeFilter" style="margin-left: 20px;">错误码：</label>
                     <select id="errorCodeFilter" class="filter-select" onchange="applyStatusFilter()">
                         <option value="all">全部</option>
+                        <option value="none">无错误</option>
                         <option value="400">400</option>
                         <option value="403">403</option>
                         <option value="429">429</option>
@@ -2088,6 +2089,10 @@
                             onclick="batchAntigravityAction('disable')" disabled>批量禁用</button>
                         <button class="batch-btn batch-delete" id="antigravityBatchDeleteBtn"
                             onclick="batchAntigravityAction('delete')" disabled>批量删除</button>
+                        <button class="batch-btn" id="antigravityBatchEnableCreditBtn"
+                            onclick="batchAntigravityAction('enable_credit')" disabled>批量开启积分</button>
+                        <button class="batch-btn" id="antigravityBatchDisableCreditBtn"
+                            onclick="batchAntigravityAction('disable_credit')" disabled>批量关闭积分</button>
                         <button class="batch-btn" style="background-color: #ff9800;" id="antigravityBatchVerifyBtn"
                             onclick="batchVerifyAntigravityProjectIds()" disabled>批量检验</button>
                         <button class="batch-btn batch-email" onclick="refreshAllAntigravityEmails()">刷新所有邮箱</button>
@@ -2110,6 +2115,7 @@
                     <select id="antigravityErrorCodeFilter" class="filter-select"
                         onchange="applyAntigravityStatusFilter()">
                         <option value="all">全部</option>
+                        <option value="none">无错误</option>
                         <option value="400">400</option>
                         <option value="403">403</option>
                         <option value="429">429</option>
@@ -2356,12 +2362,9 @@
                         <label>Google APIs</label
                         ><input type="text" id="googleapisProxyUrl" />
                       </div>
-                      <div>
-                        <label>Antigravity</label
-                        ><input type="text" id="antigravityApiUrl" />
-                      </div>
                     </div>
                     <!-- 隐藏字段但保留ID以防JS报错 -->
+                    <input type="hidden" id="antigravityApiUrl" />
                     <input type="hidden" id="resourceManagerApiUrl" />
                     <input type="hidden" id="serviceUsageApiUrl" />
                     <input type="hidden" id="configPassword" />

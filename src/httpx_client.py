@@ -8,7 +8,6 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict, Optional
 
 import httpx
-from redis.retry import T
 
 from config import get_proxy_config
 from log import log
@@ -75,7 +74,7 @@ async def post_async(
     data: Any = None,
     json: Any = None,
     headers: Optional[Dict[str, str]] = None,
-    timeout: float = 600.0,
+    timeout: float = 900.0,
     **kwargs,
 ) -> httpx.Response:
     """通用异步POST请求"""

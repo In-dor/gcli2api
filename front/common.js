@@ -263,7 +263,12 @@ function createCredsManager(type) {
             const selectedCount = this.selectedFiles.size;
             document.getElementById(this.getElementId('SelectedCount')).textContent = `已选择 ${selectedCount} 项`;
 
-            const batchBtns = ['Enable', 'Disable', 'Delete', 'Verify', 'Preview'].map(action =>
+            const batchBtnNames = ['Enable', 'Disable', 'Delete', 'Verify', 'Preview'];
+            if (this.type === 'antigravity') {
+                batchBtnNames.push('EnableCredit');
+                batchBtnNames.push('DisableCredit');
+            }
+            const batchBtns = batchBtnNames.map(action =>
                 document.getElementById(this.getElementId(`Batch${action}Btn`))
             );
             batchBtns.forEach(btn => btn && (btn.disabled = selectedCount === 0));
@@ -321,15 +326,22 @@ function createCredsManager(type) {
                 return;
             }
 
-            const actionNames = { enable: '启用', disable: '禁用', delete: '删除' };
+            const actionNames = {
+                enable: '启用',
+                disable: '禁用',
+                delete: '删除',
+                enable_credit: '开启积分',
+                disable_credit: '关闭积分'
+            };
+            const actionLabel = actionNames[action] || action;
             const confirmMsg = action === 'delete'
                 ? `确定要删除选中的 ${selectedFiles.length} 个文件吗？\n注意：此操作不可恢复！`
-                : `确定要${actionNames[action]}选中的 ${selectedFiles.length} 个文件吗？`;
+                : `确定要${actionLabel}选中的 ${selectedFiles.length} 个文件吗？`;
 
             if (!confirm(confirmMsg)) return;
 
             try {
-                showStatus(`正在执行批量${actionNames[action]}操作...`, 'info');
+                showStatus(`正在执行批量${actionLabel}操作...`, 'info');
 
                 const response = await fetch(`${this.getEndpoint('batchAction')}?${this.getModeParam()}`, {
                     method: 'POST',
@@ -653,9 +665,9 @@ function createCredCard(credInfo, manager) {
     // Preview状态显示 (仅对geminicli模式显示)
     if (managerType !== 'antigravity' && credInfo.preview !== undefined) {
         if (credInfo.preview) {
-            statusBadges += '<span class="status-badge" style="background-color: #9c27b0; color: white;" title="该凭证支持Preview模型">🔬 Preview</span>';
+            statusBadges += '<span class="status-badge" style="background-color: #28a745; color: white;" title="该凭证支持Preview模型">Preview: ON</span>';
         } else {
-            statusBadges += '<span class="status-badge" style="background-color: #607d8b; color: white;" title="该凭证不支持Preview模型">❌ Preview</span>';
+            statusBadges += '<span class="status-badge" style="background-color: #8aa5a2; color: white;" title="该凭证不支持Preview模型">Preview: OFF</span>';
         }
     }
 
@@ -692,7 +704,7 @@ function createCredCard(credInfo, manager) {
 
         if (activeCooldowns.length > 0) {
             activeCooldowns.slice(0, 2).forEach(item => {
-                statusBadges += `<span class="cooldown-badge" style="background-color: #17a2b8;" title="模型: ${item.fullModel}">🔧 ${item.model}: ${item.time}</span>`;
+                statusBadges += `<span class="cooldown-badge" style="background-color: #17a2b8;" title="模型: ${item.fullModel}">⏰ ${item.model}: ${item.time}</span>`;
             });
             if (activeCooldowns.length > 2) {
                 const remaining = activeCooldowns.length - 2;
@@ -714,15 +726,15 @@ function createCredCard(credInfo, manager) {
         <button class="cred-btn view" onclick="toggle${managerType === 'antigravity' ? 'Antigravity' : ''}CredDetails('${pathId}')">查看内容</button>
         <button class="cred-btn download" onclick="download${managerType === 'antigravity' ? 'Antigravity' : ''}Cred('${filename}')">下载</button>
         <button class="cred-btn email" onclick="fetch${managerType === 'antigravity' ? 'Antigravity' : ''}UserEmail('${filename}')">查看账号邮箱</button>
-        ${managerType === 'antigravity' ? `<button class="cred-btn" style="background-color: #17a2b8;" onclick="toggleAntigravityQuotaDetails('${pathId}')" title="查看该凭证的额度信息">查看额度</button>` : ''}
+        ${managerType === 'antigravity' ? `<button class="cred-btn" onclick="toggleAntigravityQuotaDetails('${pathId}')" title="查看该凭证的额度信息">查看额度</button>` : ''}
         ${managerType === 'antigravity' ? (credInfo.enable_credit
-            ? `<button class="cred-btn" style="background-color: #6c757d;" data-filename="${filename}" data-action="disable_credit" title="关闭该凭证的Credit模式">关闭 Credit</button>`
-            : `<button class="cred-btn" style="background-color: #20c997;" data-filename="${filename}" data-action="enable_credit" title="开启该凭证的Credit模式">开启 Credit</button>`
+            ? `<button class="cred-btn" data-filename="${filename}" data-action="disable_credit" title="关闭该凭证的Credit模式">关闭 Credit</button>`
+            : `<button class="cred-btn" data-filename="${filename}" data-action="enable_credit" title="开启该凭证的Credit模式">开启 Credit</button>`
         ) : ''}
-        ${managerType !== 'antigravity' ? `<button class="cred-btn" style="background-color: #00bcd4;" onclick="configurePreviewChannel('${filename}')" title="配置Preview通道，启用实验性功能">设置预览</button>` : ''}
-        <button class="cred-btn" style="background-color: #ff9800;" onclick="verify${managerType === 'antigravity' ? 'Antigravity' : ''}ProjectId('${filename}')" title="重新获取Project ID，可恢复403错误">检验</button>
-        <button class="cred-btn" style="background-color: #9c27b0;" onclick="test${managerType === 'antigravity' ? 'Antigravity' : ''}Credential('${filename}')" title="测试凭证是否可用">消息测试</button>
-        <button class="cred-btn" style="background-color: #e91e63;" onclick="toggle${managerType === 'antigravity' ? 'Antigravity' : ''}ErrorDetails('${pathId}')" title="查看该凭证的详细报错信息">查看报错</button>
+        ${managerType !== 'antigravity' ? `<button class="cred-btn" onclick="configurePreviewChannel('${filename}')" title="配置Preview通道，启用实验性功能">设置预览</button>` : ''}
+        <button class="cred-btn" onclick="verify${managerType === 'antigravity' ? 'Antigravity' : ''}ProjectId('${filename}')" title="重新获取Project ID，可恢复403错误">检验</button>
+        <button class="cred-btn" onclick="test${managerType === 'antigravity' ? 'Antigravity' : ''}Credential('${filename}')" title="测试凭证是否可用">消息测试</button>
+        <button class="cred-btn" onclick="toggle${managerType === 'antigravity' ? 'Antigravity' : ''}ErrorDetails('${pathId}')" title="查看该凭证的详细报错信息">查看报错</button>
         <button class="cred-btn delete" data-filename="${filename}" data-action="delete">删除</button>
     `;
 
@@ -3035,7 +3047,6 @@ function populateConfigForm() {
     setConfigField('googleapisProxyUrl', c.googleapis_proxy_url || '');
     setConfigField('resourceManagerApiUrl', c.resource_manager_api_url || '');
     setConfigField('serviceUsageApiUrl', c.service_usage_api_url || '');
-    setConfigField('antigravityApiUrl', c.antigravity_api_url || '');
 
     const autoBanEnabledEl = document.getElementById('autoBanEnabled');
     if (autoBanEnabledEl) autoBanEnabledEl.checked = Boolean(c.auto_ban_enabled);
@@ -3108,7 +3119,6 @@ async function saveConfig() {
             googleapis_proxy_url: getValue('googleapisProxyUrl'),
             resource_manager_api_url: getValue('resourceManagerApiUrl'),
             service_usage_api_url: getValue('serviceUsageApiUrl'),
-            antigravity_api_url: getValue('antigravityApiUrl'),
             auto_ban_enabled: getChecked('autoBanEnabled'),
             auto_ban_error_codes: getValue('autoBanErrorCodes').split(',')
                 .map(c => parseInt(c.trim())).filter(c => !isNaN(c)),
@@ -3163,8 +3173,7 @@ const mirrorUrls = {
     oauthProxyUrl: 'https://gcli-api.sukaka.top/oauth2',
     googleapisProxyUrl: 'https://gcli-api.sukaka.top/googleapis',
     resourceManagerApiUrl: 'https://gcli-api.sukaka.top/cloudresourcemanager',
-    serviceUsageApiUrl: 'https://gcli-api.sukaka.top/serviceusage',
-    antigravityApiUrl: 'https://gcli-api.sukaka.top/daily-cloudcode-pa'
+    serviceUsageApiUrl: 'https://gcli-api.sukaka.top/serviceusage'
 };
 
 const officialUrls = {
@@ -3172,8 +3181,7 @@ const officialUrls = {
     oauthProxyUrl: 'https://oauth2.googleapis.com',
     googleapisProxyUrl: 'https://www.googleapis.com',
     resourceManagerApiUrl: 'https://cloudresourcemanager.googleapis.com',
-    serviceUsageApiUrl: 'https://serviceusage.googleapis.com',
-    antigravityApiUrl: 'https://daily-cloudcode-pa.sandbox.googleapis.com'
+    serviceUsageApiUrl: 'https://serviceusage.googleapis.com'
 };
 
 function useMirrorUrls() {
@@ -3385,7 +3393,7 @@ function updateCooldownDisplays() {
                         const shortModel = model.replace('gemini-', '').replace('-exp', '')
                             .replace('2.0-', '2-').replace('1.5-', '1.5-');
                         const timeDisplay = formatCooldownTime(remaining).replace(/s$/, '').replace(/ /g, '');
-                        badge.innerHTML = `🔧 ${shortModel}: ${timeDisplay}`;
+                        badge.innerHTML = `⏰ ${shortModel}: ${timeDisplay}`;
                     }
                 }
             }

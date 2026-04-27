@@ -15,26 +15,141 @@
 
 ---
 
-## ⚠️ 许可证声明
+## 安装指南
 
-**本项目采用 Cooperative Non-Commercial License (CNC-1.0)**
+### Termux 环境
 
-这是一个反商业化的严格开源协议，详情请查看 [LICENSE](LICENSE) 文件。
+**初始安装**
 
-### ✅ 允许的用途：
+```bash
+curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
+```
 
-- 个人学习、研究、教育用途
-- 非营利组织使用
-- 开源项目集成（需遵循相同协议）
-- 学术研究和论文发表
+**重启服务**
 
-### ❌ 禁止的用途：
+```bash
+cd gcli2api
+bash termux-start.sh
+```
 
-- 任何形式的商业使用
-- 年收入超过 100 万美元的企业使用
-- 风投支持或公开交易的公司使用
-- 提供付费服务或产品
-- 商业竞争用途
+### Windows 环境
+
+**初始安装**
+
+```powershell
+iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
+```
+
+**重启服务**
+双击执行 `start.bat`
+
+### Linux 环境
+
+**初始安装**
+
+```bash
+curl -o install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
+```
+
+**重启服务**
+
+```bash
+cd gcli2api
+bash start.sh
+```
+
+### macOS 环境
+
+**初始安装**
+
+```bash
+curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
+```
+
+**重启服务**
+
+```bash
+cd gcli2api
+bash start.sh
+```
+
+### Docker 环境
+
+**Docker 运行命令**
+
+```bash
+# 使用通用密码
+docker run -d --name gcli2api --network host -e PASSWORD=pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
+
+# 使用分离密码
+docker run -d --name gcli2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
+```
+
+**Docker Mac**
+
+```bash
+# 使用通用密码
+docker run -d \
+  --name gcli2api \
+  -p 7861:7861 \
+  -p 8080:8080 \
+  -e PASSWORD=pwd \
+  -e PORT=7861 \
+  -v "$(pwd)/data/creds":/app/creds \
+  ghcr.io/su-kaka/gcli2api:latest
+```
+
+```bash
+# 使用分离密码
+docker run -d \
+--name gcli2api \
+-p 7861:7861 \
+-p 8080:8080 \
+-e API_PASSWORD=api_pwd \
+-e PANEL_PASSWORD=panel_pwd \
+-e PORT=7861 \
+-v $(pwd)/data/creds:/app/creds \
+ghcr.io/su-kaka/gcli2api:latest
+```
+
+**Docker Compose 运行命令**
+
+1. 将以下内容保存为 `docker-compose.yml` 文件：
+
+   ```yaml
+   version: "3.8"
+
+   services:
+     gcli2api:
+       image: ghcr.io/su-kaka/gcli2api:latest
+       container_name: gcli2api
+       restart: unless-stopped
+       network_mode: host
+       environment:
+         # 使用通用密码（推荐用于简单部署）
+         - PASSWORD=pwd
+         - PORT=7861
+         # 或使用分离密码（推荐用于生产环境）
+         # - API_PASSWORD=your_api_password
+         # - PANEL_PASSWORD=your_panel_password
+       volumes:
+         - ./data/creds:/app/creds
+       healthcheck:
+         test:
+           [
+             "CMD-SHELL",
+             'python -c "import sys, urllib.request, os; port = os.environ.get(''PORT'', ''7861''); req = urllib.request.Request(f''http://localhost:{port}/v1/models'', headers={''Authorization'': ''Bearer '' + os.environ.get(''PASSWORD'', ''pwd'')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)"',
+           ]
+         interval: 30s
+         timeout: 10s
+         retries: 3
+         start_period: 40s
+   ```
+
+2. 启动服务：
+   ```bash
+   docker-compose up -d
+   ```
 
 ## 核心功能
 
@@ -214,144 +329,6 @@
 - 系统自动识别模型名称中的功能标识
 - 透明地处理功能模式转换
 - 支持功能组合使用
-
----
-
-## 安装指南
-
-### Termux 环境
-
-**初始安装**
-
-```bash
-curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
-```
-
-**重启服务**
-
-```bash
-cd gcli2api
-bash termux-start.sh
-```
-
-### Windows 环境
-
-**初始安装**
-
-```powershell
-iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
-```
-
-**重启服务**
-双击执行 `start.bat`
-
-### Linux 环境
-
-**初始安装**
-
-```bash
-curl -o install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
-```
-
-**重启服务**
-
-```bash
-cd gcli2api
-bash start.sh
-```
-
-### macOS 环境
-
-**初始安装**
-
-```bash
-curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
-```
-
-**重启服务**
-
-```bash
-cd gcli2api
-bash start.sh
-```
-
-### Docker 环境
-
-**Docker 运行命令**
-
-```bash
-# 使用通用密码
-docker run -d --name gcli2api --network host -e PASSWORD=pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
-
-# 使用分离密码
-docker run -d --name gcli2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
-```
-
-**Docker Mac**
-
-```bash
-# 使用通用密码
-docker run -d \
-  --name gcli2api \
-  -p 7861:7861 \
-  -p 8080:8080 \
-  -e PASSWORD=pwd \
-  -e PORT=7861 \
-  -v "$(pwd)/data/creds":/app/creds \
-  ghcr.io/su-kaka/gcli2api:latest
-```
-
-```bash
-# 使用分离密码
-docker run -d \
---name gcli2api \
--p 7861:7861 \
--p 8080:8080 \
--e API_PASSWORD=api_pwd \
--e PANEL_PASSWORD=panel_pwd \
--e PORT=7861 \
--v $(pwd)/data/creds:/app/creds \
-ghcr.io/su-kaka/gcli2api:latest
-```
-
-**Docker Compose 运行命令**
-
-1. 将以下内容保存为 `docker-compose.yml` 文件：
-
-   ```yaml
-   version: "3.8"
-
-   services:
-     gcli2api:
-       image: ghcr.io/su-kaka/gcli2api:latest
-       container_name: gcli2api
-       restart: unless-stopped
-       network_mode: host
-       environment:
-         # 使用通用密码（推荐用于简单部署）
-         - PASSWORD=pwd
-         - PORT=7861
-         # 或使用分离密码（推荐用于生产环境）
-         # - API_PASSWORD=your_api_password
-         # - PANEL_PASSWORD=your_panel_password
-       volumes:
-         - ./data/creds:/app/creds
-       healthcheck:
-         test:
-           [
-             "CMD-SHELL",
-             'python -c "import sys, urllib.request, os; port = os.environ.get(''PORT'', ''7861''); req = urllib.request.Request(f''http://localhost:{port}/v1/models'', headers={''Authorization'': ''Bearer '' + os.environ.get(''PASSWORD'', ''pwd'')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)"',
-           ]
-         interval: 30s
-         timeout: 10s
-         retries: 3
-         start_period: 40s
-   ```
-
-2. 启动服务：
-   ```bash
-   docker-compose up -d
-   ```
 
 ---
 
@@ -702,139 +679,6 @@ curl -X POST "http://127.0.0.1:7861/v1/messages" \
 - 支持 Claude 的所有标准参数
 - 响应格式符合 Claude API 规范
 
-#### 4. Antigravity API 端点
-
-**支持三种格式：OpenAI、Gemini 和 Claude**
-
-##### Antigravity OpenAI 格式端点
-
-**端点：** `/antigravity/v1/chat/completions`
-**认证：** `Authorization: Bearer your_api_password`
-
-**请求示例：**
-
-```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
-  -H "Authorization: Bearer your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-sonnet-4-5",
-    "messages": [
-      {"role": "user", "content": "Hello"}
-    ],
-    "stream": true
-  }'
-```
-
-##### Antigravity Gemini 格式端点
-
-**非流式端点：** `/antigravity/v1/models/{model}:generateContent`
-**流式端点：** `/antigravity/v1/models/{model}:streamGenerateContent`
-
-**认证方式（任选一种）：**
-
-- `Authorization: Bearer your_api_password`
-- `x-goog-api-key: your_api_password`
-- URL 参数：`?key=your_api_password`
-
-**请求示例：**
-
-```bash
-# Gemini 格式非流式请求
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/claude-sonnet-4-5:generateContent" \
-  -H "x-goog-api-key: your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ],
-    "generationConfig": {
-      "temperature": 0.7
-    }
-  }'
-
-# Gemini 格式流式请求
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/gemini-2.5-flash:streamGenerateContent?key=your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ]
-  }'
-```
-
-##### Antigravity Claude 格式端点
-
-**端点：** `/antigravity/v1/messages`
-**认证：** `x-api-key: your_api_password`
-
-**请求示例：**
-
-```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/messages" \
-  -H "x-api-key: your_api_password" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-sonnet-4-5",
-    "max_tokens": 1024,
-    "messages": [
-      {"role": "user", "content": "Hello"}
-    ]
-  }'
-```
-
-**支持的 Antigravity 模型：**
-
-- Claude 系列：`claude-sonnet-4-5`、`claude-opus-4-5` 等
-- Gemini 系列：`gemini-2.5-flash`、`gemini-2.5-pro` 等
-- 自动支持思维模型（thinking models）
-
-**Gemini 原生示例：**
-
-```python
-from io import BytesIO
-from PIL import Image
-from google.genai import Client
-from google.genai.types import HttpOptions
-from google.genai import types
-# The client gets the API key from the environment variable `GEMINI_API_KEY`.
-
-client = Client(
-            api_key="pwd",
-            http_options=HttpOptions(base_url="http://127.0.0.1:7861"),
-        )
-
-prompt = (
-    """
-    画一只猫
-    """
-)
-
-response = client.models.generate_content(
-    model="gemini-3.1-flash-image",
-    contents=[prompt],
-    config=types.GenerateContentConfig(
-        image_config=types.ImageConfig(
-            aspect_ratio="16:9",
-        )
-    )
-)
-for part in response.candidates[0].content.parts:
-    if part.text is not None:
-        print(part.text)
-    elif part.inline_data is not None:
-        image = Image.open(BytesIO(part.inline_data.data))
-        image.save("generated_image.png")
-
-```
-
-**说明：**
-
-- OpenAI 端点返回 OpenAI 兼容格式
-- Gemini 端点返回 Gemini 原生格式
-- 两种端点使用相同的 API 密码
-
 ## 📋 完整 API 参考
 
 ### Web 控制台 API
@@ -966,3 +810,24 @@ export COMPATIBILITY_MODE=true
 - 遵守相关的服务条款和法律法规
 
 项目作者对因使用本项目而产生的任何直接或间接损失不承担责任。
+
+## ⚠️ 许可证声明
+
+**本项目采用 Cooperative Non-Commercial License (CNC-1.0)**
+
+这是一个反商业化的严格开源协议，详情请查看 [LICENSE](LICENSE) 文件。
+
+### ✅ 允许的用途：
+
+- 个人学习、研究、教育用途
+- 非营利组织使用
+- 开源项目集成（需遵循相同协议）
+- 学术研究和论文发表
+
+### ❌ 禁止的用途：
+
+- 任何形式的商业使用
+- 年收入超过100万美元的企业使用
+- 风投支持或公开交易的公司使用
+- 提供付费服务或产品
+- 商业竞争用途
