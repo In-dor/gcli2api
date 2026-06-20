@@ -1,4 +1,4 @@
-full_hash=4f96649bf2b1194505ff2fa4bb2816174a98cd35
-short_hash=4f96649
-message=Merge remote-tracking branch 'O/HEAD'
-date=2026-04-27 11:56:24 +0800
+full_hash=544a7dbdd3e59b19c270fb07696cd39492cf2472
+short_hash=544a7db
+message=Merge O/master into bow-walrus, keep local features/UI
+date=2026-06-20 20:35:48 +0800
