@@ -33,6 +33,7 @@ ENV_MAPPINGS = {
     "GOOGLEAPIS_PROXY_URL": "googleapis_proxy_url",
     "RESOURCE_MANAGER_API_URL": "resource_manager_api_url",
     "SERVICE_USAGE_API_URL": "service_usage_api_url",
+    "ANTIGRAVITY_API_URL": "antigravity_api_url",
     "AUTO_BAN": "auto_ban_enabled",
     "AUTO_BAN_ERROR_CODES": "auto_ban_error_codes",
     "RETRY_429_MAX_RETRIES": "retry_429_max_retries",
@@ -44,6 +45,7 @@ ENV_MAPPINGS = {
     "ANTIGRAVITY_STREAM2NOSTREAM": "antigravity_stream2nostream",
     "REQUEST_THOUGHTS_FROM_MODEL": "request_thoughts_from_model",
     "SHOW_VARIANT_MODELS": "show_variant_models",
+    "ANTIGRAVITY_SWITCH_CREDENTIAL": "antigravity_switch_credential_enabled",
     "HOST": "host",
     "PORT": "port",
     "API_PASSWORD": "api_password",
@@ -418,6 +420,24 @@ async def get_request_thoughts_from_model() -> bool:
     return bool(await get_config_value("request_thoughts_from_model", False))
 
 
+async def get_antigravity_switch_credential_enabled() -> bool:
+    """
+    Get antigravity switch credential setting.
+
+    控制antigravity在重试时是否切换凭证。
+    禁用时会持续使用当前凭证，直到该凭证对当前模型进入CD或被禁用。
+
+    Environment variable: ANTIGRAVITY_SWITCH_CREDENTIAL
+    Database config key: antigravity_switch_credential_enabled
+    Default: False
+    """
+    env_value = os.getenv("ANTIGRAVITY_SWITCH_CREDENTIAL")
+    if env_value:
+        return env_value.lower() in ("true", "1", "yes", "on")
+
+    return bool(await get_config_value("antigravity_switch_credential_enabled", False))
+
+
 async def get_oauth_proxy_url() -> str:
     """
     Get OAuth proxy URL setting.
@@ -484,6 +504,25 @@ async def get_service_usage_api_url() -> str:
     return str(
         await get_config_value(
             "service_usage_api_url", "https://serviceusage.googleapis.com", "SERVICE_USAGE_API_URL"
+        )
+    )
+
+
+async def get_antigravity_api_url() -> str:
+    """
+    Get Antigravity API URL setting.
+
+    用于Google Antigravity API的URL。
+
+    Environment variable: ANTIGRAVITY_API_URL
+    Database config key: antigravity_api_url
+    Default: https://daily-cloudcode-pa.googleapis.com
+    """
+    return str(
+        await get_config_value(
+            "antigravity_api_url",
+            "https://daily-cloudcode-pa.googleapis.com",
+            "ANTIGRAVITY_API_URL",
         )
     )
 

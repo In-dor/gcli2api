@@ -11,15 +11,16 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from pypinyin import Style, lazy_pinyin
 
 from src.converter.thoughtSignature_fix import (
-    encode_tool_id_with_signature,
     decode_tool_id_and_signature,
+    is_internal_placeholder_text,
+    is_skip_thought_signature_placeholder,
+    SKIP_THOUGHT_SIGNATURE_VALIDATOR,
 )
 from src.converter.utils import merge_system_messages, should_return_thoughts_to_frontend
 
 from log import log
 
-
-def _convert_usage_metadata(usage_metadata: Dict[str, Any]) -> Dict[str, int]:
+def _convert_usage_metadata(usage_metadata: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
     将Gemini的usageMetadata转换为OpenAI格式的usage字段
 
@@ -32,11 +33,32 @@ def _convert_usage_metadata(usage_metadata: Dict[str, Any]) -> Dict[str, int]:
     if not usage_metadata:
         return None
 
-    return {
-        "prompt_tokens": usage_metadata.get("promptTokenCount", 0),
-        "completion_tokens": usage_metadata.get("candidatesTokenCount", 0),
-        "total_tokens": usage_metadata.get("totalTokenCount", 0),
+    prompt_tokens_total = int(usage_metadata.get("promptTokenCount", 0) or 0)
+    cached_tokens = int(usage_metadata.get("cachedContentTokenCount", 0) or 0)
+    prompt_tokens = max(prompt_tokens_total - cached_tokens, 0)
+    completion_tokens = int(usage_metadata.get("candidatesTokenCount", 0) or 0)
+    raw_total_tokens = int(
+        usage_metadata.get(
+            "totalTokenCount",
+            prompt_tokens_total + completion_tokens + int(usage_metadata.get("thoughtsTokenCount", 0) or 0),
+        )
+        or 0
+    )
+
+    usage = {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": max(raw_total_tokens - cached_tokens, prompt_tokens + completion_tokens),
     }
+
+    if cached_tokens > 0:
+        usage["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+
+    reasoning_tokens = int(usage_metadata.get("thoughtsTokenCount", 0) or 0)
+    if reasoning_tokens > 0:
+        usage["completion_tokens_details"] = {"reasoning_tokens": reasoning_tokens}
+
+    return usage
 
 
 def _build_message_with_reasoning(role: str, content: str, reasoning_content: str) -> dict:
@@ -141,16 +163,23 @@ def _normalize_function_name(name: str) -> str:
 
 def _resolve_ref(ref: str, root_schema: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """
-    解析 $ref 引用
-
+    解析 $ref 或 ref 引用
+    
     Args:
-        ref: 引用路径，如 "#/definitions/MyType"
+        ref: 引用路径，如 "#/definitions/MyType" 或 "#/$defs/MyType"
         root_schema: 根 schema 对象
 
     Returns:
         解析后的 schema，如果失败返回 None
     """
-    if not ref.startswith("#/"):
+    if not isinstance(ref, str):
+        return None
+        
+    if not ref.startswith('#/'):
+        # 尝试在 definitions 或 $defs 中查找
+        for key in ["definitions", "$defs"]:
+            if key in root_schema and ref in root_schema[key]:
+                return root_schema[key][ref]
         return None
 
     path = ref[2:].split("/")
@@ -377,23 +406,27 @@ def _clean_schema_for_gemini(
 
     # 创建副本避免修改原对象
     result = {}
-
-    # 1. 处理 $ref
-    if "$ref" in schema:
-        resolved = _resolve_ref(schema["$ref"], root_schema)
+    
+    # 1. 处理 $ref 或 ref
+    ref_key = "$ref" if "$ref" in schema else ("ref" if "ref" in schema else None)
+    if ref_key:
+        resolved = _resolve_ref(schema[ref_key], root_schema)
         if resolved:
-            # 检测循环引用：若 resolved 已在 visited 中，直接返回占位符
+            # 检测循环引用
             resolved_id = id(resolved)
             if resolved_id in visited:
                 return {"type": "OBJECT", "description": "(circular reference)"}
-            # 将 resolved 的 id 加入 visited，防止后续递归时重复处理
+            
             visited.add(resolved_id)
-            # 合并解析后的 schema 和当前 schema（浅拷贝，避免 deepcopy 爆栈）
+            # 合并解析后的 schema
             merged = dict(resolved)
-            # 当前 schema 的其他字段会覆盖解析后的字段
-            for key, value in schema.items():
-                if key != "$ref":
-                    merged[key] = value
+            
+            # 重要：根据 Gemini API 限制，当存在引用时，只能并列存在 description 和 default
+            # 其他字段（如 type, properties 等）必须丢弃，否则会触发 400 错误
+            for key in ["description", "default"]:
+                if key in schema:
+                    merged[key] = schema[key]
+            
             schema = merged
             result = {}
 
@@ -527,6 +560,7 @@ def _clean_schema_for_gemini(
         "title",
         "$schema",
         "$ref",
+        "ref",
         "strict",
         "exclusiveMaximum",
         "exclusiveMinimum",
@@ -570,6 +604,192 @@ def _clean_schema_for_gemini(
     # 10. 去重 required 数组
     if "required" in result and isinstance(result["required"], list):
         result["required"] = list(dict.fromkeys(result["required"]))  # 保持顺序去重
+
+    return result
+
+
+def _append_schema_hint(schema: Dict[str, Any], hint: str) -> None:
+    """把不兼容的校验信息挪到 description 里，避免上游直接拒收。"""
+    if not hint:
+        return
+    desc = schema.get("description")
+    schema["description"] = f"{desc} ({hint})" if desc else hint
+
+
+def _clean_schema_for_parameters_json_schema(
+    schema: Any,
+    root_schema: Optional[Dict[str, Any]] = None,
+    visited: Optional[set] = None,
+) -> Any:
+    """
+    清理 JSON Schema，供 Gemini CLI 内部接口的 parametersJsonSchema 使用。
+
+    Code Assist 的内部接口更接近官方 Gemini CLI：工具参数应放在
+    parametersJsonSchema 中，并保持 JSON Schema 的小写 type。
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    if root_schema is None:
+        root_schema = schema
+    if visited is None:
+        visited = set()
+
+    schema_id = id(schema)
+    if schema_id in visited:
+        return {"type": "object", "description": "(circular reference)"}
+    visited.add(schema_id)
+
+    result: Dict[str, Any]
+
+    ref_key = "$ref" if "$ref" in schema else ("ref" if "ref" in schema else None)
+    if ref_key:
+        resolved = _resolve_ref(schema[ref_key], root_schema)
+        if resolved:
+            import copy
+            result = copy.deepcopy(resolved)
+            for key in ("description", "default"):
+                if key in schema:
+                    result[key] = schema[key]
+            schema = result
+
+    if "allOf" in schema:
+        result = {}
+        for item in schema.get("allOf") or []:
+            cleaned_item = _clean_schema_for_parameters_json_schema(item, root_schema, visited)
+            if not isinstance(cleaned_item, dict):
+                continue
+            if "properties" in cleaned_item:
+                result.setdefault("properties", {}).update(cleaned_item["properties"])
+            if "required" in cleaned_item:
+                result.setdefault("required", []).extend(cleaned_item["required"])
+            for key, value in cleaned_item.items():
+                if key not in ("properties", "required"):
+                    result[key] = value
+        for key, value in schema.items():
+            if key not in ("allOf", "properties", "required"):
+                result[key] = value
+            elif key in ("properties", "required") and key not in result:
+                result[key] = value
+    else:
+        result = dict(schema)
+
+    if "type" in result:
+        type_value = result["type"]
+        if isinstance(type_value, list):
+            non_null_types = [t for t in type_value if isinstance(t, str) and t.lower() != "null"]
+            if non_null_types:
+                result["type"] = non_null_types[0]
+                if "null" in [str(t).lower() for t in type_value]:
+                    _append_schema_hint(result, "nullable")
+            else:
+                result["type"] = "string"
+        elif isinstance(type_value, str):
+            lower_type = type_value.lower()
+            if lower_type in {"string", "number", "integer", "boolean", "array", "object", "null"}:
+                result["type"] = "string" if lower_type == "null" else lower_type
+            else:
+                del result["type"]
+
+    if "anyOf" in result or "oneOf" in result:
+        union_key = "anyOf" if "anyOf" in result else "oneOf"
+        union_items = result.get(union_key) or []
+        cleaned_items = [
+            item for item in (
+                _clean_schema_for_parameters_json_schema(item, root_schema, visited)
+                for item in union_items
+            )
+            if isinstance(item, dict)
+        ]
+        enum_values = [
+            item.get("const")
+            for item in union_items
+            if isinstance(item, dict) and item.get("const") not in ("", None)
+        ]
+        if enum_values and len(enum_values) == len(union_items):
+            result["type"] = "string"
+            result["enum"] = [str(v) for v in enum_values]
+        else:
+            preferred = next(
+                (
+                    item for item in cleaned_items
+                    if item.get("type") in ("object", "array") or item.get("properties")
+                ),
+                None,
+            )
+            if preferred is None:
+                preferred = next((item for item in cleaned_items if item.get("type") or item.get("enum")), None)
+            if preferred:
+                existing_description = result.get("description")
+                result.update(preferred)
+                if existing_description:
+                    _append_schema_hint(result, existing_description)
+        result.pop("anyOf", None)
+        result.pop("oneOf", None)
+
+    if result.get("type") == "array":
+        items = result.get("items")
+        if isinstance(items, list):
+            if items:
+                result["items"] = _clean_schema_for_parameters_json_schema(items[0], root_schema, visited)
+                _append_schema_hint(result, "tuple schema simplified")
+            else:
+                result.pop("items", None)
+        elif isinstance(items, dict):
+            result["items"] = _clean_schema_for_parameters_json_schema(items, root_schema, visited)
+
+    validation_keys = {
+        "default", "minLength", "maxLength", "minimum", "maximum",
+        "minItems", "maxItems", "pattern", "format", "uniqueItems",
+    }
+    for key in list(result.keys()):
+        if key in validation_keys:
+            value = result.pop(key)
+            if value not in (None, "", {}, []):
+                _append_schema_hint(result, f"{key}: {json.dumps(value, ensure_ascii=False)}")
+
+    unsupported_keys = {
+        "title", "$schema", "$id", "$ref", "ref", "strict",
+        "exclusiveMaximum", "exclusiveMinimum", "additionalProperties",
+        "allOf", "anyOf", "oneOf", "$defs", "definitions", "example",
+        "examples", "readOnly", "writeOnly", "const", "additionalItems",
+        "contains", "patternProperties", "dependencies", "propertyNames",
+        "if", "then", "else", "contentEncoding", "contentMediaType",
+    }
+    for key in list(result.keys()):
+        if key in unsupported_keys or key.startswith("x-"):
+            del result[key]
+
+    nullable_props = set()
+    if "properties" in result and isinstance(result["properties"], dict):
+        cleaned_props = {}
+        for prop_name, prop_schema in result["properties"].items():
+            if isinstance(prop_schema, dict):
+                prop_type = prop_schema.get("type")
+                if isinstance(prop_type, list) and any(str(t).lower() == "null" for t in prop_type):
+                    nullable_props.add(prop_name)
+            cleaned_props[prop_name] = _clean_schema_for_parameters_json_schema(prop_schema, root_schema, visited)
+        result["properties"] = cleaned_props
+
+    if "properties" in result and "type" not in result:
+        result["type"] = "object"
+
+    if "required" in result and isinstance(result["required"], list):
+        prop_names = set(result.get("properties", {}).keys()) if isinstance(result.get("properties"), dict) else None
+        required = []
+        for item in result["required"]:
+            if not isinstance(item, str):
+                continue
+            if prop_names is not None and item not in prop_names:
+                continue
+            if item in nullable_props:
+                continue
+            if item not in required:
+                required.append(item)
+        if required:
+            result["required"] = required
+        else:
+            result.pop("required", None)
 
     return result
 
@@ -706,7 +926,7 @@ def convert_openai_tools_to_gemini(openai_tools: List, model: str = "") -> List[
             "description": function.get("description", ""),
         }
 
-        # 添加参数（如果有）- 根据模型选择不同的清理函数
+        # 添加参数（如果有）- Gemini CLI 内部接口更适合 parametersJsonSchema
         if "parameters" in function:
             if is_claude_model:
                 cleaned_params = _clean_schema_for_claude(function["parameters"])
@@ -714,10 +934,14 @@ def convert_openai_tools_to_gemini(openai_tools: List, model: str = "") -> List[
                     f"[OPENAI2GEMINI] Using Claude schema cleaning for tool: {normalized_name}"
                 )
             else:
-                cleaned_params = _clean_schema_for_gemini(function["parameters"])
+                cleaned_params = _clean_schema_for_parameters_json_schema(function["parameters"])
 
             if cleaned_params:
-                declaration["parameters"] = cleaned_params
+                declaration["parametersJsonSchema"] = cleaned_params
+            elif is_claude_model:
+                declaration["parametersJsonSchema"] = {"type": "object", "properties": {}}
+        elif is_claude_model:
+            declaration["parametersJsonSchema"] = {"type": "object", "properties": {}}
 
         function_declarations.append(declaration)
 
@@ -904,17 +1128,13 @@ def extract_tool_calls_from_parts(
             function_call = part["functionCall"]
             # 获取原始ID或生成新ID
             original_id = function_call.get("id") or f"call_{uuid.uuid4().hex[:24]}"
-            # 将thoughtSignature编码到ID中以便往返保留
-            signature = part.get("thoughtSignature")
-            encoded_id = encode_tool_id_with_signature(original_id, signature)
-
             # 获取参数并转换类型
             args = function_call.get("args", {})
             # 将字符串类型的值转回原始类型
             args = _reverse_transform_args(args)
 
             tool_call = {
-                "id": encoded_id,
+                "id": original_id,
                 "type": "function",
                 "function": {
                     "name": function_call.get("name", "nameless_function"),
@@ -928,7 +1148,13 @@ def extract_tool_calls_from_parts(
 
         # 提取文本内容（排除 thinking tokens）
         elif "text" in part and not part.get("thought", False):
-            text_content += part["text"]
+            text = part["text"]
+            if (
+                is_skip_thought_signature_placeholder(part)
+                or is_internal_placeholder_text(text)
+            ):
+                continue
+            text_content += text
 
     return tool_calls, text_content
 
@@ -974,6 +1200,36 @@ def extract_images_from_content(content: Any) -> Dict[str, Any]:
     return result
 
 
+def _sanitize_openai_roundtrip_signatures(contents: List[Dict[str, Any]]) -> None:
+    """
+    OpenAI-compatible clients may round-trip Gemini thinking signatures through
+    fields we do not fully control. Keep tool calls on the safe bypass sentinel
+    and drop signatures everywhere else to avoid Corrupted thought signature.
+    """
+    for content in contents:
+        if not isinstance(content, dict):
+            continue
+        parts = content.get("parts")
+        if not isinstance(parts, list):
+            continue
+
+        for index, part in enumerate(parts):
+            if not isinstance(part, dict):
+                continue
+
+            sanitized_part = part.copy()
+            if "thoughtSignature" in sanitized_part:
+                if "functionCall" in sanitized_part or "function_call" in sanitized_part:
+                    sanitized_part["thoughtSignature"] = SKIP_THOUGHT_SIGNATURE_VALIDATOR
+                else:
+                    sanitized_part.pop("thoughtSignature", None)
+
+            if sanitized_part.get("thought") is True and not sanitized_part.get("thoughtSignature"):
+                sanitized_part.pop("thought", None)
+
+            parts[index] = sanitized_part
+
+
 async def convert_openai_to_gemini_request(openai_request: Dict[str, Any]) -> Dict[str, Any]:
     """
     将 OpenAI 格式请求体转换为 Gemini 格式请求体
@@ -1015,6 +1271,7 @@ async def convert_openai_to_gemini_request(openai_request: Dict[str, Any]) -> Di
                     original_id, signature = decode_tool_id_and_signature(encoded_id)
                     tool_call_mapping[encoded_id] = (func_name, original_id, signature)
 
+    
     # 构建工具名称到参数 schema 的映射（用于类型修正）
     tool_schemas = {}
     if "tools" in openai_request and openai_request["tools"]:
@@ -1134,11 +1391,9 @@ async def convert_openai_to_gemini_request(openai_request: Dict[str, Any]) -> Di
                         "functionCall": {"id": original_id, "name": func_name, "args": args}
                     }
 
-                    # 如果有thoughtSignature则添加，否则使用占位符以满足 Gemini API 要求
-                    if signature:
-                        function_call_part["thoughtSignature"] = signature
-                    else:
-                        function_call_part["thoughtSignature"] = "skip_thought_signature_validator"
+                    # OpenAI/RooCode 中转可能会改写或截断 tool_call_id，真实签名回传后容易触发
+                    # Corrupted thought signature。工具调用使用官方跳过校验占位符更稳。
+                    function_call_part["thoughtSignature"] = SKIP_THOUGHT_SIGNATURE_VALIDATOR
 
                     parts.append(function_call_part)
                 except (json.JSONDecodeError, KeyError) as e:
@@ -1179,6 +1434,7 @@ async def convert_openai_to_gemini_request(openai_request: Dict[str, Any]) -> Di
 
     # 循环结束后，flush 剩余的 tool parts（如果消息列表以 tool 消息结尾）
     flush_pending_tool_parts()
+    _sanitize_openai_roundtrip_signatures(contents)
 
     # 构建生成配置
     generation_config = {}
@@ -1247,6 +1503,10 @@ async def convert_openai_to_gemini_request(openai_request: Dict[str, Any]) -> Di
         gemini_request["toolConfig"] = convert_tool_choice_to_tool_config(
             openai_request["tool_choice"]
         )
+
+    # 透传图片生成的 size 参数（如 "1024x1536"）
+    if "size" in openai_request and openai_request["size"]:
+        gemini_request["size"] = openai_request["size"]
 
     return gemini_request
 
@@ -1348,9 +1608,11 @@ def convert_gemini_to_openai_response(
 
             # 处理 thought（思考内容）
             elif part.get("thought", False) and "text" in part:
-                if include_reasoning:
-                    reasoning_parts.append(part["text"])
+                if not is_skip_thought_signature_placeholder(part):
+                    if include_reasoning:
+                        reasoning_parts.append(part["text"])
 
+            
             # 处理普通文本（非思考内容）
             elif "text" in part and not part.get("thought", False):
                 # 这部分已经在 extract_tool_calls_from_parts 中处理
@@ -1521,9 +1783,11 @@ def convert_gemini_to_openai_stream(
 
             # 处理 thought（思考内容）
             elif part.get("thought", False) and "text" in part:
-                if include_reasoning:
-                    reasoning_parts.append(part["text"])
+                if not is_skip_thought_signature_placeholder(part):
+                    if include_reasoning:
+                        reasoning_parts.append(part["text"])
 
+            
             # 处理普通文本（非思考内容）
             elif "text" in part and not part.get("thought", False):
                 # 这部分已经在 extract_tool_calls_from_parts 中处理

@@ -3047,6 +3047,7 @@ function populateConfigForm() {
     setConfigField('googleapisProxyUrl', c.googleapis_proxy_url || '');
     setConfigField('resourceManagerApiUrl', c.resource_manager_api_url || '');
     setConfigField('serviceUsageApiUrl', c.service_usage_api_url || '');
+    setConfigField('antigravityApiUrl', c.antigravity_api_url || '');
 
     const autoBanEnabledEl = document.getElementById('autoBanEnabled');
     if (autoBanEnabledEl) autoBanEnabledEl.checked = Boolean(c.auto_ban_enabled);
@@ -3068,6 +3069,8 @@ function populateConfigForm() {
     if (requestThoughtsFromModelEl) requestThoughtsFromModelEl.checked = Boolean(c.request_thoughts_from_model === true);
     const showVariantModelsEl = document.getElementById('showVariantModels');
     if (showVariantModelsEl) showVariantModelsEl.checked = Boolean(c.show_variant_models !== false);
+    const antigravitySwitchCredentialEnabledEl = document.getElementById('antigravitySwitchCredentialEnabled');
+    if (antigravitySwitchCredentialEnabledEl) antigravitySwitchCredentialEnabledEl.checked = Boolean(c.antigravity_switch_credential_enabled);
 
     setConfigField('antiTruncationMaxAttempts', c.anti_truncation_max_attempts || 3);
 
@@ -3119,6 +3122,7 @@ async function saveConfig() {
             googleapis_proxy_url: getValue('googleapisProxyUrl'),
             resource_manager_api_url: getValue('resourceManagerApiUrl'),
             service_usage_api_url: getValue('serviceUsageApiUrl'),
+            antigravity_api_url: getValue('antigravityApiUrl'),
             auto_ban_enabled: getChecked('autoBanEnabled'),
             auto_ban_error_codes: getValue('autoBanErrorCodes').split(',')
                 .map(c => parseInt(c.trim())).filter(c => !isNaN(c)),
@@ -3131,6 +3135,7 @@ async function saveConfig() {
             antigravity_stream2nostream: getChecked('antigravityStream2nostream'),
             request_thoughts_from_model: getChecked('requestThoughtsFromModel'),
             show_variant_models: getChecked('showVariantModels'),
+            antigravity_switch_credential_enabled: getChecked('antigravitySwitchCredentialEnabled'),
             anti_truncation_max_attempts: getInt('antiTruncationMaxAttempts', 3),
             keepalive_url: getValue('keepaliveUrl'),
             keepalive_interval: getInt('keepaliveInterval', 60)
@@ -3173,7 +3178,8 @@ const mirrorUrls = {
     oauthProxyUrl: 'https://gcli-api.sukaka.top/oauth2',
     googleapisProxyUrl: 'https://gcli-api.sukaka.top/googleapis',
     resourceManagerApiUrl: 'https://gcli-api.sukaka.top/cloudresourcemanager',
-    serviceUsageApiUrl: 'https://gcli-api.sukaka.top/serviceusage'
+    serviceUsageApiUrl: 'https://gcli-api.sukaka.top/serviceusage',
+    antigravityApiUrl: 'https://gcli-api.sukaka.top/daily-cloudcode-pa'
 };
 
 const officialUrls = {
@@ -3181,7 +3187,8 @@ const officialUrls = {
     oauthProxyUrl: 'https://oauth2.googleapis.com',
     googleapisProxyUrl: 'https://www.googleapis.com',
     resourceManagerApiUrl: 'https://cloudresourcemanager.googleapis.com',
-    serviceUsageApiUrl: 'https://serviceusage.googleapis.com'
+    serviceUsageApiUrl: 'https://serviceusage.googleapis.com',
+    antigravityApiUrl: 'https://daily-cloudcode-pa.googleapis.com'
 };
 
 function useMirrorUrls() {

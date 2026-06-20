@@ -4,6 +4,7 @@ Antigravity API Client - Handles communication with Google's Antigravity API
 """
 
 import asyncio
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
@@ -11,8 +12,9 @@ from typing import Any, Dict, List, Optional, Callable, Tuple
 
 from fastapi import Response
 from config import (
-    get_code_assist_endpoint,
+    get_antigravity_api_url,
     get_antigravity_stream2nostream,
+    get_antigravity_switch_credential_enabled,
     get_auto_ban_error_codes,
 )
 from log import log
@@ -25,6 +27,7 @@ from src.utils import ANTIGRAVITY_USER_AGENT
 # 导入共同的基础功能
 from src.api.utils import (
     handle_error_with_retry,
+    check_should_auto_ban,
     get_retry_config,
     record_api_call_success,
     record_api_call_error,
@@ -69,6 +72,145 @@ def build_antigravity_headers(access_token: str, model_name: str = "") -> Dict[s
             headers['requestType'] = request_type
 
     return headers
+
+
+def _generate_stable_session_id(request_payload: Dict[str, Any]) -> str:
+    contents = request_payload.get("contents")
+    if isinstance(contents, list):
+        for content in contents:
+            if not isinstance(content, dict) or content.get("role") != "user":
+                continue
+            parts = content.get("parts")
+            if not isinstance(parts, list) or not parts:
+                continue
+            first_part = parts[0]
+            if not isinstance(first_part, dict):
+                continue
+            text = first_part.get("text")
+            if isinstance(text, str) and text:
+                digest = hashlib.sha256(text.encode("utf-8")).digest()
+                value = int.from_bytes(digest[:8], "big") & 0x7FFFFFFFFFFFFFFF
+                return f"-{value}"
+
+    value = uuid.uuid4().int % 9_000_000_000_000_000_000
+    return f"-{value}"
+
+
+def _ensure_antigravity_session_id(payload: Dict[str, Any], model_name: str) -> None:
+    if "image" in (model_name or "").lower():
+        return
+
+    request_payload = payload.get("request")
+    if not isinstance(request_payload, dict):
+        return
+
+    if request_payload.get("sessionId"):
+        return
+
+    request_payload["sessionId"] = _generate_stable_session_id(request_payload)
+
+
+def _empty_object_schema() -> Dict[str, Any]:
+    return {"type": "object", "properties": {}}
+
+
+def _prepare_antigravity_tool(tool: Any, is_claude: bool) -> Any:
+    if not isinstance(tool, dict):
+        return tool
+
+    normalized_tool = tool.copy()
+
+    custom_tool = normalized_tool.get("custom")
+    if isinstance(custom_tool, dict):
+        normalized_custom = custom_tool.copy()
+        if "input_schema" not in normalized_custom:
+            schema = (
+                normalized_custom.pop("parametersJsonSchema", None)
+                or normalized_custom.pop("parameters_json_schema", None)
+                or normalized_custom.get("parameters")
+            )
+            normalized_custom["input_schema"] = schema or _empty_object_schema()
+        normalized_tool["custom"] = normalized_custom
+
+    declarations_key = None
+    declarations = None
+    if isinstance(normalized_tool.get("functionDeclarations"), list):
+        declarations_key = "functionDeclarations"
+        declarations = normalized_tool.get("functionDeclarations")
+    elif isinstance(normalized_tool.get("function_declarations"), list):
+        declarations_key = "function_declarations"
+        declarations = normalized_tool.get("function_declarations")
+
+    if isinstance(declarations, list) and declarations_key:
+        normalized_declarations = []
+        for declaration in declarations:
+            if not isinstance(declaration, dict):
+                normalized_declarations.append(declaration)
+                continue
+
+            normalized_declaration = declaration.copy()
+            schema = None
+            if "parametersJsonSchema" in normalized_declaration:
+                schema = normalized_declaration.pop("parametersJsonSchema")
+            elif "parameters_json_schema" in normalized_declaration:
+                schema = normalized_declaration.pop("parameters_json_schema")
+            elif "parameters" in normalized_declaration:
+                schema = normalized_declaration.get("parameters")
+
+            if schema not in (None, {}, []):
+                normalized_declaration["parameters"] = schema
+            elif is_claude or "parameters" not in normalized_declaration:
+                normalized_declaration["parameters"] = _empty_object_schema()
+
+            normalized_declarations.append(normalized_declaration)
+
+        normalized_tool[declarations_key] = normalized_declarations
+
+    return normalized_tool
+
+
+def _prepare_antigravity_payload(payload: Dict[str, Any], model_name: str) -> Dict[str, Any]:
+    """Match Antigravity's upstream payload quirks before the HTTP request."""
+    payload["userAgent"] = "antigravity"
+    if "image" in (model_name or "").lower():
+        payload["requestType"] = "image_gen"
+        payload.setdefault(
+            "requestId",
+            f"image_gen/{int(datetime.now(timezone.utc).timestamp() * 1000)}/{uuid.uuid4()}/12",
+        )
+    else:
+        payload["requestType"] = "agent"
+        payload.setdefault("requestId", f"agent-{uuid.uuid4()}")
+
+    request_payload = payload.get("request")
+    if not isinstance(request_payload, dict):
+        return payload
+
+    _ensure_antigravity_session_id(payload, model_name)
+    request_payload.pop("safetySettings", None)
+
+    is_claude = "claude" in (model_name or "").lower()
+    tools = request_payload.get("tools")
+    if isinstance(tools, list):
+        request_payload["tools"] = [
+            _prepare_antigravity_tool(tool, is_claude)
+            for tool in tools
+        ]
+
+    if is_claude:
+        tool_config = request_payload.get("toolConfig")
+        if not isinstance(tool_config, dict):
+            tool_config = {}
+            request_payload["toolConfig"] = tool_config
+
+        function_config = tool_config.get("functionCallingConfig")
+        if not isinstance(function_config, dict):
+            function_config = {}
+            tool_config["functionCallingConfig"] = function_config
+
+        function_config["mode"] = "VALIDATED"
+
+    return payload
 
 
 def _is_retryable_status(status_code: int, disable_error_codes: List[int]) -> bool:
@@ -122,6 +264,7 @@ async def stream_request(
         Response对象（错误时）或 bytes流/str流（成功时）
     """
     model_name = body.get("model", "")
+    switch_credential_enabled = await get_antigravity_switch_credential_enabled()
 
     # 1. 获取有效凭证
     cred_result = await credential_manager.get_valid_credential(
@@ -152,7 +295,7 @@ async def stream_request(
         return
 
     # 2. 构建URL和请求头
-    antigravity_url = await get_code_assist_endpoint()
+    antigravity_url = await get_antigravity_api_url()
     target_url = f"{antigravity_url}/v1internal:streamGenerateContent?alt=sse"
 
     auth_headers = build_antigravity_headers(access_token, model_name)
@@ -167,6 +310,7 @@ async def stream_request(
         "project": project_id,
         "request": body.get("request", {}),
     }
+    _prepare_antigravity_payload(final_payload, model_name)
 
     # 仅当凭证明确开启积分消耗时注入 enabledCreditTypes
     def apply_enabled_credit_types(cred_data: Dict[str, Any]) -> None:
@@ -220,6 +364,7 @@ async def stream_request(
     for attempt in range(max_retries + 1):
         success_recorded = False  # 标记是否已记录成功
         need_retry = False  # 标记是否需要重试
+        should_force_switch = False
 
         try:
             async for chunk in stream_post_async(
@@ -252,8 +397,13 @@ async def stream_request(
                             except Exception:
                                 pass
 
+                        if cooldown_until is not None:
+                            should_force_switch = True
+                        elif await check_should_auto_ban(status_code):
+                            should_force_switch = True
+
                         # 预热下一个凭证
-                        if next_cred_task is None and attempt < max_retries:
+                        if (switch_credential_enabled or should_force_switch) and next_cred_task is None and attempt < max_retries:
                             next_cred_task = asyncio.create_task(
                                 credential_manager.get_valid_credential(
                                     mode="antigravity", model_name=model_name
@@ -338,21 +488,24 @@ async def stream_request(
             if need_retry:
                 log.info(f"[ANTIGRAVITY STREAM] 重试请求 (attempt {attempt + 2}/{max_retries + 1})...")
 
-                switched, next_cred_task = await _switch_credential_for_retry(
-                    next_cred_task=next_cred_task,
-                    retry_interval=retry_interval,
-                    refresh_credential_fast=refresh_credential_fast,
-                    apply_cred_result=apply_cred_result,
-                    log_prefix="[ANTIGRAVITY STREAM]",
-                )
-                if not switched:
-                    log.error("[ANTIGRAVITY STREAM] 重试时无可用凭证或令牌")
-                    yield Response(
-                        content=json.dumps({"error": "当前无可用凭证"}),
-                        status_code=500,
-                        media_type="application/json"
+                if switch_credential_enabled or should_force_switch:
+                    switched, next_cred_task = await _switch_credential_for_retry(
+                        next_cred_task=next_cred_task,
+                        retry_interval=retry_interval,
+                        refresh_credential_fast=refresh_credential_fast,
+                        apply_cred_result=apply_cred_result,
+                        log_prefix="[ANTIGRAVITY STREAM]",
                     )
-                    return
+                    if not switched:
+                        log.error("[ANTIGRAVITY STREAM] 重试时无可用凭证或令牌")
+                        yield Response(
+                            content=json.dumps({"error": "当前无可用凭证"}),
+                            status_code=500,
+                            media_type="application/json"
+                        )
+                        return
+                else:
+                    await asyncio.sleep(retry_interval)
                 continue  # 重试
 
         except Exception as e:
@@ -417,6 +570,7 @@ async def non_stream_request(
     log.debug("[ANTIGRAVITY] 使用传统非流式模式")
 
     model_name = body.get("model", "")
+    switch_credential_enabled = await get_antigravity_switch_credential_enabled()
 
     # 1. 获取有效凭证
     cred_result = await credential_manager.get_valid_credential(
@@ -445,7 +599,7 @@ async def non_stream_request(
         )
 
     # 2. 构建URL和请求头
-    antigravity_url = await get_code_assist_endpoint()
+    antigravity_url = await get_antigravity_api_url()
     target_url = f"{antigravity_url}/v1internal:generateContent"
 
     auth_headers = build_antigravity_headers(access_token, model_name)
@@ -460,6 +614,7 @@ async def non_stream_request(
         "project": project_id,
         "request": body.get("request", {}),
     }
+    _prepare_antigravity_payload(final_payload, model_name)
 
     # 仅当凭证明确开启积分消耗时注入 enabledCreditTypes
     def apply_enabled_credit_types(cred_data: Dict[str, Any]) -> None:
@@ -512,6 +667,7 @@ async def non_stream_request(
 
     for attempt in range(max_retries + 1):
         need_retry = False  # 标记是否需要重试
+        should_force_switch = False
         
         try:
             response = await post_async(
@@ -583,8 +739,13 @@ async def non_stream_request(
                         except Exception:
                             pass
 
+                    if cooldown_until is not None:
+                        should_force_switch = True
+                    elif await check_should_auto_ban(status_code):
+                        should_force_switch = True
+
                     # 并行预热下一个凭证,不阻塞当前处理
-                    if next_cred_task is None and attempt < max_retries:
+                    if (switch_credential_enabled or should_force_switch) and next_cred_task is None and attempt < max_retries:
                         next_cred_task = asyncio.create_task(
                             credential_manager.get_valid_credential(
                                 mode="antigravity", model_name=model_name
@@ -625,20 +786,23 @@ async def non_stream_request(
             if need_retry:
                 log.info(f"[ANTIGRAVITY] 重试请求 (attempt {attempt + 2}/{max_retries + 1})...")
 
-                switched, next_cred_task = await _switch_credential_for_retry(
-                    next_cred_task=next_cred_task,
-                    retry_interval=retry_interval,
-                    refresh_credential_fast=refresh_credential_fast,
-                    apply_cred_result=apply_cred_result,
-                    log_prefix="[ANTIGRAVITY]",
-                )
-                if not switched:
-                    log.error("[ANTIGRAVITY] 重试时无可用凭证或令牌")
-                    return Response(
-                        content=json.dumps({"error": "当前无可用凭证"}),
-                        status_code=500,
-                        media_type="application/json"
+                if switch_credential_enabled or should_force_switch:
+                    switched, next_cred_task = await _switch_credential_for_retry(
+                        next_cred_task=next_cred_task,
+                        retry_interval=retry_interval,
+                        refresh_credential_fast=refresh_credential_fast,
+                        apply_cred_result=apply_cred_result,
+                        log_prefix="[ANTIGRAVITY]",
                     )
+                    if not switched:
+                        log.error("[ANTIGRAVITY] 重试时无可用凭证或令牌")
+                        return Response(
+                            content=json.dumps({"error": "当前无可用凭证"}),
+                            status_code=500,
+                            media_type="application/json"
+                        )
+                else:
+                    await asyncio.sleep(retry_interval)
                 continue  # 重试
 
         except Exception as e:
@@ -701,7 +865,7 @@ async def fetch_available_models() -> List[Dict[str, Any]]:
 
     try:
         # 使用 POST 请求获取模型列表
-        antigravity_url = await get_code_assist_endpoint()
+        antigravity_url = await get_antigravity_api_url()
 
         response = await post_async(
             url=f"{antigravity_url}/v1internal:fetchAvailableModels",
@@ -784,7 +948,7 @@ async def fetch_quota_info(access_token: str) -> Dict[str, Any]:
     headers = build_antigravity_headers(access_token)
 
     try:
-        antigravity_url = await get_code_assist_endpoint()
+        antigravity_url = await get_antigravity_api_url()
 
         response = await post_async(
             url=f"{antigravity_url}/v1internal:fetchAvailableModels",
