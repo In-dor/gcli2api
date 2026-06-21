@@ -688,11 +688,45 @@
         background-color: #dc2626;
       }
 
-      .batch-email {
-        background-color: var(--primary);
+      .btn-warning { background-color: var(--warning); }
+      .btn-warning:hover:not(:disabled) { background-color: #d97706; }
+
+      .btn-purple { background-color: #9c27b0; }
+      .btn-purple:hover:not(:disabled) { background-color: #7b1fa2; }
+
+      .btn-pink { background-color: #e91e63; }
+      .btn-pink:hover:not(:disabled) { background-color: #c2185b; }
+
+      .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
       }
-      .batch-email:hover:not(:disabled) {
-        background-color: var(--primary-hover);
+
+      .badge-hot-reload {
+        background: #e6f4ea;
+        color: #1e8e3e;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        margin-left: 4px;
+      }
+      
+      .config-info.warning {
+          background-color: #fff3cd; border: 1px solid #ffc107; color: #856404;
+      }
+      .config-info.info {
+          background-color: #e3f2fd; border: 1px solid #2196f3; color: #0d47a1;
+      }
+      .config-info.purple {
+          background-color: #f3e5f5; border: 1px solid #9c27b0; color: #4a148c;
+      }
+      .config-info.success {
+          background-color: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20;
+      }
+      .config-info.success-light {
+          background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724;
       }
 
       /* Fix inputs in filters */
@@ -907,6 +941,7 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
         }
 
         .modal-content {
@@ -963,6 +998,7 @@
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -1013,19 +1049,19 @@
         }
 
         .message-modal.success .message-modal-header {
-            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
             color: white;
             border-radius: 8px 8px 0 0;
         }
 
         .message-modal.error .message-modal-header {
-            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
             color: white;
             border-radius: 8px 8px 0 0;
         }
 
         .message-modal.info .message-modal-header {
-            background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
             color: white;
             border-radius: 8px 8px 0 0;
         }
@@ -1224,6 +1260,28 @@
         display: inline; /* 确保消息紧接其后 */
       }
 
+      .api-table {
+          margin-top: 6px;
+          border-collapse: collapse;
+          width: 100%;
+      }
+      .api-table td {
+          padding: 4px 0;
+      }
+      .api-table-label {
+          color: #666;
+          width: 90px;
+      }
+      .api-table-value {
+          background: #e8f0fe;
+          padding: 2px 6px;
+          border-radius: 3px;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+      }
+      .api-table-value.copied {
+          background-color: #b7f0b7 !important;
+      }
     </style>
   </head>
 
@@ -1830,46 +1888,47 @@
                 <div
                     style="background:#f0f7ff;border:1px solid #b8d4f0;border-radius:6px;padding:10px 14px;margin:8px 0;font-size:13px;">
                     <strong>📡 API地址（点击复制）：</strong>
-                    <table style="margin-top:6px;border-collapse:collapse;width:100%;">
+                    <table class="api-table">
                         <tr>
-                            <td style="color:#666;width:90px;">OpenAI格式</td>
-                            <td><code id="gcliOpenaiUrl" onclick="cpUrl(this)" title="点击复制"
-                                    style="background:#e8f0fe;padding:2px 6px;border-radius:3px;cursor:pointer;"></code>
+                            <td class="api-table-label">OpenAI格式</td>
+                            <td><code id="gcliOpenaiUrl" class="api-table-value" onclick="cpUrl(this)" title="点击复制"></code>
                             </td>
                         </tr>
                         <tr>
-                            <td style="color:#666;">Claude格式</td>
-                            <td><code id="gcliClaudeUrl" onclick="cpUrl(this)" title="点击复制"
-                                    style="background:#e8f0fe;padding:2px 6px;border-radius:3px;cursor:pointer;"></code>
+                            <td class="api-table-label">Claude格式</td>
+                            <td><code id="gcliClaudeUrl" class="api-table-value" onclick="cpUrl(this)" title="点击复制"></code>
                             </td>
                         </tr>
                         <tr>
-                            <td style="color:#666;">Gemini格式</td>
-                            <td><code id="gcliGeminiUrl" onclick="cpUrl(this)" title="点击复制"
-                                    style="background:#e8f0fe;padding:2px 6px;border-radius:3px;cursor:pointer;"></code>
+                            <td class="api-table-label">Gemini格式</td>
+                            <td><code id="gcliGeminiUrl" class="api-table-value" onclick="cpUrl(this)" title="点击复制"></code>
                             </td>
                         </tr>
                     </table>
                     <script>
                         (function () { var o = window.location.origin; document.getElementById('gcliOpenaiUrl').textContent = o + '/v1'; document.getElementById('gcliClaudeUrl').textContent = o + '/v1'; document.getElementById('gcliGeminiUrl').textContent = o; })();
-                        function cpUrl(el) { navigator.clipboard.writeText(el.textContent).then(function () { var s = el.style.background; el.style.background = '#b7f0b7'; setTimeout(function () { el.style.background = s; }, 800); }); }
+                        function cpUrl(el) { navigator.clipboard.writeText(el.textContent).then(function () { el.classList.add('copied'); setTimeout(function () { el.classList.remove('copied'); }, 800); }); }
                     </script>
                 </div>
 
                 <!-- 检验功能说明 -->
                 <div class="status info" style="margin-bottom: 20px;">
-                    <strong>💡 检验功能说明：</strong>
-                    <p style="margin: 10px 0;">
-                        点击每个凭证的"检验"按钮可以重新获取Project ID, 并查看账号的tier(free/pro/ultra)。<br>
-                        <strong style="color: #0c5460;">✅ 检验成功可以恢复403错误</strong>，让凭证重新正常工作。<br>
-                        建议在遇到403错误时使用此功能。
-                    </p>
-                    <strong>💡 设置预览功能说明：</strong>
-                    <p style="margin: 10px 0;">
-                        点击每个凭证的"设置预览"按钮可以配置Preview通道。<br>
-                        <strong style="color: #0c5460;">✅ 设置预览可以解决部分凭证调用preview模型时404的问题</strong>。<br>
-                        建议在调用gemini-3-pro-preview等模型遇到404错误时使用此功能。
-                    </p>
+                    <div style="margin-bottom: 15px;">
+                        <strong>💡 检验功能说明：</strong>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>点击每个凭证的"检验"按钮可以重新获取Project ID, 并查看账号的tier(free/pro/ultra)。</li>
+                            <li><strong style="color: #0c5460;">✅ 检验成功可以恢复403错误</strong>，让凭证重新正常工作。</li>
+                            <li>建议在遇到403错误时使用此功能。</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>💡 设置预览功能说明：</strong>
+                        <ul style="margin: 10px 0; padding-left: 20px;">
+                            <li>点击每个凭证的"设置预览"按钮可以配置Preview通道。</li>
+                            <li><strong style="color: #0c5460;">✅ 设置预览可以解决部分凭证调用preview模型时404的问题</strong>。</li>
+                            <li>建议在调用gemini-3-pro-preview等模型遇到404错误时使用此功能。</li>
+                        </ul>
+                    </div>
                 </div>
 
                 <!-- 状态统计 -->
@@ -1909,12 +1968,12 @@
                             disabled>批量禁用</button>
                         <button class="batch-btn batch-delete" id="batchDeleteBtn" onclick="batchAction('delete')"
                             disabled>批量删除</button>
-                        <button class="batch-btn" style="background-color: #ff9800;" id="batchVerifyBtn"
+                        <button class="batch-btn btn-warning" id="batchVerifyBtn"
                             onclick="batchVerifyProjectIds()" disabled>批量检验</button>
-                        <button class="batch-btn" style="background-color: #9c27b0;" id="batchPreviewBtn"
+                        <button class="batch-btn btn-purple" id="batchPreviewBtn"
                             onclick="batchConfigurePreview()" disabled>批量设置预览</button>
                         <button class="batch-btn batch-email" onclick="refreshAllEmails()">刷新所有邮箱</button>
-                        <button class="batch-btn" style="background-color: #e91e63;"
+                        <button class="batch-btn btn-pink"
                             onclick="deduplicateByEmail()">凭证一键去重</button>
                     </div>
                 </div>
@@ -2017,23 +2076,20 @@
                 <div
                     style="background:#f0f7ff;border:1px solid #b8d4f0;border-radius:6px;padding:10px 14px;margin:8px 0;font-size:13px;">
                     <strong>📡 API地址（点击复制）：</strong>
-                    <table style="margin-top:6px;border-collapse:collapse;width:100%;">
+                    <table class="api-table">
                         <tr>
-                            <td style="color:#666;width:90px;">OpenAI格式</td>
-                            <td><code id="antOpenaiUrl" onclick="cpUrl(this)" title="点击复制"
-                                    style="background:#e8f0fe;padding:2px 6px;border-radius:3px;cursor:pointer;"></code>
+                            <td class="api-table-label">OpenAI格式</td>
+                            <td><code id="antOpenaiUrl" class="api-table-value" onclick="cpUrl(this)" title="点击复制"></code>
                             </td>
                         </tr>
                         <tr>
-                            <td style="color:#666;">Claude格式</td>
-                            <td><code id="antClaudeUrl" onclick="cpUrl(this)" title="点击复制"
-                                    style="background:#e8f0fe;padding:2px 6px;border-radius:3px;cursor:pointer;"></code>
+                            <td class="api-table-label">Claude格式</td>
+                            <td><code id="antClaudeUrl" class="api-table-value" onclick="cpUrl(this)" title="点击复制"></code>
                             </td>
                         </tr>
                         <tr>
-                            <td style="color:#666;">Gemini格式</td>
-                            <td><code id="antGeminiUrl" onclick="cpUrl(this)" title="点击复制"
-                                    style="background:#e8f0fe;padding:2px 6px;border-radius:3px;cursor:pointer;"></code>
+                            <td class="api-table-label">Gemini格式</td>
+                            <td><code id="antGeminiUrl" class="api-table-value" onclick="cpUrl(this)" title="点击复制"></code>
                             </td>
                         </tr>
                     </table>
@@ -2045,11 +2101,11 @@
                 <!-- 检验功能说明 -->
                 <div class="status info" style="margin-bottom: 20px;">
                     <strong>💡 检验功能说明：</strong>
-                    <p style="margin: 10px 0;">
-                        点击每个凭证的"检验"按钮可以重新获取Project ID, 并查看账号的tier(free/pro/ultra)。<br>
-                        <strong style="color: #0c5460;">✅ 检验成功可以恢复403错误</strong>，让凭证重新正常工作。<br>
-                        建议在遇到403错误时使用此功能。
-                    </p>
+                    <ul style="margin: 10px 0; padding-left: 20px;">
+                        <li>点击每个凭证的"检验"按钮可以重新获取Project ID, 并查看账号的tier(free/pro/ultra)。</li>
+                        <li><strong style="color: #0c5460;">✅ 检验成功可以恢复403错误</strong>，让凭证重新正常工作。</li>
+                        <li>建议在遇到403错误时使用此功能。</li>
+                    </ul>
                 </div>
 
                 <!-- 状态统计 -->
@@ -2093,10 +2149,10 @@
                             onclick="batchAntigravityAction('enable_credit')" disabled>批量开启积分</button>
                         <button class="batch-btn" id="antigravityBatchDisableCreditBtn"
                             onclick="batchAntigravityAction('disable_credit')" disabled>批量关闭积分</button>
-                        <button class="batch-btn" style="background-color: #ff9800;" id="antigravityBatchVerifyBtn"
+                        <button class="batch-btn btn-warning" id="antigravityBatchVerifyBtn"
                             onclick="batchVerifyAntigravityProjectIds()" disabled>批量检验</button>
                         <button class="batch-btn batch-email" onclick="refreshAllAntigravityEmails()">刷新所有邮箱</button>
-                        <button class="batch-btn" style="background-color: #e91e63;"
+                        <button class="batch-btn btn-pink"
                             onclick="deduplicateAntigravityByEmail()">凭证一键去重</button>
                     </div>
                 </div>
@@ -2417,7 +2473,7 @@
                         <div class="config-group">
                             <h4>重试配置</h4>
 
-                            <div class="form-group">
+                            <div class="form-group checkbox-wrapper">
                                 <label>
                                     <input type="checkbox" id="retry429Enabled" class="config-checkbox" />
                                     启用错误重试
@@ -2443,43 +2499,46 @@
     
                             <div class="config-group">
                                 <h4>兼容性配置</h4>
-                            <div class="form-group">
+                            <div class="form-group checkbox-wrapper">
                                 <label>
                                     <input type="checkbox" id="compatibilityModeEnabled" class="config-checkbox" />
                                     启用兼容性模式
                                 </label>
                                 <small class="config-note">启用后所有system消息全部转换成user，停用system_instructions <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
-                                <div class="config-info"
-                                    style="background-color: #fff3cd; border: 1px solid #ffc107; color: #856404;">
+                                        class="badge-hot-reload">✓ 支持热更新</span></small>
+                            </div>
+                            <div class="form-group">
+                                <div class="config-info warning">
                                     <strong>⚠️ 注意：</strong>该选项可能会降低模型理解能力，但是能避免流式空回的情况。
                                     <br><strong>适用场景：</strong>当遇到流式传输时模型不返回内容或返回空响应时启用此选项。
                                 </div>
                             </div>
 
-                            <div class="form-group">
+                            <div class="form-group checkbox-wrapper">
                                 <label>
                                     <input type="checkbox" id="returnThoughtsToFrontend" class="config-checkbox" />
                                     返回思维链到前端
                                 </label>
                                 <small class="config-note">启用后，模型的思维链会在响应中返回；禁用后，思维链会被过滤掉 <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
-                                <div class="config-info"
-                                    style="background-color: #e3f2fd; border: 1px solid #2196f3; color: #0d47a1;">
+                                        class="badge-hot-reload">✓ 支持热更新</span></small>
+                            </div>
+                            <div class="form-group">
+                                <div class="config-info info">
                                     <strong>💭 说明：</strong>某些模型（如Gemini 2.0
                                     Pro）支持thinking模式，会在生成回答前先输出思考过程。启用后可以看到模型的思考过程；禁用后只显示最终回答，让输出更简洁。
                                 </div>
                             </div>
 
-                            <div class="form-group">
+                            <div class="form-group checkbox-wrapper">
                                 <label>
                                     <input type="checkbox" id="antigravityStream2nostream" class="config-checkbox" />
                                     Antigravity流式转非流式
                                 </label>
-                                <small class="config-note">启用后，非流式请求将使用流式API并收集为完整响应 <span style="color: #28a745;">✓
+                                <small class="config-note">启用后，非流式请求将使用流式API并收集为完整响应 <span class="badge-hot-reload">✓
                                         支持热更新</span></small>
-                                <div class="config-info"
-                                    style="background-color: #f3e5f5; border: 1px solid #9c27b0; color: #4a148c;">
+                            </div>
+                            <div class="form-group">
+                                <div class="config-info purple">
                                     <strong>🔄
                                         说明：</strong>针对Antigravity模式的优化选项。启用后，即使客户端请求非流式响应，后端也会使用流式API获取数据并收集完整后再返回。
                                     <br><strong>适用场景：</strong>某些情况下流式API比非流式API更稳定，启用此选项可以提高响应质量。
@@ -2487,33 +2546,34 @@
                                 </div>
                             </div>
 
-                            <div class="form-group">
+                            <div class="form-group checkbox-wrapper">
                                 <label>
                                     <input type="checkbox" id="requestThoughtsFromModel" class="config-checkbox" />
                                     向模型请求思维链
                                 </label>
                                 <small class="config-note">强制向模型发送 includeThoughts=True。若关闭，则仅在用户显式请求时发送。 <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                                        class="badge-hot-reload">✓ 支持热更新</span></small>
                             </div>
 
-                            <div class="form-group">
+                            <div class="form-group checkbox-wrapper">
                                 <label>
                                     <input type="checkbox" id="showVariantModels" class="config-checkbox" />
                                     显示变体模型
                                 </label>
                                 <small class="config-note">在模型列表中显示 "假流式/"、"流式抗截断/" 等前缀的模型。 <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                                        class="badge-hot-reload">✓ 支持热更新</span></small>
                             </div>
 
-                            <div class="form-group">
+                            <div class="form-group checkbox-wrapper">
                                 <label>
                                     <input type="checkbox" id="antigravitySwitchCredentialEnabled" class="config-checkbox" />
                                     Antigravity切换凭证
                                 </label>
                                 <small class="config-note">启用后重试时切换凭证；禁用时保持当前凭证，直到该凭证对当前模型进入CD或被禁用 <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
-                                <div class="config-info"
-                                    style="background-color: #e8f5e9; border: 1px solid #66bb6a; color: #1b5e20;">
+                                        class="badge-hot-reload">✓ 支持热更新</span></small>
+                            </div>
+                            <div class="form-group">
+                                <div class="config-info success">
                                     <strong>✅ 说明：</strong>默认关闭，便于连续使用同一凭证；当发生模型CD或自动禁用时仍会切换。
                                 </div>
                             </div>
@@ -2549,7 +2609,7 @@
                                 <input type="text" id="keepaliveUrl" class="config-input"
                                     placeholder="留空则不启用，例如: https://your-app.example.com/keepalive" />
                                 <small class="config-note">配置后服务会定期向该 URL 发送 GET 请求以保持在线；留空则禁用保活 <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                                        class="badge-hot-reload">✓ 支持热更新</span></small>
                                 <button type="button" onclick="autoSetKeepaliveUrl()"
                                     style="margin-top:6px; padding:4px 12px; font-size:13px; cursor:pointer;">一键设置保活</button>
                             </div>
@@ -2558,7 +2618,7 @@
                                 <label for="keepaliveInterval">保活间隔 (秒):</label>
                                 <input type="number" id="keepaliveInterval" class="config-input" min="5" max="86400" />
                                 <small class="config-note">两次保活请求之间的等待时间，范围 5 - 86400 秒，默认 60 <span
-                                        style="color: #28a745;">✓ 支持热更新</span></small>
+                                        class="badge-hot-reload">✓ 支持热更新</span></small>
                             </div>
                         </div>
 
@@ -2566,8 +2626,7 @@
                             <h4>配置热更新说明</h4>
 
                             <div class="form-group">
-                                <div class="config-info"
-                                    style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724;">
+                                <div class="config-info success-light">
                                     <strong>🔥 热更新配置（立即生效）：</strong>
                                     <ul style="margin: 8px 0; padding-left: 20px; color: #212529;">
                                         <li><strong>网络配置：</strong>代理设置、端点配置、HTTP超时时间、最大连接数</li>
@@ -2579,8 +2638,7 @@
                             </div>
 
                             <div class="form-group">
-                                <div class="config-info"
-                                    style="background-color: #fff3cd; border: 1px solid #ffc107; color: #856404;">
+                                <div class="config-info warning">
                                     <strong>🔄 需要重启的配置：</strong>
                                     <ul style="margin: 8px 0; padding-left: 20px; color: #212529;">
                                         <li><strong>服务器配置：</strong>主机地址、端口号</li>
